@@ -33,8 +33,8 @@ export class UI {
     this.miniCache = null;
     $('slot-potion').querySelector('.icon').style.backgroundImage = `url(${ICONS.potion})`;
     document.querySelectorAll('#pause .tabs span').forEach(s => s.onclick = () => this.tab(s.dataset.tab));
-    $('btn-save').onclick = () => { this.g.save(); this.toast('Saved.', '', 1); };
-    $('btn-title').onclick = () => { this.g.save(); location.reload(); };
+    $('btn-save').onclick = async () => { if (await this.g.save()) this.toast('Saved.', '', 1); };
+    $('btn-title').onclick = async () => { if (await this.g.save()) location.reload(); };
   }
   show(id, on = true) { $(id).classList.toggle('hidden', !on); }
 

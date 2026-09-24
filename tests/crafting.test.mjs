@@ -44,7 +44,7 @@ export default async function (page, R) {
   await page.evaluate(() => window.__game.ui.closeCraft());
 
   // saved at once: a reload keeps the engraving and the spent materials
-  const saved = await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('mossling-save-v2')); return { craft: s.inv.equip.weapon.craft, mats: s.inv.mats, recipes: s.inv.recipes }; });
+  const saved = await page.evaluate(() => { const inv = JSON.parse(localStorage.getItem('mossling-save-v2')).characters[0].inventory; return { craft: inv.equip.weapon.craft, mats: inv.mats, recipes: inv.recipes }; });
   R.ok(saved.craft === 'thornrebuke' && saved.mats.thornheart === 0 && saved.recipes.includes('thornrebuke'), 'crafting saves immediately', JSON.stringify(saved));
   await page.reload();
   await page.waitForFunction(() => window.__game && !document.getElementById('loading'), null, { timeout: 30000 });
