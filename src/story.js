@@ -10,6 +10,7 @@ export class Story {
 
   objective() {
     const f = this.f, g = this.g;
+    if (g.area && g.area.rift) return `Hush Rift · Floor ${g.area.floor}: clear each room and defeat the Champion.`;
     if (g.area && g.area.id === 'dungeon' && !f.bossDead) {
       if (!g.inv.bellows) return 'Explore Rootwell Hollow. Something here hums with wind.';
       if (!g.inv.bigkey) return 'Use the Gustbellows to push deeper. Find the Thornwood Key.';
@@ -213,6 +214,15 @@ export class Story {
     }
     if (claimed) { sfx('fanfare'); g.ui.toast(`Claimed ${claimed} bount${claimed > 1 ? 'ies' : 'y'}!`, 'Pips, experience and gear.', 2.5); g.save(); }
     g.ui.lines([[ 'Bounty Board', 'Pinned notices, stamped with Captain Brisk\'s seal:\n\n' + list.map(b => `• Defeat ${b.n} ${b.name} — ${b.where}  (${Math.min(b.have, b.n)}/${b.n})\n   Reward: ${b.pips} pips, ${b.xp} XP + gear`).join('\n') ]]);
+  }
+  riftStone() {
+    const g = this.g, best = this.f.riftBest || 0;
+    if (g.inv.level < 2) return g.ui.say('Rift Stone', 'The stone hums, but pushes your hand away. (Reach level 2 to enter the Hush Rift.)');
+    const opts = [{ label: 'Floor 1', cb: () => g.enterRift(1) }];
+    if (best >= 1) opts.push({ label: `Floor ${best + 1} (deepest)`, cb: () => g.enterRift(best + 1) });
+    if (best >= 6) opts.push({ label: `Floor ${Math.max(1, best - 3)}`, cb: () => g.enterRift(Math.max(1, best - 3)) });
+    opts.push({ label: 'Not now', cb: () => {} });
+    g.ui.ask('Rift Stone', `A crack in the world, humming with the Hush. Inside, monsters grow stronger with every floor — and so does their treasure.\nDeepest floor cleared: ${best}. Enter?`, opts);
   }
   shopBye() { this.g.ui.say('Posy', 'Come back with fuller pockets!'); }
 

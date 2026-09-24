@@ -166,6 +166,8 @@ export function buildOverworld() {
   g.def({ type: 'windmill', x: 47, z: 51 });
   g.deco('well', 61, 60, 1, 1);
   g.deco('board', 62, 63, 1, 1);
+  g.deco('riftstone', 65, 55, 1, 1);
+  g.def({ type: 'riftstone', x: 65.5, z: 56.4 });
   g.def({ type: 'board', x: 62.5, z: 64.3 });
   g.deco('house', 55, 90, 3, 2, { roof: 0x5a8ab0, small: true });
   for (const [x, y] of [[47, 55], [48, 55], [47, 60], [48, 60], [67, 55], [68, 55], [67, 61], [68, 61]]) g.deco('fence', x, y, 1, 1);
@@ -555,4 +557,71 @@ export function buildGrotto() {
   return { id: 'grotto', name: 'Hollow Grotto', w: W, h: H, tiles: g.t, hv: g.hv, defs: g.defs, dungeon: true,
     spawns: { entrance: { x: 9.9, z: 10.4 } }, music: 'cave', sky: 0x0c0a14, fog: 0x141020, sun: 0x9090d0, amb: 0x4a4a6a, dark: true,
     rooms: [{ id: 'grotto', name: 'Hollow Grotto', x0: 0, z0: 0, x1: W, z1: H }] };
+}
+
+// ---------------------------------------------------------------- HUSH RIFT (procedural, replayable)
+const RIFT_POOL = [
+  ['blot', 1], ['sporeling', 1], ['beetle', 1], ['puffer', 1], ['wisp', 2], ['brigand', 2], ['imp', 3], ['wraith', 3], ['scorpion', 3], ['knight', 4], ['treant', 6], ['golem', 7],
+];
+export function buildRift(floor = 1, level = 3, seed = Date.now()) {
+  let s = seed >>> 0 || 7;
+  const R = () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return ((s >>> 0) % 100000) / 100000; };
+  const pick = a => a[Math.floor(R() * a.length)];
+  const GW = 5, GH = 5;
+  // random walk of rooms from bottom-middle
+  const nRooms = Math.min(8, 4 + Math.floor(floor / 2) + Math.floor(R() * 2));
+  const cells = [[2, 4]];
+  const used = new Set(['2,4']);
+  while (cells.length < nRooms) {
+    const [cx, cy] = cells[cells.length - 1];
+    const opts = [[0, -1], [1, 0], [-1, 0], [0, -1]].map(([dx, dy]) => [cx + dx, cy + dy]).filter(([x, y]) => x >= 0 && y >= 0 && x < GW && y < GH && !used.has(x + ',' + y));
+    if (!opts.length) break;
+    const n = pick(opts); cells.push(n); used.add(n[0] + ',' + n[1]);
+  }
+  const W = RW * GW, H = RH * GH;
+  const g = new Grid(W, H, T.ROCK);
+  const rooms = [];
+  const pool = RIFT_POOL.filter(([, f]) => f <= floor + 1).map(([k]) => k);
+  cells.forEach(([cx, cy], idx) => {
+    const ox = cx * RW, oy = cy * RH, id = 'r' + idx;
+    const last = idx === cells.length - 1, first = idx === 0;
+    rooms.push({ id, name: last ? `Hush Rift — Floor ${floor} · Champion` : `Hush Rift — Floor ${floor}`, x0: ox, z0: oy, x1: ox + RW, z1: oy + RH, def: {} });
+    for (let j = 0; j < 11; j++) for (let i = 0; i < 15; i++) g.set(ox + 1 + i, oy + 1 + j, T.CAVE);
+    // obstacles (keep the cross through the middle clear so doors connect)
+    if (!first) {
+      const style = Math.floor(R() * 4);
+      const put = (i, j, t) => { if (i === 7 || j === 5 || i < 0 || j < 0 || i > 14 || j > 10) return; g.set(ox + 1 + i, oy + 1 + j, t); };
+      if (style === 0) for (const [i, j] of [[3, 2], [11, 2], [3, 8], [11, 8]]) { put(i, j, T.PILLAR); put(i + 1, j, T.PILLAR); }
+      if (style === 1) for (let i = 2; i < 13; i++) if (i < 6 || i > 8) { put(i, 3, T.PIT); put(i, 7, T.PIT); }
+      if (style === 2) for (let k = 0; k < 7; k++) put(1 + Math.floor(R() * 13), 1 + Math.floor(R() * 9), T.PILLAR);
+      if (style === 3) { for (let i = 4; i < 11; i++) { put(i, 2, T.PIT); put(i, 8, T.PIT); } put(2, 5, T.PILLAR); put(12, 5, T.PILLAR); }
+    }
+    for (let k = 0; k < 4; k++) g.def({ type: 'torch', x: ox + [2.5, 14.5, 2.5, 14.5][k], z: oy + [2.5, 2.5, 10.5, 10.5][k] });
+    if (first) {
+      g.def({ type: 'sign', x: ox + 5.5, z: oy + 9.5, text: `HUSH RIFT — FLOOR ${floor}\nMonsters here are level ${level}. Each floor ends with a Champion and a way deeper… or home.` });
+      return;
+    }
+    // waves
+    const nw = last ? 1 : 1 + (R() < 0.35 + floor * 0.05 ? 1 : 0);
+    const waves = [];
+    for (let w = 0; w < nw; w++) {
+      const n = 4 + Math.floor(R() * 3) + Math.floor(floor / 3);
+      const wave = [];
+      for (let k = 0; k < n; k++) wave.push([pick(pool), (R() - 0.5) * 10, (R() - 0.5) * 6]);
+      waves.push(wave);
+    }
+    if (last) waves.push([[pick(['knight', 'treant', 'golem', 'brigand']), 0, -2, 'champion'], [pick(pool), -3, 1], [pick(pool), 3, 1]]);
+    g.def({ type: 'riftarena', room: id, id: 'rift' + seed + '-' + idx, waves, last, x: ox + 8.5, z: oy + 6.5 });
+    if (!last && R() < 0.35) g.def({ type: 'lootchest', id: 'rift-' + seed + '-' + idx, x: ox + (R() < 0.5 ? 2.5 : 14.5), z: oy + 6.5, tier: R() < 0.2 + floor * 0.04 ? 2 : 1, level, rift: true });
+  });
+  // connect consecutive rooms with open doorways
+  for (let i = 0; i < cells.length - 1; i++) {
+    const [ax, ay] = cells[i], [bx, by] = cells[i + 1];
+    if (ax === bx) { const top = Math.min(ay, by), x = ax * RW + 8, z = (top + 1) * RH - 1; g.set(x, z, T.CAVE); g.set(x, z + 1, T.CAVE); g.def({ type: 'door', x: x + 0.5, z: z + 1, orient: 'h', kind: 'open', rooms: ['r' + i, 'r' + (i + 1)] }); }
+    else { const left = Math.min(ax, bx), x = (left + 1) * RW - 1, z = ay * RH + 6; g.set(x, z, T.CAVE); g.set(x + 1, z, T.CAVE); g.def({ type: 'door', x: x + 1, z: z + 0.5, orient: 'v', kind: 'open', rooms: ['r' + i, 'r' + (i + 1)] }); }
+  }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) g.hv[y * W + x] = g.get(x, y) === T.ROCK ? 1.5 + (hash2(x, y, 5) > 0.8 ? 0.3 : 0) : NaN;
+  const [sx, sy] = cells[0];
+  return { id: 'rift', name: `Hush Rift · Floor ${floor}`, w: W, h: H, tiles: g.t, hv: g.hv, defs: g.defs, rooms, dungeon: true, rift: true, floor, level,
+    spawns: { entrance: { x: sx * RW + 8.5, z: sy * RH + 7.5 } }, music: floor % 2 ? 'dungeon' : 'cave', sky: 0x0a0612, fog: 0x1a1030, sun: 0xc8a8ff, amb: 0x5a3a8a, dark: true };
 }

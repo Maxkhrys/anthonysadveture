@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildOverworld, buildDungeon, buildGrotto } from './world/maps.js';
+import { buildOverworld, buildDungeon, buildGrotto, buildRift } from './world/maps.js';
 import { buildTerrain, buildLiquids, buildScenery, windUniform, clipUniform } from './world/build.js';
 import { T, blocksObject } from './world/tiles.js';
 import { FX } from './fx.js';
@@ -87,6 +87,7 @@ export class Game {
     if (!a) return 1;
     if (a.id === 'dungeon') { const r = this.roomAt(x, z); return r && (r.id === 'pre' || r.id === 'boss' || r.id === 'heart') ? 5 : 4; }
     if (a.id === 'grotto') return 5;
+    if (a.rift) return a.level;
     const r = a.regions && a.regions.find(r => x >= r.x0 && x < r.x1 && z >= r.y0 && z < r.y1);
     return (r && r.level) || 2;
   }
@@ -137,6 +138,30 @@ export class Game {
         }
       }
     }
+  }
+  makeChampion(e) {
+    if (!e.elite) this.makeElite(e);
+    e.hp *= 2.5; e.maxHp = e.hp; e.xpValue *= 3; e.champion = true;
+    e.obj.scale.setScalar(1.6); e.eliteScale = 1.6;
+    e.displayName = 'Rift Champion · ' + e.displayName;
+  }
+  enterRift(floor) {
+    this.riftFloor = floor;
+    this.riftLevel = Math.max(2, this.inv.level) + Math.floor((floor - 1) * 0.8);
+    this.flags.riftBest = Math.max(this.flags.riftBest || 0, floor - 1);
+    this.warpTo('rift', 'entrance', () => { this.ui.banner('HUSH RIFT', 'Floor ' + floor + ' · Level ' + this.riftLevel, 2.4); });
+  }
+  riftCleared(d) {
+    const f = this.riftFloor;
+    this.flags.riftBest = Math.max(this.flags.riftBest || 0, f);
+    this.gainXp(60 * f + 40 * this.riftLevel);
+    this.spawn(new LootChest(this, { id: 'riftreward-' + Math.random(), x: d.x, z: d.z - 2, tier: 2, level: this.riftLevel + 1 }));
+    if (f % 5 === 0) this.dropGear(d.x, d.z - 1, { level: this.riftLevel + 2, floor: 3, bonus: 1.5 });
+    this.spawn(new RiftPortal(this, { x: d.x - 2.5, z: d.z + 1.5, next: true }));
+    this.spawn(new RiftPortal(this, { x: d.x + 2.5, z: d.z + 1.5, next: false }));
+    this.stats.riftFloors = (this.stats.riftFloors || 0) + 1;
+    this.story.bountyEvent(['rift']);
+    this.save();
   }
   // one player hit on one target: rolls damage, crits, procs, numbers
   playerHit(e, o) {
@@ -278,7 +303,7 @@ export class Game {
     this.ui.clearFloats && this.ui.clearFloats();
     this.entities = []; this.solids = []; this.sigs = {}; this.tokens = 0;
     this.bossActive = null; this.ui.bossBar(null);
-    const area = BUILDERS[id]();
+    const area = id === 'rift' ? buildRift(this.riftFloor || 1, this.riftLevel || 3, Math.floor(Math.random() * 1e9)) : BUILDERS[id]();
     this.area = area;
     this.world.add(buildTerrain(area));
     this.world.add(buildLiquids(area, this.liquidTime));
@@ -289,6 +314,7 @@ export class Game {
     this.hemi.color.set(area.dark ? 0xa89ad0 : 0xbfd8ff); this.hemi.groundColor.set(area.dark ? 0x3a3040 : 0x6a5a3a);
     this.hemi.intensity = area.dark ? 1.5 : 1.25;
     this.playerLamp.intensity = area.dark ? 3 : 0;
+    if (area.rift) { this.hemi.intensity = 2.3; this.hemi.color.set(0xc8b0ff); this.sun.intensity = 1.4; this.playerLamp.intensity = 5; }
     this.fx.setAmbient(id === 'overworld' ? 'pollen' : 'motes');
     this.pr.setViewHeight(area.dungeon ? 13.2 : 12);
     this.updateGrade();
@@ -333,6 +359,9 @@ export class Game {
       case 'boulder': e = new O.Boulder(this, d); break;
       case 'sign': e = new O.Sign(this, d); break;
       case 'lootchest': e = new LootChest(this, d); break;
+      case 'riftarena': e = new O.Arena(this, { id: d.id, room: d.room }, d.waves, { title: d.last ? 'RIFT CHAMPION' : 'HUSH RIFT', victory: d.last ? 'The floor is cleansed.' : 'Room cleared.', noPersist: true, eliteChance: 0.1 + this.riftFloor * 0.02, onClear: d.last ? () => this.riftCleared(d) : null }); e.alwaysUpdate = true; break;
+      case 'riftportal': e = new RiftPortal(this, d); break;
+      case 'riftstone': e = new O.Sign(this, { ...d, text: '' }); e.obj.visible = false; e.solid = false; e.interact = () => this.story.riftStone(); Object.defineProperty(e, 'prompt', { get: () => 'Touch the Rift Stone' }); break;
       case 'board': e = new O.Sign(this, { ...d, text: '' }); e.interact = () => this.story.board(); Object.defineProperty(e, 'prompt', { get: () => 'Bounties' }); e.obj.visible = false; e.solid = false; break;
       case 'npc': e = new O.NPC(this, d); break;
       case 'bell': e = new O.Bell(this, d); break;
@@ -389,7 +418,7 @@ export class Game {
     this.ui.fade(true);
     setTimeout(() => {
       this.loadArea(id, spawn);
-      this.checkpoint = { area: id, spawn: typeof spawn === 'string' ? spawn : this.checkpoint.spawn };
+      if (id !== 'rift') this.checkpoint = { area: id, spawn: typeof spawn === 'string' ? spawn : this.checkpoint.spawn };
       if (id === 'overworld' && spawn === 'start') this.checkpoint.spawn = 'village';
       this.save();
       this.ui.fade(false);
@@ -757,5 +786,27 @@ export class Game {
     if (this.noRender) return;
     this.ui.drawMini();
     this.pr.render(this.scene, dt);
+  }
+}
+
+// A shimmering gate out of a cleared Rift floor.
+class RiftPortal extends Entity {
+  constructor(g, d) {
+    super(g, d.x, d.z);
+    this.next = d.next; this.interactable = true; this.solid = true; this.hw = 0.5; this.hd = 0.2;
+    const col = this.next ? 0x8b5cf6 : 0x7fd36a;
+    this.ring = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.12, 6, 20), new THREE.MeshBasicMaterial({ color: col }));
+    this.ring.position.y = 0.9; this.obj.add(this.ring);
+    this.core = new THREE.Mesh(new THREE.CircleGeometry(0.62, 20), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false }));
+    this.core.position.y = 0.9; this.obj.add(this.core);
+    this.col = col;
+  }
+  get prompt() { return this.next ? 'Descend to Floor ' + (this.g.riftFloor + 1) : 'Return to Thimblewick'; }
+  interact() { const g = this.g; sfx('chime'); if (this.next) g.enterRift(g.riftFloor + 1); else g.warpTo('overworld', 'village'); }
+  update(dt) {
+    const t = this.g.time;
+    this.core.material.opacity = 0.35 + Math.sin(t * 4) * 0.15;
+    this.ring.rotation.z = t;
+    if (Math.random() < 0.3) this.g.fx.add({ x: this.x + (Math.random() - 0.5) * 1.2, y: 0.3 + Math.random() * 1.2, z: this.z, vy: 0.5, g: 0, color: this.col, life: 0.6, size: 0.05 });
   }
 }

@@ -86,7 +86,7 @@ export class Door extends Entity {
   build() {
     const k = this.kind;
     const P = [];
-    if (k === 'shutter' || k === 'stone') {
+    if (k === 'shutter' || k === 'stone' || k === 'open') {
       if (k === 'stone') P.push(B(1.0, 1.5, 0.4, 0, 0, 0, 0x7a7090), B(0.6, 0.6, 0.42, 0, 0.5, 0, 0x9a90b0), B(0.2, 0.2, 0.44, 0, 0.7, 0, 0x7ad8ff));
       else for (let i = -1; i <= 1; i++) P.push(B(0.1, 1.5, 0.1, i * 0.3, 0, 0, 0x3a3040)); P.push(B(1.0, 0.12, 0.14, 0, 1.2, 0, 0x4a3a50), B(1.0, 0.12, 0.14, 0, 0.5, 0, 0x4a3a50));
     } else if (k === 'locked') {
@@ -652,9 +652,9 @@ export class Arena extends Entity {
       this.wave++;
       if (this.wave >= this.waves.length) return this.finish();
       g.ui.banner(this.opts.title || 'AMBUSH', `Wave ${this.wave + 1} of ${this.waves.length}`, 1.4);
-      for (const [kind, ox, oz] of this.waves[this.wave]) {
-        const e = g.spawnEnemy(kind, this.cxr + ox, this.czr + oz, { aggro: 30 });
-        if (e) e.arena = this;
+      for (const [kind, ox, oz, tag] of this.waves[this.wave]) {
+        const e = g.spawnEnemy(kind, this.cxr + ox, this.czr + oz, { aggro: 30, eliteChance: this.opts.eliteChance });
+        if (e) { e.arena = this; if (tag === 'champion') g.makeChampion(e); }
       }
     }
   }
@@ -671,7 +671,7 @@ export class Arena extends Entity {
   finish() {
     const g = this.g;
     this.done = true; this.active = false;
-    g.setSignal(this.id + '.clear', true, true);
+    g.setSignal(this.id + '.clear', true, !this.opts.noPersist);
     if (this.roomId) g.sealRoom(this.roomId, false);
     g.ui.banner('VICTORY', this.opts.victory || 'The Hush retreats.', 1.8);
     sfx('secret');
