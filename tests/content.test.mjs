@@ -135,8 +135,9 @@ export async function conservatory(page, R) {
     g.godMode = true;
     g.noRender = true; for (let i = 0; i < 200; i++) window.__sim(1); g.noRender = false;
     out.threads = g.stats.threadsCut !== undefined || g.entities.some(e => e.isThread);
-    const h0 = b.hp; b.setState('idle'); g.playerHit(b, { mult: 1, kind: 'arrow', kb: 0, dir: 0 }); const armour = h0 - b.hp;
-    b.tangle(); const h1 = b.hp; g.playerHit(b, { mult: 1, kind: 'arrow', kb: 0, dir: 0 }); const bare = h1 - b.hp;
+    g.pstats.crit = 0; b.hp = b.maxHp = 1e5;
+    const h0 = b.hp; b.setState('idle'); for (let i = 0; i < 10; i++) g.playerHit(b, { mult: 1, kind: 'arrow', kb: 0, dir: 0 }); const armour = h0 - b.hp;
+    b.tangle(); const h1 = b.hp; for (let i = 0; i < 10; i++) g.playerHit(b, { mult: 1, kind: 'arrow', kb: 0, dir: 0 }); const bare = h1 - b.hp;
     out.armour = armour; out.bare = bare;
     b.hp = 1; g.playerHit(b, { mult: 1, kind: 'spin', kb: 0, dir: 0 });
     g.noRender = true; window.__sim(90); g.noRender = false;
