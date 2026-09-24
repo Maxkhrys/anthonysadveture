@@ -79,7 +79,7 @@ export class Projectile extends Entity {
     const x0 = this.x, z0 = this.z;
     let wall = move(g, this, Math.sin(this.dir) * step, Math.cos(this.dir) * step);
     // solid objects (doors, crates, pillars, villagers) stop shots too
-    if (!wall && g.solidAt(this.x, this.z, this.r * 0.5)) wall = true;
+    if (!wall) { const so = g.solidAt(this.x, this.z, this.r * 0.5); if (so) { wall = true; if (so.onShot) so.onShot(this); } }
     this.dist += step;
     this.obj.rotation.y = this.dir;
     if (this.kind !== 'arrow' && this.kind !== 'power' && this.kind !== 'crescent') this.m.rotation.x += dt * 12;

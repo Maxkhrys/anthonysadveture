@@ -157,6 +157,7 @@ export class Enemy extends Entity {
       const t = g.tileAt(Math.floor(this.x), Math.floor(this.z));
       if (t === T.PIT) { const fx = this.x % 1, fz = this.z % 1; if (fx > 0.15 && fx < 0.85 && fz > 0.15 && fz < 0.85) return this.die(null, 'fall'); }
       if (isLiquid(t)) return this.die(null, 'splash');
+      if (t === T.SHALLOW && !(this.status && this.status.wet > 1)) this.applyStatus('wet', 2);
     }
     this.animate(dt, Math.hypot(vx, vz));
     this.sync();

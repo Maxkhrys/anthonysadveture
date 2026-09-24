@@ -15,6 +15,8 @@ export const ITEM_INFO = {
   pips: { name: 'Pips', desc: '', color: 0xffd25e },
   potion: { name: 'Red Tonic', desc: 'Drink with Q to restore three hearts.', color: 0xe8424f },
   echo: { name: 'Hollow Echo', desc: 'A sound that forgot to stop. Posy could work it into something.', color: 0x9ad8ff },
+  score: { name: "Bellwright's Score", desc: 'A toll written down a hundred years ago. Elder Tamsin should see this.', color: 0xe0b860 },
+  recipe: { name: 'Recipe', desc: '', color: 0x9ad8ff }, named: { name: 'Treasure', desc: '', color: 0xff9a2a }, mat: { name: 'Material', desc: '', color: 0xe8e0d0 },
 };
 function itemModel(c) {
   switch (c.kind) {
@@ -29,7 +31,7 @@ function itemModel(c) {
 export class Chest extends Entity {
   constructor(g, d) {
     super(g, d.x, d.z);
-    this.id = d.id; this.contents = d.contents; this.hiddenSig = d.hidden; this.big = !!d.big;
+    this.id = d.id; this.contents = d.contents; this.hiddenSig = d.hidden; this.big = !!d.big; this.sets = d.sets;
     this.solid = true; this.hw = this.big ? 0.42 : 0.34; this.hd = 0.3;
     this.opened = !!g.flags['chest:' + this.id];
     this.interactable = true;
@@ -60,6 +62,7 @@ export class Chest extends Entity {
     if (!this.visible || this.opened) return;
     this.opened = true; this.openT = 0;
     this.g.flags['chest:' + this.id] = true;
+    if (this.sets) this.g.setSignal(this.sets, true, true);
     sfx('chest');
     this.g.receiveItem(this.contents, itemModel(this.contents), this);
   }

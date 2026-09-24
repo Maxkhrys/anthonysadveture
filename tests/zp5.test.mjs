@@ -57,6 +57,33 @@ export default async function (page, R) {
     await sim(page, 2); await shot(page, 'p5_reinforce');
     await page.evaluate(() => window.__game.ui.closeCraft());
   }
+  if (on('cons')) {
+    await fresh(page, 'witch', { stage: 1, level: 9 });
+    await page.evaluate(() => { const g = window.__game; g.inv.bellows = true; g.warpTo('conservatory', 'entrance'); });
+    await page.waitForFunction(() => window.__game.area.id === 'conservatory' && !window.__game.transitioning, null, { timeout: 15000 });
+    await page.evaluate(() => document.getElementById('guide').classList.add('hidden'));
+    const room = async (id, dx = 8.5, dz = 8.5, name) => { await page.evaluate(([id, dx, dz]) => { const g = window.__game, r = g.area.rooms.find(r => r.id === id), p = g.player; p.x = r.x0 + dx; p.z = r.z0 + dz; g.updateRoom(true); g.snapCamera(); }, [id, dx, dz]); await sim(page, 20); await shot(page, name || 'p5_cons_' + id); };
+    await room('atrium', 8.5, 9.5); await room('fern'); await room('pond', 3, 6); await room('glasswalk');
+    await page.evaluate(() => { const g = window.__game; g.setSignal('c.torches', true, true); });
+    await page.evaluate(() => { const g = window.__game, r = g.area.rooms.find(r => r.id === 'loom'), p = g.player; p.x = r.x0 + 8.5; p.z = r.z0 + 9; g.updateRoom(true); g.snapCamera(); g.noRender = true; window.__sim(2); g.noRender = false; });
+    await page.waitForTimeout(2200); await shot(page, 'p5_seam_intro');
+    await page.waitForTimeout(1600);
+    await page.evaluate(() => { const g = window.__game; g.godMode = true; });
+    await sim(page, 100); await shot(page, 'p5_seamkeeper');
+    await page.evaluate(() => { const g = window.__game; g.godMode = false; });
+  }
+  if (on('toad')) {
+    await fresh(page, 'samurai', { stage: 1, level: 12 });
+    await page.evaluate(() => window.__game.warpTo('overworld', 'fen'));
+    await page.waitForFunction(() => window.__game.area.id === 'overworld' && !window.__game.transitioning, null, { timeout: 15000 });
+    await page.evaluate(() => { const g = window.__game; g.flags.dayOffset = 420 * 0.1; g.player.z = 90; g.snapCamera(); document.getElementById('guide').classList.add('hidden'); });
+    await sim(page, 10); await shot(page, 'p5_fen');
+    await page.evaluate(() => { const g = window.__game; for (const b of g.entities.filter(e => e.constructor.name === 'HangingBell')) { b.cool = 0; b.ring(); } g.wtT = 0; g.worldTick(0.1); });
+    await page.waitForTimeout(3700);
+    await page.evaluate(() => { window.__game.godMode = true; });
+    await sim(page, 60); await shot(page, 'p5_toad');
+    await page.evaluate(() => { window.__game.godMode = false; });
+  }
   for (const cls of ['samurai', 'archer']) if (on('tree_' + cls)) {
     await fresh(page, cls, { stage: 1, level: 16 });
     await page.evaluate(() => { const g = window.__game, inv = g.inv; inv.sp = 15; const S = window.__skills; for (const n of S.treeOf(inv.cls)) { if (inv.sp > 4 && !S.lockReason(inv, n)) S.spendNode(inv, n.id); } g.recalc(); g.ui.openInventory(); g.ui.invTab = 'skills'; g.ui.renderInventory(); });

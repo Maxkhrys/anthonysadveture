@@ -190,3 +190,5 @@ export function toggleMusic() {
   return musicOn;
 }
 export function duckMusic(on) { if (musBus && ctx) musBus.gain.setTargetAtTime(on ? VOL.music * 0.3 : VOL.music, ctx.currentTime, 0.2); }
+// a single pitched bell (puzzle bells ring their own note)
+export function playTone(midi) { if (ctx) bell(N(midi), 1.6, 0.28); }

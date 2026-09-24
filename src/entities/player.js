@@ -748,7 +748,8 @@ export class Player extends Entity {
       }
     }
     if (speed > 0 && mlen > 0.1 && this.state !== 'roll') {
-      vx += mx * speed * this.speedMul; vz += mz * speed * this.speedMul;
+      const wade = this.wading ? 0.85 : 1;
+      vx += mx * speed * this.speedMul * wade; vz += mz * speed * this.speedMul * wade;
     }
     // knockback
     if (this.kx) {
@@ -786,6 +787,9 @@ export class Player extends Entity {
       for (const [dx, dz] of [[0.45, 0], [-0.45, 0], [0, 0.45], [0, -0.45]]) if (g.tileAt(Math.floor(this.x + dx), Math.floor(this.z + dz)) === T.PIT) safe = false;
       if (safe) { this.lastSafe.x = this.x; this.lastSafe.z = this.z; }
     }
+    // wading through the fen: slower, splashy
+    this.wading = t === T.SHALLOW;
+    if (this.wading && moved > 0.5 && Math.random() < 0.3) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.3, y: 0.08, z: this.z + (Math.random() - 0.5) * 0.3, vy: 1.6, g: 9, color: 0xe8f8ff, life: 0.35, size: 0.045 });
     if (moved > 0.5 && this.state === 'move') {
       this.stepT += dt * moved;
       if (this.stepT > 1.3) { this.stepT = 0; sfx('step'); if (g.area.id === 'overworld') g.fx.dust(this.x, this.z, 1, t === T.SAND ? 0xf1d38e : 0xc8d8a8); }

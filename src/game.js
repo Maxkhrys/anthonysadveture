@@ -17,7 +17,7 @@ import { Entity } from './entities/entity.js';
 import { MONSTER_NAMES } from './entities/monsters2.js';
 import { ENEMY_MATS } from './entities/monsters3.js';
 import { CLASSES, computeStats, xpNeed, MAX_LEVEL } from './rpg/classes.js';
-import { genItem, starterWeapon, RARITY, itemPower, makeNamed } from './rpg/items.js';
+import { genItem, starterWeapon, RARITY, itemPower, makeNamed, LEGENDARIES } from './rpg/items.js';
 import { GearDrop, LootChest, thornBurst, blast, chainLightning, bolt, Projectile } from './rpg/combat.js';
 import { ensureTree, respecTree, rankOf, SKILLS, nodeById, treeOf } from './rpg/skills.js';
 import { react, isHeavy, elementOf, soak, fanFlames } from './rpg/elements.js';
@@ -30,12 +30,16 @@ import { AimView } from './aim.js';
 import { ensureCraftState, gainMat, learn } from './rpg/crafting.js';
 import { tileBlocks } from './entities/entity.js';
 import { buildDevRoom } from './world/devroom.js';
+import { buildConservatory } from './world/conservatory.js';
+import { HangingBell, BellSequence, CrackedGlass, BossTrigger } from './entities/objects5.js';
+import { Seamkeeper, CrownedToad } from './entities/bosses5.js';
+import { MATS, recipeById } from './rpg/crafting.js';
 import { DevConsole } from './dev/console.js';
 
 import { defaultInventory, identifyItem, BELLSTONES, worldPhase, respecInventory } from './persistence/model.js';
 import { snapshotCharacter, restoreCharacter, CharacterSession } from './persistence/session.js';
 export const BAG_SIZE = 30;
-const BUILDERS = { overworld: buildOverworld, dungeon: buildDungeon, grotto: buildGrotto, devroom: buildDevRoom };
+const BUILDERS = { overworld: buildOverworld, dungeon: buildDungeon, grotto: buildGrotto, devroom: buildDevRoom, conservatory: buildConservatory };
 
 export const defaultInv = defaultInventory;
 
@@ -119,6 +123,7 @@ export class Game {
     if (!a) return 1;
     if (a.id === 'dungeon') { const r = this.roomAt(x, z); return r && (r.id === 'pre' || r.id === 'boss' || r.id === 'heart') ? 5 : 4; }
     if (a.id === 'grotto') return 5;
+    if (a.id === 'conservatory') { const r = this.roomAt(x, z); return r && (r.id === 'loom' || r.id === 'canopy' || r.id === 'reliquary') ? 8 : 7; }
     if (a.rift) return a.level;
     const r = a.regions && a.regions.find(r => x >= r.x0 && x < r.x1 && z >= r.y0 && z < r.y1);
     return (r && r.level) || 2;
@@ -153,6 +158,16 @@ export class Game {
     const u = this.pr.postMat.uniforms;
     const phase = worldPhase(this.time, this.flags.dayOffset || 0);
     this.isNight = phase.isNight;
+    if (a && a.glasshouse) {
+      // the Conservatory: sun through cracked glass, pollen hanging in green-gold air
+      waterU.light.value = 1; waterU.night.value = 0; waterU.rain.value = 0;
+      u.fogAmt.value = 0.16; u.fogColor.value.set(0xd8e8c0); u.contrast.value = 1.06; u.bloom.value = 0.45; u.vignette.value = 0.45;
+      u.grade.value.set(1.04, 1.04, 0.96); u.desat.value = 0;
+      if (Math.random() < 0.5) this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 18, y: 0.5 + Math.random() * 2.5, z: this.cam.z + (Math.random() - 0.5) * 12, vx: 0.15, vy: -0.05, g: 0, drag: 0, color: Math.random() < 0.7 ? 0xfff3c8 : 0xc8f0a8, life: 3, size: 0.04, wob: 0.6, shrink: false });
+      if (Math.random() < 0.06) { const x = this.cam.x + (Math.random() - 0.5) * 16, z = this.cam.z + (Math.random() - 0.5) * 10; for (let i = 0; i < 6; i++) this.fx.add({ x: x + i * 0.2, y: 3 - i * 0.4, z: z + i * 0.1, vy: -0.1, g: 0, drag: 0, color: 0xfff8e0, life: 1.6, size: 0.35, soft: true, grow: 1.2, shrink: false }); }
+      this.lampTick(dt, 0);
+      return;
+    }
     if (!a || a.id !== 'overworld') {
       waterU.light.value = a && a.dark ? 0.75 : 1; waterU.night.value = 0; waterU.rain.value = 0;
       u.fogAmt.value = a && a.dark ? 0.2 : 0; u.fogColor.value.set(a && a.rift ? 0x3a2a5a : 0x1a1426); u.contrast.value = 1.04;
@@ -245,6 +260,8 @@ export class Game {
       if (this.time < r.t || Math.hypot(r.def.x - p.x, r.def.z - p.z) < 22) return true;
       this.spawnDef(r.def); return false;
     });
+    // the fen: three rung lilies wake the Crowned Toad
+    if (this.fenToad && this.fenToad.state === 'sleep' && this.signal('fen.rung') && Math.hypot(this.fenToad.x - p.x, this.fenToad.z - p.z) < 14) { this.setSignal('fen.rung', false, false); this.wakeToad(this.fenToad); }
     // chests only appear on the map once you've been near them (no spoilers)
     for (const e of this.entities) if (e instanceof LootChest && !this.flags['seenchest:' + e.id] && Math.hypot(e.x - p.x, e.z - p.z) < 9) this.flags['seenchest:' + e.id] = true;
     // roaming Pip Thief
@@ -550,7 +567,7 @@ export class Game {
     this.world = new THREE.Group(); this.scene.add(this.world);
     this.fx.clear();
     this.ui.clearFloats && this.ui.clearFloats();
-    this.entities = []; this.solids = []; this.sigs = {}; this.tokens = 0;
+    this.entities = []; this.solids = []; this.sigs = {}; this.tokens = 0; this.fenToad = null;
     this.bossActive = null; this.ui.bossBar(null);
     const area = id === 'rift' ? buildRift(this.riftFloor || 1, this.riftLevel || 3, Math.floor(Math.random() * 1e9)) : BUILDERS[id]();
     this.area = area;
@@ -640,6 +657,22 @@ export class Game {
       ], { title: 'HUSH CAMP', victory: 'The camp is broken! Report to Captain Brisk.', music: 'camp' }); e.alwaysUpdate = true; break;
       case 'bossroom': e = new Entity(this, d.x, d.z); e.bossRoom = d; e.alwaysUpdate = true; e.update = () => this.checkBossRoom(d); break;
       case 'custom_entity': if (d.factory) e = d.factory(this); break;
+      // ---- Pass 5
+      case 'hangbell': e = new HangingBell(this, d); break;
+      case 'bellseq': e = new BellSequence(this, d); break;
+      case 'crackedglass': e = new CrackedGlass(this, d); break;
+      case 'conservatoryarena': e = new O.Arena(this, { id: d.id, room: d.room }, [
+        [['mantis', -3, -2], ['moth', 3, -2], ['slug', 0, 3]],
+        [['porcelain', 0, -3], ['mantis', -4, 1], ['mantis', 4, 1]],
+        [['leech', 0, 0], ['moth', -3, -3], ['moth', 3, -3], ['porcelain', 0, 3]],
+      ], { title: 'ORCHID GALLERY', victory: 'The orchids go quiet.', eliteChance: 0.12 }); e.alwaysUpdate = true; break;
+      case 'seamroom': if (f.seamDead) return; e = new BossTrigger(this, { ...d, flag: 'seamDead', start: (g, dd) => g.startSeamkeeper(dd) }); break;
+      case 'crowntoad': {
+        // rare, not random: it sleeps here until the lilies ring, and comes back two days after a defeat
+        if (f.toadAt !== undefined && this.time - f.toadAt < 840) return;
+        e = new CrownedToad(this, d.x, d.z); e.alwaysUpdate = true; this.fenToad = e;
+        break;
+      }
       default: return;
     }
     if (e) { if (d.room) e.room = d.room; this.spawn(e); }
@@ -775,6 +808,62 @@ export class Game {
     }, 900);
     setTimeout(() => { this.camZoom = 1; this.ui.show('namecard', false); this.ui.show('letterbox', false); }, 3100);
     setTimeout(() => { this.cutscene = false; this.camFocus = null; this.musicOverride('boss'); this.ui.bossBar(b.name, 1); }, 3400);
+  }
+  // ---- Pass 5 bosses: a shared reveal (letterbox, push-in, name card, sting)
+  bossIntro(boss, sub, focus, onDone) {
+    this.bossActive = boss; this.cutscene = true;
+    this.camFocus = focus; this.camZoom = 0.72;
+    sfx('roar'); this.pr.addShake(1); playMusic(null);
+    this.ui.show('letterbox', true);
+    setTimeout(() => {
+      sfx('bossSting'); this.pr.addFlash(0.25, 0xfff3b0); this.pr.addShake(0.6);
+      const nc = document.getElementById('namecard'); nc.querySelector('.nc-sub').textContent = sub; nc.querySelector('.nc-name').textContent = boss.name; this.ui.show('namecard', true);
+    }, 900);
+    setTimeout(() => { this.camZoom = 1; this.ui.show('namecard', false); this.ui.show('letterbox', false); }, 3100);
+    setTimeout(() => { this.cutscene = false; this.camFocus = null; this.musicOverride('boss'); this.ui.bossBar(boss.name, 1); onDone && onDone(); }, 3400);
+  }
+  startSeamkeeper(d) {
+    const room = this.room;
+    this.sealRoom(room.id, true);
+    const b = new Seamkeeper(this, d.x, d.z - 2, room);
+    this.spawn(b);
+    this.bossIntro(b, 'WHO MENDS WHAT SHOULD STAY BROKEN', { x: d.x, z: d.z - 1 }, () => b.setState('idle'));
+  }
+  onSeamkeeperDead(b) {
+    const first = !this.flags.seamDead;
+    this.flags.seamDead = true; this.bossActive = null;
+    this.setSignal('c.seamdead', true, true);
+    this.sealRoom(b.room, false); this.musicOverride(null); playMusic(null);
+    setTimeout(() => {
+      this.cutscene = false; this.camFocus = null; this.camZoom = 1;
+      this.ui.banner('VICTORY', 'The Seamkeeper comes undone', 2.5); sfx('fanfare');
+      this.gainXp(500);
+      gainMat(this, 'seamthread', 2, b.x, b.z);
+      if (first) { this.spawn(new GearDrop(this, b.x, b.z + 1.5, makeNamed('seamripper', Math.max(8, this.inv.level)))); learn(this, 'seamstitch'); }
+      this.dropGear(b.x - 1, b.z + 1, { level: 8, floor: 3, bonus: 1 }); this.dropGear(b.x + 1, b.z + 1, { level: 8, floor: 2, bonus: 0.6 });
+      this.ui.toast('The reliquary door has opened.', 'East of the Bellfruit Canopy.', 3);
+      this.save();
+    }, 1200);
+  }
+  wakeToad(t) {
+    this.bossIntro(t, 'KING OF THE DROWNED LILIES', { x: t.x, z: t.z + 1 }, () => t.setState('idle'));
+    t.wake();
+  }
+  onToadDead(t) {
+    const first = !this.flags.toadKills;
+    this.flags.toadKills = (this.flags.toadKills || 0) + 1; this.flags.toadAt = this.time; this.bossActive = null; this.fenToad = null;
+    this.musicOverride(null); playMusic(null);
+    setTimeout(() => {
+      this.cutscene = false; this.camFocus = null; this.camZoom = 1;
+      this.ui.banner('VICTORY', 'The Crowned Toad is dethroned', 2.5); sfx('fanfare');
+      this.gainXp(800);
+      gainMat(this, 'crownpearl', 1, t.x, t.z);
+      if (first) { this.spawn(new GearDrop(this, t.x - 1, t.z + 1.5, makeNamed('toadsignet', Math.max(9, this.inv.level)))); this.spawn(new GearDrop(this, t.x + 1, t.z + 1.5, makeNamed('lilypad', Math.max(9, this.inv.level)))); learn(this, 'crowntongue'); }
+      // the one thing it truly hoards: rarely, a very large spoon
+      if (Math.random() < 0.06) { this.spawn(new GearDrop(this, t.x, t.z + 2, makeNamed('teaspoon', Math.max(9, this.inv.level)))); this.ui.toast('…is that a spoon?', 'The Royal Teaspoon!', 3); }
+      this.dropGear(t.x, t.z + 1, { level: 10, floor: 3, bonus: 1.5 });
+      this.save();
+    }, 1200);
   }
   onBossDying(b) {
     for (const e of this.entities) if (e.isEnemy && e !== b && !e.dead) e.die(null, 'fall');
@@ -983,7 +1072,10 @@ export class Game {
     const big = c.kind === 'item' || c.kind === 'bigkey' || c.kind === 'heart';
     sfx(big ? 'fanfare' : 'pip');
     const n = c.n;
-    const text = c.kind === 'pips' ? `You found *${n} pips*!` : `You got the *${info.name}*!\n${info.desc}`;
+    let text = c.kind === 'pips' ? `You found *${n} pips*!` : `You got the *${info.name}*!\n${info.desc}`;
+    if (c.kind === 'named') { const L = LEGENDARIES.find(l => l.id === c.id); text = `You found *${L ? L.name : 'a treasure'}*!\n${L ? L.text : ''}`; }
+    if (c.kind === 'recipe') { const r = recipeById(c.id); text = `You learned the *${r.name}* engraving!\n${r.effect}\nCraft it at Posy's workbench.`; }
+    if (c.kind === 'mat') text = `You found *${c.n || 1} ${MATS[c.mat].name}*!\n${MATS[c.mat].desc}`;
     setTimeout(() => {
       this.ui.say(null, text, () => {
         this.endHold();
@@ -995,6 +1087,10 @@ export class Game {
           case 'pips': this.addCoins(n); break;
           case 'potion': inv.potions = Math.min(inv.maxPotions, inv.potions + 1); break;
           case 'echo': gainMat(this, 'echo', 1); learn(this, { samurai: 'returningcut', archer: 'echosnare', witch: 'rimebloom' }[inv.cls]); break;
+          case 'named': { const it = makeNamed(c.id, Math.max(c.level || 7, inv.level)); if (!this.pickupItem(it)) this.spawn(new GearDrop(this, this.player.x, this.player.z + 0.8, it)); break; }
+          case 'recipe': learn(this, c.id); break;
+          case 'mat': gainMat(this, c.mat, c.n || 1); break;
+          case 'score': this.flags.bellscore = true; this.ui.toast("Bellwright's Score", 'Bring it to Elder Tamsin in Thimblewick.', 3); break;
         }
         this.ui.updateHud(); this.save();
       });
