@@ -54,7 +54,7 @@ export default async function (page, R) {
   R.ok(regen > 0.38 && regen < 0.42, 'out-of-combat recovery tops out near 40%', regen.toFixed(3));
   const inCombat = await page.evaluate(() => { const g = window.__game, inv = g.inv; inv.hp = inv.maxHp * 0.2; const h0 = inv.hp; for (let i = 0; i < 90; i++) { g.player.combatT = 4; window.__sim(1); } return inv.hp - h0; });
   R.ok(inCombat === 0, 'no passive recovery mid-fight without gear regen', String(inCombat));
-  const drink = await page.evaluate(() => { const g = window.__game, inv = g.inv; inv.hp = inv.maxHp * 0.2; inv.potions = 2; window.__sim(1, ['KeyQ']); const s = g.player.state, h1 = inv.hp; window.__sim(20); return { s, h1: h1 / inv.maxHp, h2: inv.hp / inv.maxHp, pots: inv.potions }; });
+  const drink = await page.evaluate(() => { const g = window.__game, inv = g.inv; inv.hp = inv.maxHp * 0.2; inv.potions = 2; window.__sim(1, ['KeyH']); const s = g.player.state, h1 = inv.hp; window.__sim(20); return { s, h1: h1 / inv.maxHp, h2: inv.hp / inv.maxHp, pots: inv.potions }; });
   R.ok(drink.s === 'drink' && drink.h1 < 0.21 && drink.h2 > 0.6 && drink.pots === 1, 'tonic is drunk over a short committed animation', JSON.stringify(drink));
 
   // lifesteal is pooled: a huge crowd hit cannot fully heal you
@@ -120,7 +120,7 @@ export default async function (page, R) {
   R.ok(/Felled by .*Brigand/.test(recap), 'death recap names the attacker', recap.slice(0, 90));
   await page.waitForTimeout(1500);
   await page.evaluate(() => { window.__game.inv.potions = 0; });
-  await sim(page, 1, ['KeyE']);
+  await sim(page, 1, ['KeyF']);
   await page.waitForTimeout(1200); await sim(page, 2);
   const rev = await page.evaluate(() => { const g = window.__game; return { dead: g.dead, hp: g.inv.hp === g.inv.maxHp, pots: g.inv.potions }; });
   R.ok(!rev.dead && rev.hp && rev.pots > 0, 'waking up refills life and tonics', JSON.stringify(rev));

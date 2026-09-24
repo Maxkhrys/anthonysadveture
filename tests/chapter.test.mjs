@@ -24,7 +24,7 @@ function bot(page, log) {
       log(`   ✖ death #${B.deaths} in ${s.room || s.area} — felled by ${why}`);
       // wait for the death screen, press E, and make sure we are really back on our feet
       for (let k = 0; k < 20 && !(await page.evaluate(() => window.__game.dead)); k++) await page.waitForTimeout(200);
-      await sim(page, 1); await sim(page, 1, ['KeyE']); await sim(page, 1);
+      await sim(page, 1); await sim(page, 1, ['KeyF']); await sim(page, 1);
       for (let k = 0; k < 30; k++) {
         const ok = await page.evaluate(() => { const g = window.__game; return !g.dead && !g.transitioning && g.player.state !== 'dead'; });
         if (ok) break;
@@ -37,7 +37,7 @@ function bot(page, log) {
       return true;
     }
     lastPos = s;
-    if (s.hp < s.max * 0.35 && s.pots > 0) { B.tonics++; await sim(page, 1, ['KeyQ']); await sim(page, 20); }
+    if (s.hp < s.max * 0.35 && s.pots > 0) { B.tonics++; await sim(page, 1, ['KeyH']); await sim(page, 20); }
     return false;
   };
   // fight everything in the current room (or nearby, outdoors) the way a player would

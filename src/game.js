@@ -475,7 +475,7 @@ export class Game {
   salvageItem(i) {
     const inv = this.inv, it = inv.bag[i];
     if (!it) return;
-    if (this.isLocked(it)) { sfx('error'); this.ui.toast('That item is locked.', 'Press F (or click the lock) to unlock it first.', 1.6); return; }
+    if (this.isLocked(it)) { sfx('error'); this.ui.toast('That item is locked.', 'Press V (or click Favourite) to unlock it first.', 1.6); return; }
     if (it.craft) { sfx('error'); this.ui.toast('That weapon carries an engraving.', 'Move the engraving at the workbench first, or equip and salvage it later.', 2); return; }
     inv.bag.splice(i, 1);
     const v = Math.max(1, Math.round(it.value * 0.35));
@@ -1219,7 +1219,7 @@ export class Game {
     if (this.ui.updateShop(input)) { this.render(dt); return; }
     if (this.ui.updateCraft(input)) { this.render(dt); return; }
     if (this.ui.updateInventory(input)) { this.render(dt); return; }
-    if (input.pressed('inventory') && !this.locked() && !this.dead) { this.ui.openInventory(); this.render(dt); return; }
+    if (input.pressed('inventory') && !this.locked() && !this.dead) { this.ui.invTab = 'bag'; this.ui.openInventory(); this.render(dt); return; }
     const talking = this.ui.updateDialog(dt, input);
     if (!talking) this.playTime += dt;
     if (this.stopT > 0) { this.stopT -= dt; this.fx.update(dt * 0.2, this.cam); this.render(dt); return; }

@@ -21,7 +21,7 @@ export function installCraftUI(UI) {
     const h = document.querySelector('#craft h3');
     h.innerHTML = `Posy's Workbench <span class="cr-tabs"><span data-m="engrave" class="${this.crMode === 'engrave' ? 'on' : ''}">Engrave</span><span data-m="reinforce" class="${this.crMode === 'reinforce' ? 'on' : ''}">Reinforce</span><small>R: switch</small></span>`;
     h.querySelectorAll('[data-m]').forEach(el => { el.style.pointerEvents = 'auto'; el.onclick = () => { this.crMode = el.dataset.m; sfx('select'); this.renderCraft(); }; });
-    document.querySelector('#craft .pause-foot').textContent = this.crMode === 'engrave' ? 'W/S recipe · A/D weapon · E craft · X remove sigil · R reinforce tab · Esc leave' : 'W/S weapon · E reinforce · R engrave tab · Esc leave';
+    document.querySelector('#craft .pause-foot').textContent = this.crMode === 'engrave' ? 'W/S recipe · A/D weapon · F craft · X remove sigil · R reinforce tab · Esc leave' : 'W/S weapon · F reinforce · R engrave tab · Esc leave';
   };
   // ---- Reinforcement: raise a weapon's level; identity, affixes and engraving never change
   P.renderReinforce = function () {
@@ -37,7 +37,7 @@ export function installCraftUI(UI) {
     h += `<div class="rf-grid"><div><span>Current</span><b>+${pv.level}</b></div><div><span>Next</span><b>+${Math.min(pv.max, pv.next)}</b></div><div><span>Damage now</span><b>${pv.before[0]}–${pv.before[1]}</b></div><div><span>Damage after</span><b class="up">${pv.after[0]}–${pv.after[1]}</b></div></div>`;
     h += `<div class="sub">Reinforcing keeps the weapon exactly as it is — its affixes${it.craft ? ', its ' + recipeById(it.craft).name + ' engraving' : ''} and its look — and only raises its damage (+5% per level, up to +${pv.max}).</div>`;
     h += `<div class="sub" style="margin-top:8px">Needs:</div><div class="cr-cost">${matsHtml}<span class="mat ${inv.coins >= cost.pips ? 'ok' : 'no'}">◆ ${cost.pips} pips (${inv.coins})</span></div>`;
-    h += c.ok ? `<button id="cr-go">Reinforce to +${pv.next} (E)</button>` : `<div class="cr-warn">${c.reason}</div>`;
+    h += c.ok ? `<button id="cr-go">Reinforce to +${pv.next} (F)</button>` : `<div class="cr-warn">${c.reason}</div>`;
     $('craft-detail').innerHTML = h;
     $('craft-list').querySelectorAll('.cr-row[data-i]').forEach(el => el.onclick = () => { this.rfI = +el.dataset.i; sfx('select'); this.renderCraft(); });
     const go = $('cr-go'); if (go) go.onclick = () => this.reinforceSelected();
@@ -106,7 +106,7 @@ export function installCraftUI(UI) {
     }
     h += `<div class="sub" style="margin-top:8px">${c.transfer ? `Moves your ${r.name} engraving off <b>${c.transfer.name}</b> (no essence needed):` : 'Needs:'}</div><div class="cr-cost">${Object.keys(cost.mats).map(k => matLine(inv, k, cost.mats[k])).join('')}<span class="mat ${inv.coins >= cost.pips ? 'ok' : 'no'}">◆ ${cost.pips} pips (${inv.coins})</span></div>`;
     if (base && base.it.craft && base.it.craft !== r.id && c.ok) h += `<div class="cr-warn">This replaces the ${recipeById(base.it.craft).name} engraving on that weapon.</div>`;
-    h += c.ok ? `<button id="cr-go" class="${this.crConfirm ? 'confirm' : ''}">${this.crConfirm ? 'Press E again to confirm' : 'Craft (E)'}</button>` : `<div class="cr-warn">${c.reason}</div>`;
+    h += c.ok ? `<button id="cr-go" class="${this.crConfirm ? 'confirm' : ''}">${this.crConfirm ? 'Press F again to confirm' : 'Craft (F)'}</button>` : `<div class="cr-warn">${c.reason}</div>`;
     $('craft-detail').innerHTML = h;
     $('craft-mats').innerHTML = 'Pouch: ' + Object.keys(MATS).filter(k => inv.mats[k] || ['shard', 'thornheart', 'echo', 'ember', 'sailcloth'].includes(k)).map(k => `<span title="${MATS[k].desc}"><b style="color:${MATS[k].color}">${MATS[k].icon}</b> ${MATS[k].name} ${inv.mats[k] || 0}</span>`).join(' · ') + ` · ◆ ${inv.coins}`;
     $('craft-list').querySelectorAll('.cr-row').forEach(el => el.onclick = () => { this.crI = +el.dataset.i; this.crW = 0; this.crConfirm = false; sfx('select'); this.renderCraft(); });

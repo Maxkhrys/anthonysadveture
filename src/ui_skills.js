@@ -1,3 +1,4 @@
+import { abilityIcon } from './ui_icons.js';
 // Pass 5 UI: the six-slot combat HUD and the skill-tree screen (mouse + keyboard/pad).
 import { sfx } from './engine/audio.js';
 import { CLASSES, xpNeed } from './rpg/classes.js';
@@ -27,7 +28,7 @@ export function installSkillUI(UI) {
     const lbl = this.g.settings.abilityLabels;
     $('abilities').innerHTML = Array.from({ length: LOADOUT_SIZE }, (_, i) => {
       const id = inv.loadout && inv.loadout[i], S = id && SKILLS[id];
-      return `<div class="ab ${S ? '' : 'empty'} ${lbl ? 'lbl' : ''}" data-slot="${i}" title="${S ? S.name : 'Empty slot'}"><b>${KEYS[i]}</b><span class="ic">${S ? S.icon : '+'}</span>${S ? `<span class="cost">${S.cost}</span><span class="rk"></span><i class="cdr"></i><em class="cdt"></em><i class="dur" style="display:none"></i>` : ''}${lbl && S ? `<span class="nm">${S.name}</span>` : ''}</div>`;
+      return `<div class="ab ${S ? '' : 'empty'} ${lbl ? 'lbl' : ''}" data-slot="${i}" title="${S ? S.name : 'Empty slot'}"><b>${KEYS[i]}</b><span class="ic">${S ? abilityIcon(id) : '+'}</span>${S ? `<span class="cost">${S.cost}</span><span class="rk"></span><i class="cdr"></i><em class="cdt"></em><i class="dur" style="display:none"></i>` : ''}${lbl && S ? `<span class="nm">${S.name}</span>` : ''}</div>`;
     }).join('');
     this._slots = [...$('abilities').children];
     this._slots.forEach((el, i) => { el.style.pointerEvents = 'auto'; el.onclick = () => { this.openInventory(); this.invTab = 'skills'; this.treeSlot = i; this.renderInventory(); }; });
@@ -124,7 +125,7 @@ export function installSkillUI(UI) {
     for (const n of nodes) {
       const a = pos(n), r = rankOf(inv, n.id), why = lockReason(inv, n);
       const can = !why, maxed = r >= n.max;
-      const icon = n.icon || { passive: '◆', mod: '✦', res: '◉', util: '⟳', key: '✺' }[n.type];
+      const icon = abilityIcon(n.skill || n.id, n.type);
       const slot = n.skill ? inv.loadout.indexOf(n.skill) : -1;
       dots += `<div class="tn ${n.type} ${r ? 'on' : ''} ${can ? 'can' : ''} ${maxed ? 'max' : ''} ${n.id === this.treeSel ? 'sel' : ''}" data-id="${n.id}" style="left:${a.x}px;top:${a.y}px;--pc:${paths[n.path].color}">
         <span class="ti">${icon}</span>${n.max > 1 ? `<span class="tr">${r}/${n.max}</span>` : ''}${slot >= 0 ? `<span class="tk">${slot + 1}</span>` : ''}</div>`;
@@ -132,7 +133,7 @@ export function installSkillUI(UI) {
     const heads = paths.map((p, i) => `<div class="tp" style="left:${PADX + i * COLW + 62}px;--pc:${p.color}"><b>${p.name}</b><small>${p.blurb}</small><em>${pathPoints(inv, cls, i)} pts</em></div>`).join('');
     // detail panel
     const r = rankOf(inv, sel.id), why = lockReason(inv, sel), S = sel.skill && SKILLS[sel.skill];
-    let d = `<div class="td-type" style="color:${paths[sel.path].color}">${TYPE_NAME[sel.type]} · ${paths[sel.path].name}</div><h4>${sel.icon || ''} ${sel.name}</h4>`;
+    let d = `<div class="td-type" style="color:${paths[sel.path].color}">${TYPE_NAME[sel.type]} · ${paths[sel.path].name}</div><h4>${sel.name}</h4>`;
     d += `<div class="td-rank">Rank <b>${r}</b> / ${sel.max}${sel.free ? ' · <span style="color:#9f9">granted free at level ' + sel.lvl + '</span>' : sel.lvl > 1 ? ' · level ' + sel.lvl : ''}</div>`;
     if (S) {
       const cur = this.skillPreview(S, r), nxt = this.skillPreview(S, r + 1);
@@ -146,14 +147,14 @@ export function installSkillUI(UI) {
     d += why ? `<button class="tbtn" disabled>${why}</button>` : `<button class="tbtn go" data-act="learn">Learn${r ? ' rank ' + (r + 1) : ''} (1 point)</button>`;
     if (S && r) d += `<div class="td-assign">Hotbar: ${KEYS.map((k, i) => `<button data-assign="${i}" class="${inv.loadout[i] === sel.skill ? 'on' : ''}">${k}</button>`).join('')} <small>or press 1-6</small></div>`;
     // loadout strip
-    const lo = inv.loadout.map((id, i) => `<div class="lo ${this.treeSlot === i ? 'sel' : ''}" data-lo="${i}"><b>${KEYS[i]}</b>${id ? SKILLS[id].icon : '<i>·</i>'}<small>${id ? SKILLS[id].name : 'empty'}</small></div>`).join('');
+    const lo = inv.loadout.map((id, i) => `<div class="lo ${this.treeSlot === i ? 'sel' : ''}" data-lo="${i}"><b>${KEYS[i]}</b>${id ? abilityIcon(id) : '<i>·</i>'}<small>${id ? SKILLS[id].name : 'empty'}</small></div>`).join('');
     // armour sets currently active
     const sets = Object.entries(g.pstats.setBonus || {}).filter(([, t]) => t >= 2).map(([id, t]) => `<span style="color:${SETS[id].color}">${SETS[id].name} (${t === 5 ? 'full set' : '2-piece'})</span>`).join(' · ');
     $('inv-skills').innerHTML = `<div class="tree-top"><div>Skill points: <b class="spn">${inv.sp}</b> <small>· one per level · ${spentPoints(inv)} spent</small></div><div class="lorow">${lo}</div><button class="tbtn" data-act="respec">Reset tree</button></div>
-      <div class="tree-body"><div class="tree-wrap"><div class="tree" style="width:${W}px;height:${H}px">${heads}<svg width="${W}" height="${H}">${lines}</svg>${dots}<div class="tsig" style="left:${base.x}px;top:${base.y}px">${{ samurai: '⚔️', archer: '🏹', witch: '🧙' }[cls]}</div></div></div>
-      <div class="tree-detail">${d}${sets ? `<div class="td-sets">Set bonuses: ${sets}</div>` : ''}<div class="td-keys">Arrows / click: select · E: learn · 1-6: put on hotbar · K: back to bag</div></div></div>`;
+      <div class="tree-body"><div class="tree-wrap"><div class="tree" style="width:${W}px;height:${H}px">${heads}<svg width="${W}" height="${H}">${lines}</svg>${dots}<div class="tsig" style="left:${base.x}px;top:${base.y}px">${abilityIcon({samurai:'iaido',archer:'multishot',witch:'familiar'}[cls])}</div></div></div>
+      <div class="tree-detail">${d}${sets ? `<div class="td-sets">Set bonuses: ${sets}</div>` : ''}<div class="td-keys">Arrows / click: select · F: learn · 1-6: put on hotbar · E: inventory</div></div></div>`;
     const root = $('inv-skills');
-    root.querySelectorAll('.tn').forEach(el => { el.onclick = () => { this.treeSel = el.dataset.id; sfx('select'); this.renderSkills(); }; el.ondblclick = () => { this.treeSel = el.dataset.id; this.rankUp(); }; el.onmouseenter = () => { if (this.treeSel !== el.dataset.id) { this.treeSel = el.dataset.id; this.renderSkills(); } }; });
+    root.querySelectorAll('.tn').forEach(el => { el.onclick = () => { this.treeSel = el.dataset.id; sfx('select'); this.renderSkills(); }; el.ondblclick = () => { this.treeSel = el.dataset.id; this.rankUp(); }; el.title = nodes.find(n => n.id === el.dataset.id)?.name || ''; el.tabIndex = 0; el.setAttribute('role', 'button'); el.setAttribute('aria-label', el.title); el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); el.click(); } }; });
     root.querySelectorAll('[data-assign]').forEach(b => b.onclick = () => this.assignSlot(+b.dataset.assign));
     root.querySelectorAll('[data-lo]').forEach(b => b.onclick = () => { const i = +b.dataset.lo; if (this.treeSel && SKILLS[this.treeSel] && rankOf(inv, this.treeSel)) this.assignSlot(i); else { this.treeSlot = this.treeSlot === i ? null : i; this.renderSkills(); } });
     const learn = root.querySelector('[data-act=learn]'); if (learn) learn.onclick = () => this.rankUp();

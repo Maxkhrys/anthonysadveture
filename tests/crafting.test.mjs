@@ -27,18 +27,18 @@ export default async function (page, R) {
   const before = await page.evaluate(() => { const g = window.__game; g.inv.coins = 100; g.ui.crI = g.ui.craftRecipes().findIndex(r => r.id === 'thornrebuke'); g.ui.crW = 0; g.ui.renderCraft(); return { mats: { ...g.inv.mats }, coins: g.inv.coins, w: g.inv.equip.weapon.craft }; });
   const shown = await page.evaluate(() => document.getElementById('craft-detail').textContent);
   R.ok(/Thorn Rebuke/.test(shown) && /parry/.test(shown) && /Samurai only/.test(shown) && /Thornheart 0\/1/.test(shown), 'recipe shows effect, class, requirements and what you have', shown.slice(0, 120));
-  await sim(page, 1, ['KeyE']);
+  await sim(page, 1, ['KeyF']);
   const fail = await page.evaluate(() => { const g = window.__game; return { mats: { ...g.inv.mats }, coins: g.inv.coins, w: g.inv.equip.weapon.craft }; });
   R.ok(JSON.stringify(fail) === JSON.stringify(before), 'a failed craft consumes nothing', JSON.stringify(fail));
 
   // now with materials: craft on the equipped katana
   await give(page, { thornheart: 1, shard: 6 });
   await page.evaluate(() => window.__game.ui.renderCraft());
-  await sim(page, 1); await sim(page, 1, ['KeyE']); await sim(page, 2);
+  await sim(page, 1); await sim(page, 1, ['KeyF']); await sim(page, 2);
   const made = await page.evaluate(() => { const g = window.__game; return { craft: g.inv.equip.weapon.craft, name: g.inv.equip.weapon.name, mats: { ...g.inv.mats }, coins: g.inv.coins, chimes: g.inv.chimes.length }; });
   R.ok(made.craft === 'thornrebuke' && made.mats.thornheart === 0 && made.mats.shard === 0 && made.coins === 60, 'craft takes exactly the listed cost and engraves the weapon', JSON.stringify(made));
   // pressing again cannot duplicate or double-charge
-  await sim(page, 1, ['KeyE']); await sim(page, 1); await sim(page, 1, ['KeyE']); await sim(page, 1);
+  await sim(page, 1, ['KeyF']); await sim(page, 1); await sim(page, 1, ['KeyF']); await sim(page, 1);
   const again = await page.evaluate(() => { const g = window.__game; return { mats: { ...g.inv.mats }, coins: g.inv.coins }; });
   R.ok(again.mats.shard === 0 && again.coins === 60, 'repeating the craft does nothing (already engraved)');
   await page.evaluate(() => window.__game.ui.closeCraft());
