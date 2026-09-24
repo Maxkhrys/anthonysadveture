@@ -7,7 +7,8 @@ import { T } from '../world/tiles.js';
 import { flashObj } from './common.js';
 import { CLASSES, abilityRankMult } from '../rpg/classes.js';
 import { unitAt } from '../rpg/items.js';
-import { Projectile, Trap, RainZone, Familiar, frostNova, chainLightning } from '../rpg/combat.js';
+import { Projectile, Trap, RainZone, Familiar, frostNova, chainLightning, thornBurst, EchoShot, IaidoEcho, RimeField } from '../rpg/combat.js';
+import { hasEngraving, hasSigil } from '../rpg/crafting.js';
 import { AIM_H } from '../aim.js';
 import { blocksObject, isLiquid } from '../world/tiles.js';
 
@@ -150,6 +151,7 @@ export class Player extends Entity {
         g.fx.sparks(this.x + Math.sin(fromAng) * 0.4, 0.4, this.z + Math.cos(fromAng) * 0.4, fromAng, 16, 0xfff3b0);
         g.fx.ring(this.x, this.z, 0.3, 1.8, 0xfff3b0, 0.3, 0.4);
         if (h.src && h.src.onParried) h.src.onParried();
+        if (hasEngraving(g, 'thornrebuke')) { thornBurst(g, this.x, this.z, 0.8); this.rebukeT = 2; g.fx.ring(this.x, this.z, 0.2, 1.4, 0x7fd36a, 0.35); }
         g.addSurge(12);
         g.stats.parries = (g.stats.parries || 0) + 1;
         return 'parry';
@@ -213,6 +215,12 @@ export class Player extends Entity {
       if (t) this.facing = Math.atan2(t.x - this.x, t.z - this.z);
     }
     sfx(this.combo === 3 ? 'spin' : this.combo === 2 ? 'swing2' : 'swing');
+    // Thorn Rebuke: the swing after a perfect parry looses a rooting thorn crescent
+    if (this.rebukeT > 0 && hasEngraving(g, 'thornrebuke')) {
+      this.rebukeT = 0;
+      g.spawn(new Projectile(g, { x: this.x, z: this.z, dir: this.facing, speed: 13, range: 7, mult: 2.2, kind: 'crescent', pierce: 99, kb: 5, root: 1, noCraft: true, color: 0x7fd36a }));
+      sfx('spin');
+    }
     this.lunge = this.combo === 3 ? 4 : 2.5;
   }
 
@@ -229,10 +237,15 @@ export class Player extends Entity {
   }
   fireBasic(power) {
     const g = this.g, f = this.facing;
+    if (power && hasEngraving(g, 'millwind')) g.gust(this, 1, true);
     let ox = this.x + Math.sin(f) * 0.4, oz = this.z + Math.cos(f) * 0.4;
     if (!g.shotClear(this.x, this.z, ox, oz)) { ox = this.x; oz = this.z; } // hugging a wall: never spawn inside it
     if (this.cls === 'archer') {
-      if (power) { g.spawn(new Projectile(g, { x: ox, z: oz, dir: f, speed: 24, range: SHOT_RANGE.power, mult: 2.4, kind: 'power', pierce: 4, kb: 6, color: 0xffd25e })); sfx('spin'); g.pr.addShake(0.15); }
+      if (power) {
+        const o = { x: ox, z: oz, dir: f, speed: 24, range: SHOT_RANGE.power, mult: 2.4, kind: 'power', pierce: 4, kb: 6, color: 0xffd25e };
+        g.spawn(new Projectile(g, o)); sfx('spin'); g.pr.addShake(0.15);
+        if (hasEngraving(g, 'echofletch')) g.spawn(new EchoShot(g, o));
+      }
       else { g.spawn(new Projectile(g, { x: ox, z: oz, dir: f, speed: 19, range: SHOT_RANGE.arrow, mult: 1, kind: 'arrow', color: 0xf0e0c0 })); sfx('swing'); }
     } else {
       const orb = (this.inv.equip.weapon && { crookstaff: 0x7fd36a, candlestaff: 0xffb347, hexwand: 0x8b5cf6, frostrod: 0xdff4ff, shroomwand: 0xe05a48 }[this.inv.equip.weapon.base]) || 0xc89aff;
@@ -280,13 +293,13 @@ export class Player extends Entity {
     else if (id !== 'iaido' && !SELF_CAST[id]) { const t = g.nearestEnemy(this.x, this.z, 8, f, 0.9); if (t) this.facing = Math.atan2(t.x - this.x, t.z - this.z); }
     const F = this.facing;
     switch (id) {
-      case 'iaido': this.setState('dash'); this.attackId++; this.hitSet.clear(); this.invuln = 0.35; this.abMult = 2.2 * rm; sfx('spin'); break;
+      case 'iaido': this.setState('dash'); this.attackId++; this.hitSet.clear(); this.invuln = 0.35; this.abMult = 2.2 * rm; this.dashFrom = { x: this.x, z: this.z }; sfx('spin'); break;
       case 'tempest': this.setState('tempest'); this.abMult = 0.7 * rm; this.tick = 0; sfx('spin'); break;
       case 'oni': this.setState('oni'); this.abMult = 5 * rm; sfx('windup'); break;
       case 'multishot': for (let k = -2; k <= 2; k++) g.spawn(new Projectile(g, { x: this.x, z: this.z, dir: F + k * 0.17, speed: 17, range: 9, mult: 0.9 * rm, kind: 'arrow', ability: true, color: 0xf0e0c0 })); sfx('swing2'); this.setState('cast'); break;
-      case 'snare': g.spawn(new Trap(g, at.x, at.z, 3 * rm, 2.2 + 0.3 * rank)); sfx('push'); this.setState('cast'); break;
+      case 'snare': g.spawn(new Trap(g, at.x, at.z, 3 * rm, 2.2 + 0.3 * rank, hasSigil(g, 1, 'echosnare'))); sfx('push'); this.setState('cast'); break;
       case 'rain': g.spawn(new RainZone(g, at.x, at.z, 0.55 * rm)); sfx('gale'); this.setState('cast'); break;
-      case 'nova': frostNova(g, this.x, this.z, 1.2 * rm, 1.8 + 0.3 * rank); this.setState('cast'); break;
+      case 'nova': frostNova(g, this.x, this.z, 1.2 * rm, 1.8 + 0.3 * rank); if (hasSigil(g, 0, 'rimebloom')) g.spawn(new RimeField(g, this.x, this.z)); this.setState('cast'); break;
       case 'chain': chainLightning(g, this.x, this.z, 1.7 * rm, 4 + rank, 7, first); this.setState('cast'); break;
       case 'familiar': { for (const e of g.entities) if (e.isFamiliar) e.remove(); const u = g.pstats.uniques.has('owlhollow'); g.spawn(new Familiar(g, 0.6 * rm, u ? 1e9 : 12 + 2 * rank, u)); sfx('spawn'); this.setState('cast'); break; }
     }
@@ -305,6 +318,7 @@ export class Player extends Entity {
     const s = this.state;
     const ps = g.pstats;
     this.cds = this.cds.map(c => Math.max(0, c - dt));
+    this.rebukeT = Math.max(0, (this.rebukeT || 0) - dt);
     this.combatT = Math.max(0, (this.combatT || 0) - dt);
     // resource & regen
     g.res = Math.min(100, g.res + ps.resRegenRate * dt);
@@ -432,7 +446,10 @@ export class Player extends Entity {
         vx = Math.sin(this.facing) * 19; vz = Math.cos(this.facing) * 19;
         this.doHits(1.1, Math.PI, this.abMult, 'dash', 6, true);
         if (Math.random() < 0.8) g.fx.add({ x: this.x, y: 0.4, z: this.z, color: 0xffffff, life: 0.25, size: 0.08, g: 0 });
-        if (k >= 1) { this.setState('move'); g.fx.arc(this.x, 0.35, this.z, this.facing, 1.3, 2.4, 0xffffff, 0.18, 0.4); }
+        if (k >= 1) {
+          this.setState('move'); g.fx.arc(this.x, 0.35, this.z, this.facing, 1.3, 2.4, 0xffffff, 0.18, 0.4);
+          if (hasSigil(g, 0, 'returningcut') && this.dashFrom) g.spawn(new IaidoEcho(g, this.dashFrom.x, this.dashFrom.z, this.x, this.z, this.abMult * 0.7));
+        }
         break;
       }
       case 'tempest': {
@@ -461,7 +478,7 @@ export class Player extends Entity {
         if (this.chargeT >= 0.7 && this.chargeT - dt < 0.7) { sfx('charged'); g.fx.burst(this.x, 0.6, this.z, 10, 0xfff3b0, 1.5, { g: 0 }); }
         if (this.chargeT >= 0.7 && Math.random() < 0.4) g.fx.add({ x: this.x + Math.sin(this.facing + 0.8) * 0.4, y: 0.5 + Math.random() * 0.3, z: this.z + Math.cos(this.facing + 0.8) * 0.4, vy: 1, g: 0, color: 0xfff3b0, life: 0.3, size: 0.05 });
         if (!inp.down('attack') || locked) {
-          if (this.chargeT >= 0.7) { g.guide.event('charge'); this.setState('spin'); this.attackId++; this.hitSet.clear(); sfx('spin'); g.fx.arc(this.x, 0.3, this.z, 0, 1.9, 0, 0xfff3b0, 0.3, 0.6, true); g.fx.ring(this.x, this.z, 0.5, 2.2, 0xfff3b0, 0.3, 0.2); }
+          if (this.chargeT >= 0.7) { g.guide.event('charge'); this.faceAim(); if (hasEngraving(g, 'millwind')) g.gust(this, 1, true); this.setState('spin'); this.attackId++; this.hitSet.clear(); sfx('spin'); g.fx.arc(this.x, 0.3, this.z, 0, 1.9, 0, 0xfff3b0, 0.3, 0.6, true); g.fx.ring(this.x, this.z, 0.5, 2.2, 0xfff3b0, 0.3, 0.2); }
           else this.setState('move');
         }
         break;

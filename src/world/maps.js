@@ -170,6 +170,7 @@ export function buildOverworld() {
   g.def({ type: 'riftstone', x: 65.5, z: 56.4 });
   g.def({ type: 'board', x: 62.5, z: 64.3 });
   g.def({ type: 'bellstone', x: 56.5, z: 60.5, spawn: 'village', name: 'Thimblewick' });
+  g.def({ type: 'workbench', x: 55.3, z: 64.8 });
   g.deco('house', 55, 90, 3, 2, { roof: 0x5a8ab0, small: true });
   for (const [x, y] of [[47, 55], [48, 55], [47, 60], [48, 60], [67, 55], [68, 55], [67, 61], [68, 61]]) g.deco('fence', x, y, 1, 1);
   g.def({ type: 'sign', x: 70.5, z: 59.5, text: 'THIMBLEWICK\n"Small folk, loud bell."' });

@@ -4,6 +4,9 @@ import { initAudio, playMusic, toggleMusic, sfx } from './engine/audio.js';
 import { Game, defaultInv } from './game.js';
 import { SettingsPanel } from './settings.js';
 import * as ITEMS from './rpg/items.js';
+import * as CRAFT from './rpg/crafting.js';
+import * as COMBAT from './rpg/combat.js';
+import { Boss } from './entities/boss.js';
 
 const $ = id => document.getElementById(id);
 const TIPS = [
@@ -62,7 +65,7 @@ async function boot() {
   input = new Input();
   progress(25, 'Carving Mosslings…'); await tick();
   game = new Game(pr, input);
-  window.__game = game; window.__items = ITEMS;
+  window.__game = game; window.__items = ITEMS; window.__craft = CRAFT; window.__combat = COMBAT; window.__Boss = Boss; // test hooks
   progress(45, 'Growing Whisperwood…'); await tick();
   game.loadArea('overworld', 'start');
   game.cutscene = true;
@@ -153,7 +156,7 @@ function frame(now) {
   }
   if (mode === 'play') {
     const shopOpen = !$('shop').classList.contains('hidden');
-    if (input.pressed('pause') && !shopOpen && !game.ui.invOpen && !game.dead && !game.ui.talking) { mode = 'pause'; game.ui.openPause(); sfx('select'); return; }
+    if (input.pressed('pause') && !shopOpen && !game.ui.invOpen && !game.ui.craftOpen && !game.dead && !game.ui.talking) { mode = 'pause'; game.ui.openPause(); sfx('select'); return; }
     game.update(dt);
   }
 }

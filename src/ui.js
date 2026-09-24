@@ -2,6 +2,7 @@
 import { sfx, duckMusic } from './engine/audio.js';
 import { T } from './world/tiles.js';
 import { installRpgUI } from './ui_rpg.js';
+import { installCraftUI } from './ui_craft.js';
 import { SettingsPanel } from './settings.js';
 
 const $ = id => document.getElementById(id);
@@ -272,3 +273,4 @@ export class UI {
   }
 }
 installRpgUI(UI);
+installCraftUI(UI);

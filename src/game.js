@@ -22,6 +22,7 @@ import { flashObj } from './entities/common.js';
 import { loadSettings, applySettings } from './settings.js';
 import { Guide } from './guide.js';
 import { AimView } from './aim.js';
+import { ensureCraftState, gainMat, learn } from './rpg/crafting.js';
 import { tileBlocks } from './entities/entity.js';
 
 const SAVE_KEY = 'mossling-save-v2';
@@ -30,7 +31,8 @@ const BUILDERS = { overworld: buildOverworld, dungeon: buildDungeon, grotto: bui
 
 export function defaultInv() {
   return { cls: 'samurai', level: 1, xp: 0, sp: 0, skills: [1, 0, 0], equip: { weapon: null, helm: null, armor: null, charm: null }, bag: [], vessels: 0,
-    hp: 60, maxHp: 60, coins: 0, keys: 0, bigkey: false, bellows: false, galeValve: false, potions: 2, maxPotions: 3, chimes: [] };
+    hp: 60, maxHp: 60, coins: 0, keys: 0, bigkey: false, bellows: false, galeValve: false, potions: 2, maxPotions: 3, chimes: [],
+    mats: { shard: 0, thornheart: 0, echo: 0, ember: 0, sailcloth: 0 }, sigils: {}, sigilsOwned: [], recipes: [] };
 }
 
 export class Game {
@@ -216,6 +218,10 @@ export class Game {
     if (o.ability) dmg *= 1 + ps.abilityDmg / 100;
     if (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2) dmg *= 1.4;
     if (e.status && e.status.mark > 0) dmg *= 1.25;
+    // Rime Bloom: a frozen foe shatters under the next blow
+    if (e.status && e.status.freeze > 0 && inv.sigils && inv.sigils[0] === 'rimebloom' && inv.cls === 'witch') {
+      dmg *= 1.6; e.status.freeze = 0; this.fx.burst(e.x, 0.5, e.z, 14, [0xdff4ff, 0xffffff], 3.5); sfx('parry');
+    }
     // riposte: a parried foe is wide open — the first blow is a guaranteed crit, and all hits land harder
     let riposte = false;
     if (e.parried > 0) { dmg *= 1.5; if (!e.riposted) { e.riposted = true; riposte = true; } }
@@ -298,10 +304,13 @@ export class Game {
   salvageItem(i) {
     const inv = this.inv, it = inv.bag[i];
     if (!it) return;
+    if (it.craft) { sfx('error'); this.ui.toast('That weapon carries an engraving.', 'Move the engraving at the workbench first, or equip and salvage it later.', 2); return; }
     inv.bag.splice(i, 1);
     const v = Math.max(1, Math.round(it.value * 0.35));
+    const sh = [0, 1, 2, 4, 8][it.r] || 0;
     this.addCoins(v); sfx('pip');
-    this.ui.toast('Salvaged ' + it.name, '+' + v + ' pips', 1.2);
+    if (sh) { ensureCraftState(inv); inv.mats.shard += sh; }
+    this.ui.toast('Salvaged ' + it.name, '+' + v + ' pips' + (sh ? ` · +${sh} Hush Shard${sh > 1 ? 's' : ''}` : ''), 1.2);
   }
   dropGear(x, z, o = {}) {
     const it = genItem({ level: o.level || this.inv.level, cls: Math.random() < 0.75 ? this.inv.cls : null, mf: this.pstats.mf, floor: o.floor || 0, bonus: o.bonus || 0 });
@@ -345,6 +354,7 @@ export class Game {
     try {
       const s = JSON.parse(localStorage.getItem(SAVE_KEY));
       this.inv = Object.assign(defaultInv(), s.inv); this.flags = s.flags || {}; this.checkpoint = s.checkpoint || this.checkpoint;
+      ensureCraftState(this.inv); // saves from before crafting simply start with empty pouches
       this.playTime = s.playTime || 0; this.stats = s.stats || {};
       this.recalc(); this.inv.hp = this.inv.maxHp;
       return true;
@@ -424,6 +434,7 @@ export class Game {
       case 'board': e = new O.Sign(this, { ...d, text: '' }); e.interact = () => this.story.board(); Object.defineProperty(e, 'prompt', { get: () => 'Bounties' }); e.obj.visible = false; e.solid = false; break;
       case 'npc': e = new O.NPC(this, d); break;
       case 'bellstone': e = new O.Bellstone(this, d); break;
+      case 'workbench': e = new O.Workbench(this, d); break;
       case 'bell': e = new O.Bell(this, d); break;
       case 'gate': e = new O.Gate(this, d); break;
       case 'windmill': e = new O.Windmill(this, d); break;
@@ -581,6 +592,14 @@ export class Game {
       this.spawnChime();
       if (!this.flags.bossHeart) { this.flags.bossHeart = true; const h = new Pickup(this, b.x - 2, b.z + 2.5, 'heartfull'); this.spawn(h); }
       this.gainXp(350);
+      // the guardian's heart, plus an essence suited to your class (first kill only, saved at once)
+      if (!this.flags.bossMats) {
+        this.flags.bossMats = true;
+        gainMat(this, 'thornheart', 1, b.x, b.z + 2);
+        gainMat(this, { samurai: 'thornheart', archer: 'echo', witch: 'ember' }[this.inv.cls], 1, b.x, b.z + 2);
+        gainMat(this, 'shard', 6);
+        learn(this, { samurai: 'thornrebuke', archer: 'echofletch', witch: 'emberseeds' }[this.inv.cls]);
+      }
       this.dropGear(b.x - 1, b.z + 2, { level: 6, floor: 3, bonus: 1 }); this.dropGear(b.x + 1, b.z + 2, { level: 6, floor: 2, bonus: 0.6 }); this.dropGear(b.x, b.z + 2.5, { level: 5, floor: 2 });
       this.save();
     }, 1200);
@@ -598,6 +617,12 @@ export class Game {
     this.procDepth = this.procDepth || 0;
     if (ps.uniques.has('hexbloom') && this.procDepth < 2) { this.procDepth++; try { blast(this, e.x, e.z, 1.8, 0.9, 0x8b5cf6, { ability: true }); } finally { this.procDepth--; } }
     if (e.elite === 'Volatile') { this.fx.ring(e.x, e.z, 0.2, 2, 0xffb347, 0.4); const p = this.player; if (Math.hypot(p.x - e.x, p.z - e.z) < 2) p.hurt({ dmg: 2, x: e.x, z: e.z, src: e, kb: 6 }); }
+    // crafting materials come from the fights you already have, not a separate gathering game
+    if (e.elite) gainMat(this, 'shard', 1 + (Math.random() < 0.5 ? 1 : 0));
+    if (e.champion && Math.random() < 0.5) gainMat(this, 'echo', 1, e.x, e.z);
+    if (e.kind === 'treant' && Math.random() < 0.3) gainMat(this, 'thornheart', 1, e.x, e.z);
+    if ((e.kind === 'imp' && Math.random() < 0.1) || (e.elite === 'Volatile' && Math.random() < 0.4)) gainMat(this, 'ember', 1, e.x, e.z);
+    if (e.kind === 'wraith' && e.elite && Math.random() < 0.3) gainMat(this, 'echo', 1, e.x, e.z);
     const lvl = e.level || this.inv.level;
     if (e.elite) { this.dropGear(e.x, e.z, { level: lvl, floor: 2, bonus: 0.6 }); if (Math.random() < 0.4) this.dropGear(e.x, e.z, { level: lvl, floor: 1 }); }
     else if (Math.random() < ({ knight: 0.6, beetle: 0.14, puffer: 0.12 }[e.kind] ?? 0.08) * (1 + ps.mf / 200)) this.dropGear(e.x, e.z, { level: lvl, floor: e.kind === 'knight' ? 1 : 0 });
@@ -673,7 +698,7 @@ export class Game {
     }
     return true;
   }
-  gust(p, power) {
+  gust(p, power, fromWeapon) {
     const valve = this.inv.galeValve ? 1.4 : 1;
     const range = (power === 2 ? 7 : 4.5) * valve;
     const half = power === 2 ? 0.5 : 0.36;
@@ -824,6 +849,7 @@ export class Game {
     this.ui.update(dt);
     if (this.dead) { this.aimView.hide(); if (input.pressed('interact')) this.revive(); this.render(dt); return; }
     if (this.ui.updateShop(input)) { this.render(dt); return; }
+    if (this.ui.updateCraft(input)) { this.render(dt); return; }
     if (this.ui.updateInventory(input)) { this.render(dt); return; }
     if (input.pressed('inventory') && !this.locked() && !this.dead) { this.ui.openInventory(); this.render(dt); return; }
     const talking = this.ui.updateDialog(dt, input);

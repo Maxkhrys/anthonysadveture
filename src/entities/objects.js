@@ -522,6 +522,19 @@ export class Bellstone extends Entity {
     if (Math.random() < (here ? 0.12 : 0.04)) this.g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.5, y: 0.6, z: this.z + (Math.random() - 0.5) * 0.5, vy: 0.7, g: 0, color: 0xfff3b0, life: 0.8, size: 0.04 });
   }
 }
+// Posy's workbench: where essences are worked into weapons and sigils.
+export class Workbench extends Entity {
+  constructor(g, d) {
+    super(g, d.x, d.z);
+    this.solid = true; this.hw = 0.45; this.hd = 0.3; this.interactable = true;
+    this.obj.add(mesh([B(0.9, 0.08, 0.55, 0, 0.42, 0, 0x9a6a3a), B(0.08, 0.42, 0.08, -0.38, 0.2, -0.2, 0x6a4a2a), B(0.08, 0.42, 0.08, 0.38, 0.2, -0.2, 0x6a4a2a), B(0.08, 0.42, 0.08, -0.38, 0.2, 0.2, 0x6a4a2a), B(0.08, 0.42, 0.08, 0.38, 0.2, 0.2, 0x6a4a2a),
+      B(0.3, 0.12, 0.16, -0.15, 0.52, 0, 0x5a5a6a), B(0.16, 0.06, 0.1, -0.3, 0.6, 0, 0x6a6a7a), B(0.04, 0.2, 0.04, 0.2, 0.56, 0.08, 0x8a6a3a), B(0.14, 0.06, 0.06, 0.2, 0.66, 0.08, 0x9a9aa8), B(0.12, 0.1, 0.12, 0.3, 0.51, -0.12, 0xc9a8ff)]));
+    this.t = 0;
+  }
+  get prompt() { return 'Use the workbench'; }
+  interact() { this.g.guide.event && this.g.guide.event('craft'); this.g.ui.openCraft(); }
+  update(dt) { this.t += dt; if (Math.random() < 0.03) this.g.fx.add({ x: this.x + 0.3, y: 0.6, z: this.z - 0.12, vy: 0.6, g: 0, color: 0xc9a8ff, life: 0.6, size: 0.04 }); }
+}
 export class NPC extends Entity {
   constructor(g, d) {
     super(g, d.x, d.z);

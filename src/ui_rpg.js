@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { sfx } from './engine/audio.js';
 import { CLASSES, xpNeed, computeStats } from './rpg/classes.js';
 import { RARITY, AFFIXES, itemIcon, itemPower, statLine, baseById } from './rpg/items.js';
+import { recipeById, MATS } from './rpg/crafting.js';
 
 const $ = id => document.getElementById(id);
 const AB_ICON = { iaido: '💨', tempest: '🌀', oni: '👹', multishot: '🎯', snare: '🪤', rain: '🌧️', nova: '❄️', chain: '⚡', familiar: '🐈‍⬛' };
@@ -122,6 +123,7 @@ export function installRpgUI(UI) {
     }
     h += lines.join('');
     if (it.utext) h += `<div class="uq">★ ${it.utext}</div>`;
+    if (it.craft) { const r = recipeById(it.craft); h += `<div class="uq" style="color:#9ad8ff">✦ ${r.name}: ${r.effect}</div>`; }
     h += `<div class="sub" style="margin-top:4px">Salvage: ${Math.max(1, Math.round(it.value * 0.35))} pips · Power ${itemPower(it)}</div>`;
     return `<div class="tt">${h}</div>`;
   };
@@ -136,7 +138,7 @@ export function installRpgUI(UI) {
     const ps = g.pstats;
     const C = CLASSES[inv.cls];
     const row = (a, b) => `<div>${a}: <b>${b}</b></div>`;
-    $('statsheet').innerHTML = [row('Class', C.name), row('Level', inv.level), row('XP', inv.xp + '/' + xpNeed(inv.level)), row('Health', Math.round(inv.hp) + '/' + inv.maxHp), row('Damage', ps.wmin + '–' + ps.wmax), row('Atk speed', ps.wspd.toFixed(2)), row('Crit', ps.crit.toFixed(0) + '%'), row('Crit dmg', '+' + ps.critDmg + '%'), row('Armour', ps.armor), row('Dmg +', ps.dmgPct + '%'), row('Life steal', ps.lifesteal + '%'), row('Cooldowns', '-' + ps.cdr + '%'), row('Move', '+' + ps.moveSpd + '%'), row('Magic find', ps.mf + '%'), row('Pips', inv.coins), row('Bag', inv.bag.length + '/30')].join('');
+    $('statsheet').innerHTML = [row('Class', C.name), row('Level', inv.level), row('XP', inv.xp + '/' + xpNeed(inv.level)), row('Health', Math.round(inv.hp) + '/' + inv.maxHp), row('Damage', ps.wmin + '–' + ps.wmax), row('Atk speed', ps.wspd.toFixed(2)), row('Crit', ps.crit.toFixed(0) + '%'), row('Crit dmg', '+' + ps.critDmg + '%'), row('Armour', ps.armor), row('Dmg +', ps.dmgPct + '%'), row('Life steal', ps.lifesteal + '%'), row('Cooldowns', '-' + ps.cdr + '%'), row('Move', '+' + ps.moveSpd + '%'), row('Magic find', ps.mf + '%'), row('Pips', inv.coins), row('Bag', inv.bag.length + '/30')].join('') + (inv.mats ? `<div style="margin-top:6px;font-size:13px">${Object.keys(MATS).filter(k => inv.mats[k]).map(k => `<span title="${MATS[k].desc}"><b style="color:${MATS[k].color}">${MATS[k].icon}</b> ${MATS[k].name} ×${inv.mats[k]}</span>`).join('<br>') || '<span style="color:#a99">No crafting materials yet.</span>'}</div>` : '');
     let cells = '';
     for (let i = 0; i < 30; i++) {
       const it = inv.bag[i];
