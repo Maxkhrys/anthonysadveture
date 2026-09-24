@@ -619,6 +619,17 @@ export class NPC extends Entity {
     this.obj.rotation.y = this.facing;
     this.m.body.position.y = Math.abs(Math.sin(t * 8)) * 0.04 * (sp > 0 ? 1 : 0) + Math.sin(t * 2 + this.home.x) * 0.01;
     this.m.armL.rotation.x = sp ? Math.sin(t * 8) * 0.5 : 0; this.m.armR.rotation.x = sp ? -Math.sin(t * 8) * 0.5 : 0;
+    this.m.armL.rotation.z = 0; this.m.armR.rotation.z = 0; this.m.body.rotation.x = 0; this.m.body.rotation.y = 0; this.m.head.rotation.z = 0;
+    // little working routines when nobody is talking to them (presentation only)
+    if (!sp && d > 2.2 && !(this.talkT > 0)) {
+      const W = { posy: 'wipe', oswin: 'haul', tamsin: 'ponder', fisher: 'cast', ada: 'cast', brisk: 'guard', fennel: 'play', hermit: 'ponder' }[this.id];
+      if (W === 'wipe') { this.m.armR.rotation.x = -1.1; this.m.armR.rotation.z = Math.sin(t * 5) * 0.5; this.m.body.rotation.x = 0.12; }
+      if (W === 'haul') { const k = (Math.sin(t * 1.4) + 1) / 2; this.m.armL.rotation.x = this.m.armR.rotation.x = -0.9 - k * 0.6; this.m.body.rotation.x = 0.2 * k; if (g.flags.q_mill === 2 && Math.random() < 0.03) g.fx.add({ x: this.x, y: 0.7, z: this.z, vy: 0.4, g: 0, color: 0xf2e2c0, life: 0.8, size: 0.04 }); }
+      if (W === 'ponder') { this.m.armR.rotation.x = -1.6; this.m.armR.rotation.z = 0.6; this.m.head.rotation.z = Math.sin(t * 0.8) * 0.08; }
+      if (W === 'cast') { this.m.armR.rotation.x = -0.6 + Math.sin(t * 0.9) * 0.15; }
+      if (W === 'guard') { this.m.body.rotation.y = Math.sin(t * 0.5) * 0.4; }
+      if (W === 'play') { this.m.body.position.y += Math.abs(Math.sin(t * 6)) * 0.08; this.m.armL.rotation.z = -1.2; this.m.armR.rotation.z = 1.2; }
+    }
     if (this.talkT > 0) { this.talkT -= dt; this.m.head.rotation.x = Math.sin(t * 18) * 0.08; } else this.m.head.rotation.x = 0;
     this.bubble.visible = g.story.hasNews(this.id);
     this.bubble.position.y = 1.35 + Math.sin(t * 4) * 0.05;

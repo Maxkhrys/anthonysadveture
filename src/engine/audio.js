@@ -88,6 +88,7 @@ const SFX = {
   error: () => tone(140, 0.2, { vol: 0.2, type: 'sawtooth' }),
   windup: () => tone(N(58), 0.3, { type: 'sawtooth', vol: 0.06, slide: 1.6 }),
   shoot: () => { noise(0.15, { freq: 900, vol: 0.2 }); tone(300, 0.12, { slide: 0.5, vol: 0.12, type: 'triangle' }); },
+  bossSting: () => { [38, 41, 45].forEach(n => tone(N(n), 1.6, { type: 'sawtooth', vol: 0.1 })); [50, 53, 57].forEach((n, i) => tone(N(n), 0.5, { type: 'square', vol: 0.08, delay: 0.5 + i * 0.12 })); noise(0.9, { freq: 160, vol: 0.3, delay: 0.5 }); },
   roar: () => { tone(80, 1.2, { type: 'sawtooth', vol: 0.25, slide: 0.6 }); noise(1.2, { freq: 300, vol: 0.4, slide: 0.5 }); },
   inhale: () => noise(1.6, { freq: 200, slide: 6, vol: 0.35, q: 0.8 }),
   bossdie: () => { for (let i = 0; i < 6; i++) { noise(0.4, { freq: 300 + i * 200, vol: 0.4, delay: i * 0.18 }); tone(200 - i * 20, 0.3, { vol: 0.2, delay: i * 0.18, slide: 0.5 }); } },

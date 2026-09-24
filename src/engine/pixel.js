@@ -33,12 +33,13 @@ export class PixelRenderer {
         offset: { value: new THREE.Vector2() }, flash: { value: 0 }, flashColor: { value: new THREE.Color() },
         vignette: { value: 0.35 }, grade: { value: new THREE.Vector3(1, 1, 1) }, near: { value: 0.1 }, far: { value: 120 },
         desat: { value: 0 }, bloom: { value: 0.22 },
+        fogColor: { value: new THREE.Color(0xc8d8f0) }, fogAmt: { value: 0 }, fogNear: { value: 44 }, fogFar: { value: 60 }, contrast: { value: 1.0 },
       },
       vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy,0.,1.); }`,
       fragmentShader: `
         uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 texel; uniform vec2 offset;
         uniform float flash; uniform vec3 flashColor; uniform float vignette; uniform vec3 grade;
-        uniform float near; uniform float far; uniform float desat; uniform float bloom;
+        uniform float near; uniform float far; uniform float desat; uniform float bloom; uniform vec3 fogColor; uniform float fogAmt; uniform float fogNear; uniform float fogFar; uniform float contrast;
         varying vec2 vUv;
         float dep(vec2 uv){ return texture2D(tDepth, uv).r * (far-near); }
         void main(){
@@ -61,7 +62,11 @@ export class PixelRenderer {
             glow += max(texture2D(tColor, px + o * 2.0).rgb - 0.7, 0.0) + max(texture2D(tColor, px + o * 4.5).rgb - 0.7, 0.0) * 0.6;
           }
           c += glow * bloom;
+          // aerial perspective: things further up the screen (further from the camera) haze out
+          float fd = clamp((d - fogNear) / (fogFar - fogNear), 0.0, 1.0);
+          c = mix(c, fogColor, fd * fogAmt * (1.0 - edge * 0.5));
           c *= grade;
+          c = (c - 0.5) * contrast + 0.5;
           float l = dot(c, vec3(0.299,0.587,0.114));
           c = mix(c, vec3(l), desat);
           // gentle palette banding with ordered dither

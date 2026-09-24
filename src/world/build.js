@@ -8,6 +8,11 @@ import { geo, MAT, PROPS, decoModel, B } from '../models.js';
 export const windUniform = { value: 0 };
 // Geometry south of the current dungeon room is cut down to a stump so walls never hide the player.
 export const clipUniform = { value: 1e9 };
+// Shared, animated by Game.atmosphere(): water light level, rain amount, sky tint.
+export const waterU = { light: { value: 1 }, rain: { value: 0 }, sky: { value: new THREE.Color(0x9ad8ff) }, night: { value: 0 } };
+// Window panes and lamp glass warm up at night.
+export const windowMat = new THREE.MeshBasicMaterial({ color: 0x7ab8e8 });
+export const lampMat = new THREE.MeshBasicMaterial({ color: 0x8a7a5a });
 
 export function tileHeight(area, x, y) {
   if (x < 0 || y < 0 || x >= area.w || y >= area.h) return 3;
@@ -87,8 +92,8 @@ export function buildTerrain(area) {
       while (yb < hh - 0.001) {
         const yt = Math.min(hh, yb + band);
         const src = (Math.floor(yb / band + hash2(x, y, 9) * 2) + (t === T.WALL ? (x + y) : 0)) % 2 ? sideA : sideB;
-        const ao0 = t === T.PIT ? 0.15 : Math.min(1, 0.55 + (yb - bottom) / 2.5);
-        const ao1 = t === T.PIT ? 0.15 : Math.min(1, 0.55 + (yt - bottom) / 2.5);
+        const ao0 = t === T.PIT ? 0.15 : Math.min(1, 0.7 + (yb - bottom) / 2.5);
+        const ao1 = t === T.PIT ? 0.15 : Math.min(1, 0.7 + (yt - bottom) / 2.5);
         const s = 0.92 + hash2(x + i, y, 4) * 0.12;
         const cb = [src.r * ao0 * s, src.g * ao0 * s, src.b * ao0 * s], ct = [src.r * ao1 * s, src.g * ao1 * s, src.b * ao1 * s];
         quad([p0[0], yb, p0[1]], [p1[0], yb, p1[1]], [p1[0], yt, p1[1]], [p0[0], yt, p0[1]], n, cb, cb, ct, ct);
@@ -105,8 +110,22 @@ export function buildTerrain(area) {
   const tm = MAT.clone(); tm.side = THREE.DoubleSide;
   tm.onBeforeCompile = sh => {
     sh.uniforms.clipZ = clipUniform;
-    sh.vertexShader = 'varying vec3 vWP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vWP = (modelMatrix * vec4(position, 1.0)).xyz;');
-    sh.fragmentShader = 'uniform float clipZ; varying vec3 vWP;\n' + sh.fragmentShader.replace('void main() {', 'void main() {\n if (vWP.z > clipZ && vWP.y > 0.32) discard;');
+    sh.vertexShader = 'varying vec3 vWP; varying vec3 vWN;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vWP = (modelMatrix * vec4(position, 1.0)).xyz; vWN = normalize(mat3(modelMatrix) * normal);');
+    sh.fragmentShader = 'uniform float clipZ; varying vec3 vWP; varying vec3 vWN;\n float h21(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }\n' + sh.fragmentShader
+      .replace('void main() {', 'void main() {\n if (vWP.z > clipZ && vWP.y > 0.32) discard;')
+      // painted ground detail: pixel speckle + soft patches, so tiles stop reading as a grid
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        if (vWN.y > 0.5) {
+          float h1 = h21(floor(vWP.xz * 6.0));
+          float h2 = h21(floor(vWP.xz * 1.35 + 17.0));
+          float h3 = h21(floor(vWP.xz * 0.45 + 3.0));
+          float green = clamp((diffuseColor.g - max(diffuseColor.r, diffuseColor.b)) * 6.0, 0.0, 1.0);
+          diffuseColor.rgb *= 0.95 + (h1 - 0.5) * (0.07 + 0.09 * green) + (h2 - 0.5) * 0.07 + (h3 - 0.5) * 0.05;
+          diffuseColor.rgb += vec3(0.02, 0.035, -0.01) * green * step(0.93, h1);
+        } else {
+          float hs = h21(floor(vec2(vWP.x + vWP.z, vWP.y) * vec2(5.0, 8.0)));
+          diffuseColor.rgb *= 0.94 + hs * 0.1;
+        }`);
   };
   const m = new THREE.Mesh(g, tm);
   m.receiveShadow = true; m.castShadow = true;
@@ -135,20 +154,39 @@ export function buildLiquids(area, time) {
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('shore', new THREE.Float32BufferAttribute(shore, 1));
     const mat = new THREE.ShaderMaterial({
-      uniforms: { time, a: { value: new THREE.Color(shallowCol) }, b: { value: new THREE.Color(deepCol) }, f: { value: new THREE.Color(foamCol) }, lava: { value: lava ? 1 : 0 } },
+      uniforms: { time, a: { value: new THREE.Color(shallowCol) }, b: { value: new THREE.Color(deepCol) }, f: { value: new THREE.Color(foamCol) }, lava: { value: lava ? 1 : 0 }, ...waterU },
       vertexShader: `attribute float shore; varying float vS; varying vec3 vW; void main(){ vS = shore; vec4 w = modelMatrix*vec4(position,1.); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }`,
-      fragmentShader: `uniform float time; uniform vec3 a; uniform vec3 b; uniform vec3 f; uniform float lava; varying float vS; varying vec3 vW;
+      fragmentShader: `uniform float time; uniform vec3 a; uniform vec3 b; uniform vec3 f; uniform float lava; uniform float light; uniform float rain; uniform vec3 sky; uniform float night; varying float vS; varying vec3 vW;
+        float h21(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
         void main(){
           vec2 p = vW.xz;
           float wv = sin(p.x*1.3 + time*1.1 + sin(p.y*0.9+time*0.7)*1.5) + sin(p.y*1.7 - time*0.9 + p.x*0.4);
           float t = clamp(wv*0.25+0.5,0.,1.);
-          vec3 c = mix(b, a, t*0.6 + vS*0.4);
-          float band = step(0.93, fract((p.x*0.35 + p.y*0.5) + sin(p.y*0.8+time*0.6)*0.25 + time*0.08));
-          c = mix(c, f, band*0.35*(1.0-lava));
-          float foam = smoothstep(0.75, 1.0, vS + sin(time*2.0 + p.x*3.0 + p.y*2.0)*0.12);
-          c = mix(c, f, foam*0.6);
+          // deeper toward the middle: distance to shore approximated by a soft noise over vS
+          vec3 c = mix(b, a, t*0.45 + vS*0.55);
+          // faked sky reflection on wave faces
+          c = mix(c, sky, 0.18 * smoothstep(0.55, 0.95, t) * (1.0 - lava));
+          // crest lines (quantised) drifting with the wind
+          float crest = step(0.9, fract((p.x*0.35 + p.y*0.5) + sin(p.y*0.8+time*0.6)*0.25 + time*0.08));
+          c = mix(c, f, crest*0.3*(1.0-lava));
+          // animated shoreline foam that laps in and out
+          float lap = 0.5 + 0.5*sin(time*1.6 + p.x*0.9 + p.y*0.7);
+          float foam = smoothstep(0.62 - lap*0.18, 1.0, vS + (h21(floor(p*5.0))-0.5)*0.25);
+          c = mix(c, f, foam*0.75*(1.0-lava));
+          // sun/moon glints
+          float gl = step(0.985, h21(floor(p*6.0) + floor(time*3.0 + h21(floor(p*6.0))*7.0)));
+          c += gl * (night > 0.5 ? vec3(0.35,0.4,0.55) : vec3(0.6,0.6,0.5)) * (1.0-lava) * (1.0 - vS);
+          // rain rings
+          if (rain > 0.01 && lava < 0.5) {
+            vec2 cell = floor(p*1.4); vec2 fr = fract(p*1.4) - 0.5;
+            float ph = h21(cell); float rr = fract(time*1.3 + ph*7.0) * 0.45;
+            float ring = 1.0 - smoothstep(0.0, 0.05, abs(length(fr - (vec2(h21(cell+3.1), h21(cell+7.7))-0.5)*0.4) - rr));
+            c = mix(c, f, ring * rain * 0.55 * (1.0 - rr*2.0));
+          }
           if (lava > 0.5) c += vec3(0.35,0.12,0.0) * (0.5+0.5*sin(time*2.0+p.x+p.y));
+          c *= lava > 0.5 ? 1.0 : light;
           gl_FragColor = vec4(c, 1.0);
+          #include <colorspace_fragment>
         }`,
       side: THREE.DoubleSide,
     });
@@ -200,8 +238,18 @@ export { Instancer };
 export function buildScenery(area) {
   const group = new THREE.Group();
   const { w, h, tiles } = area;
-  const inst = {};
-  const I = (name, max, sway) => inst[name] || (inst[name] = new Instancer(PROPS[name](), max, sway));
+  area.chimneys = []; area.lights = [];
+  const walk = t => t === T.GRASS || t === T.FLOWERS || t === T.FOREST || t === T.PATH || t === T.SAND || t === T.MOSS;
+  // Scenery is collected per prop type *and* per map chunk, then built into exactly-sized
+  // instanced meshes with real bounds, so the camera only draws the chunks it can see.
+  const CH = 16, bins = new Map(), geos = {};
+  const FLAT = new Set(['clover', 'leaf', 'leafG', 'twig', 'button', 'coin', 'rootlet', 'stones', 'flower', 'flowerR', 'flowerB', 'pebble', 'toadstools']);
+  const I = (name, max, sway) => ({ add(x, y, z, ry = 0, sc = 1, sy = sc) {
+    const key = name + '|' + Math.floor(x / CH) + ',' + Math.floor(z / CH);
+    let b = bins.get(key);
+    if (!b) { b = { name, sway, list: [] }; bins.set(key, b); }
+    b.list.push(x, y, z, ry, sc, sy);
+  } });
   // deco footprint map
   const decoMask = new Uint8Array(w * h);
   for (const d of area.defs) if (d.type === 'deco') {
@@ -210,6 +258,19 @@ export function buildScenery(area) {
     const m = new THREE.Mesh(geo(decoModel(d)), MAT);
     m.position.set(d.x, 0, d.z); m.castShadow = true; m.receiveShadow = true;
     group.add(m);
+    // lit windows, chimney smoke and lamp glass for the atmosphere pass
+    if (d.model === 'house') {
+      const W = d.w - 0.2, D = d.d - 0.3, H = d.big ? 1.3 : d.small ? 0.9 : 1.1;
+      const wm = new THREE.Mesh(geo([B(0.26, 0.22, 0.02, -W / 2 + 0.45, 0.47, D / 2 + 0.035, 0xffffff), B(0.26, 0.22, 0.02, W / 2 - 0.45, 0.47, D / 2 + 0.035, 0xffffff)]), windowMat);
+      wm.position.copy(m.position); group.add(wm);
+      area.chimneys.push({ x: d.x + W * 0.25, y: H + 1.05, z: d.z - 0.2 });
+      area.lights.push({ x: d.x, z: d.z + D / 2 + 0.6, kind: 'window' });
+    }
+    if (d.model === 'lamppost') {
+      const gm = new THREE.Mesh(geo([B(0.15, 0.17, 0.15, 0.3, 0.99, 0, 0xffffff)]), lampMat);
+      gm.position.copy(m.position); group.add(gm);
+      area.lights.push({ x: d.x + 0.3, z: d.z, y: 1.1, kind: 'lamp' });
+    }
   }
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const t = tiles[y * w + x];
@@ -223,7 +284,15 @@ export function buildScenery(area) {
       else if (tiles[y * w + x - 1] === T.FOREST || tiles[y * w + x + 1] === T.FOREST || near(T.FOREST)) kind = r < 0.5 ? 'pine' : r < 0.95 ? 'oak' : 'shroom';
       else kind = r < 0.6 ? 'oak' : 'birch';
       const s = 0.95 + r2 * 0.5;
-      I(kind, 3000).add(cx, 0, cz, r * 6.28, s, s * (0.9 + r * 0.4));
+      // Now and then a tree tile at the edge of a clearing is something from the big folk's
+      // world instead. The tile still blocks exactly as before, so navigation is unchanged.
+      let edge = false;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (walk(tiles[(y + dy) * w + x + dx])) edge = true;
+      const gk = hash2(x, y, 71);
+      if (area.id === 'overworld' && edge && gk < 0.055 && (kind === 'oak' || kind === 'pine' || kind === 'birch')) {
+        const giant = ['giantAcorn', 'thimble', 'teacup', 'spool', 'bucket', 'log', 'matchbox', 'giantAcorn', 'log', 'trowel'][Math.floor(hash2(x, y, 72) * 10)];
+        I(giant, 200).add(x + 0.5, 0, y + 0.5, r * 6.28, 1.05 + r2 * 0.25);
+      } else I(kind, 3000).add(cx, 0, cz, r * 6.28, s, s * (0.9 + r * 0.4));
     } else if (t === T.PROP && !decoMask[y * w + x]) {
       I('stake', 300).add(x + 0.5, 0, y + 0.5, r * 0.5, 1);
     } else if (t === T.FLOWERS) {
@@ -234,8 +303,26 @@ export function buildScenery(area) {
       }
     } else if (t === T.GRASS || t === T.FOREST) {
       if (r > 0.55) I('tuft', 12000, true).add(cx, 0, cz, r2 * 6.28, 0.7 + r2 * 0.6);
+      if (r > 0.3 && r < 0.42) I('tuft', 12000, true).add(x + hash2(x, y, 41), 0, y + hash2(x, y, 42), r2 * 3, 0.5 + r2 * 0.4); // second, smaller tuft breaks up the grid
       if (t === T.FOREST && r2 > 0.97) I('shroom', 3000).add(cx, 0, cz, r * 6, 0.35);
       if (r2 < 0.012) I('pebble', 500).add(cx, 0, cz, r * 6, 0.8 + r);
+      const d3 = hash2(x, y, 51), px = x + hash2(x, y, 52) * 0.8 + 0.1, pz = y + hash2(x, y, 53) * 0.8 + 0.1;
+      let nearTree = false;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (tiles[(y + dy) * w + x + dx] === T.TREE) nearTree = true;
+      if (t === T.FOREST) {
+        if (d3 < 0.22) I(d3 < 0.12 ? 'leaf' : 'leafG', 9000).add(px, 0.01, pz, d3 * 40, 0.9 + d3);
+        else if (d3 < 0.27) I('fern', 3000, true).add(px, 0, pz, d3 * 30, 0.9 + d3 * 2);
+        else if (d3 < 0.3) I('twig', 1500).add(px, 0.01, pz, d3 * 50, 1);
+      } else {
+        if (d3 < 0.05) I('clover', 5000).add(px, 0.005, pz, d3 * 90, 1);
+        else if (d3 < 0.065) I('stones', 2000).add(px, 0, pz, d3 * 60, 0.8 + d3 * 4);
+        else if (d3 < 0.07 && area.id === 'overworld') I(hash2(x, y, 54) < 0.6 ? 'button' : 'coin', 300).add(px, 0.005, pz, d3 * 70, 0.8);
+      }
+      if (nearTree && d3 > 0.8 && d3 < 0.88) I('toadstools', 3000).add(px, 0, pz, d3 * 20, 0.9 + d3 * 0.4);
+      if (nearTree && d3 > 0.92) I('rootlet', 2000).add(px, 0.005, pz, d3 * 30, 0.9);
+    } else if (t === T.PATH) {
+      const d3 = hash2(x, y, 55);
+      if (d3 < 0.05) I('stones', 2000).add(x + 0.2 + d3 * 10, 0, y + hash2(x, y, 56) * 0.8, d3 * 60, 0.6);
     } else if (t === T.SAND) {
       if (r > 0.985 && area.id === 'overworld' && x > 118) I('cactus', 400).add(cx, 0, cz, r2 * 6, 0.8);
       else if (r > 0.97) I(y > 90 ? 'bone' : 'pebble', 500).add(cx, 0, cz, r2 * 6, 0.6);
@@ -258,6 +345,33 @@ export function buildScenery(area) {
       if (wet) I('reed', 3000, true).add(cx, 0, cz, r * 6, 1 + r);
     }
   }
-  for (const k in inst) { inst[k].mesh.instanceMatrix.needsUpdate = true; group.add(inst[k].mesh); }
+  // village clutter tucked against house walls (inside their footprints, so nothing new blocks)
+  for (const d of area.defs) if (d.type === 'deco' && (d.model === 'house' || d.model === 'shop')) {
+    const W = d.w - 0.2, D = d.d - 0.3;
+    const spots = [[-W / 2 + 0.22, D / 2 + 0.05], [W / 2 - 0.22, D / 2 + 0.05], [-W / 2 - 0.02, -D / 4], [W / 2 + 0.02, 0]];
+    spots.forEach(([ox, oz], i) => {
+      const k = hash2(Math.round(d.x * 7) + i, Math.round(d.z * 7), 61);
+      if (k < 0.3) return;
+      const kind = ['barrel', 'crates', 'pot', 'sacks', 'pot'][Math.floor(k * 5)];
+      I(kind, 400).add(d.x + ox, 0, d.z + oz, k * 6, 0.8);
+    });
+  }
+  const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+  const swayMats = {};
+  for (const b of bins.values()) {
+    const g = geos[b.name] || (geos[b.name] = geo(PROPS[b.name]()));
+    let mat = MAT;
+    if (b.sway) mat = swayMats.m || (swayMats.m = new Instancer(PROPS.tuft(), 1, true).mesh.material);
+    const n = b.list.length / 6, mesh = new THREE.InstancedMesh(g, mat, n);
+    for (let i = 0; i < n; i++) {
+      const o = i * 6;
+      _m.compose(_p.set(b.list[o], b.list[o + 1], b.list[o + 2]), _q.setFromAxisAngle(_up, b.list[o + 3]), _s.set(b.list[o + 4], b.list[o + 5], b.list[o + 4]));
+      mesh.setMatrixAt(i, _m);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere(); mesh.boundingSphere.radius += 1.5; // sway + tall props
+    mesh.frustumCulled = true; mesh.castShadow = !b.sway && !FLAT.has(b.name); mesh.receiveShadow = false;
+    group.add(mesh);
+  }
   return group;
 }

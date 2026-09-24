@@ -11,17 +11,22 @@ export class FX {
     this.mesh.frustumCulled = false;
     this.mesh.count = 0;
     scene.add(this.mesh);
+    // soft, translucent particles (smoke, mist, spores) in their own batch
+    this.soft = new THREE.InstancedMesh(g, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.42, depthWrite: false }), 500);
+    this.soft.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(500 * 3), 3);
+    this.soft.frustumCulled = false; this.soft.count = 0; this.soft.renderOrder = 2;
+    scene.add(this.soft);
     this.p = [];
     this.arcs = [];
     this.rings = [];
     this._m = new THREE.Matrix4(); this._c = new THREE.Color(); this._q = new THREE.Quaternion(); this._s = new THREE.Vector3(); this._v = new THREE.Vector3();
     this.ambient = null; this.ambientT = 0;
   }
-  clear() { this.p.length = 0; for (const a of this.arcs) this.scene.remove(a.m); this.arcs.length = 0; for (const r of this.rings) this.scene.remove(r.m); this.rings.length = 0; }
+  clear() { this.p.length = 0; for (const a of this.arcs) this.scene.remove(a.m); this.arcs.length = 0; for (const r of this.rings) { this.scene.remove(r.m); r.m.material.dispose(); } this.rings.length = 0; }
   add(o) {
     if (this.p.length >= MAX) this.p.shift();
     this.p.push({ x: o.x, y: o.y ?? 0.3, z: o.z, vx: o.vx ?? 0, vy: o.vy ?? 0, vz: o.vz ?? 0, life: o.life ?? 0.6, max: o.life ?? 0.6,
-      size: o.size ?? 0.08, color: new THREE.Color(o.color ?? 0xffffff), g: o.g ?? 6, drag: o.drag ?? 1.5, shrink: o.shrink ?? true, floor: o.floor ?? 0, stretch: o.stretch ?? 0 });
+      size: o.size ?? 0.08, color: new THREE.Color(o.color ?? 0xffffff), g: o.g ?? 6, drag: o.drag ?? 1.5, shrink: o.shrink ?? true, floor: o.floor ?? 0, stretch: o.stretch ?? 0, grow: o.grow ?? 0, wob: o.wob ?? 0, ph: Math.random() * 6, soft: !!o.soft });
   }
   burst(x, y, z, n, color, speed = 3, opts = {}) {
     for (let i = 0; i < n; i++) {
@@ -57,7 +62,7 @@ export class FX {
     this.arcs.push({ m, t: 0, dur });
   }
   ring(x, z, r0, r1, color = 0xfff3b0, dur = 0.5, y = 0.1) {
-    const g = new THREE.RingGeometry(0.8, 1, 40);
+    const g = FX.ringGeo || (FX.ringGeo = new THREE.RingGeometry(0.8, 1, 40)); // shared; only the material is per-ring
     const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }));
     m.rotation.x = -Math.PI / 2; m.position.set(x, y, z);
     this.scene.add(m);
@@ -78,7 +83,7 @@ export class FX {
       }
     }
     const m = this._m, c = this._c, q = this._q, s = this._s, v = this._v;
-    let n = 0;
+    let n = 0, ns = 0;
     for (let i = this.p.length - 1; i >= 0; i--) {
       const p = this.p[i];
       p.life -= dt;
@@ -87,10 +92,11 @@ export class FX {
       const d = Math.exp(-p.drag * dt);
       p.vx *= d; p.vz *= d; if (p.g === 0) p.vy *= d;
       p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+      if (p.wob) { p.x += Math.sin(p.life * 6 + p.ph) * p.wob * dt; p.z += Math.cos(p.life * 4.3 + p.ph) * p.wob * 0.6 * dt; }
       if (p.y < p.floor + p.size / 2) { p.y = p.floor + p.size / 2; p.vy *= -0.3; p.vx *= 0.6; p.vz *= 0.6; }
     }
     for (const p of this.p) {
-      const k = p.shrink ? Math.min(1, p.life / p.max * 1.6) : 1;
+      const k = p.grow ? 1 + (1 - p.life / p.max) * p.grow : p.shrink ? Math.min(1, p.life / p.max * 1.6) : 1;
       const sz = p.size * k;
       if (p.stretch) {
         const sp = Math.hypot(p.vx, p.vz) + 1e-4;
@@ -98,10 +104,12 @@ export class FX {
         s.set(sz, sz, sz * (1 + p.stretch * Math.min(1, sp / 8)));
       } else { q.identity(); s.set(sz, sz, sz); }
       m.compose(v.set(p.x, p.y, p.z), q, s);
+      if (p.soft) { if (ns < 500) { this.soft.setMatrixAt(ns, m); this.soft.setColorAt(ns, p.color); ns++; } continue; }
       this.mesh.setMatrixAt(n, m);
       this.mesh.setColorAt(n, p.color);
       n++;
     }
+    this.soft.count = ns; this.soft.instanceMatrix.needsUpdate = true; if (this.soft.instanceColor) this.soft.instanceColor.needsUpdate = true;
     this.mesh.count = n;
     this.mesh.instanceMatrix.needsUpdate = true;
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
@@ -116,7 +124,7 @@ export class FX {
       const rad = r.r0 + (r.r1 - r.r0) * (1 - Math.pow(1 - k, 2));
       r.m.scale.setScalar(rad);
       r.m.material.opacity = Math.max(0, 0.9 * (1 - k));
-      if (r.t >= r.dur) { this.scene.remove(r.m); r.m.geometry.dispose(); r.m.material.dispose(); this.rings.splice(i, 1); }
+      if (r.t >= r.dur) { this.scene.remove(r.m); r.m.material.dispose(); this.rings.splice(i, 1); }
     }
   }
 }
