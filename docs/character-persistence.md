@@ -1,6 +1,6 @@
 # Character persistence: schema 3
 
-Based on Pass 3 commit `1d39257` (crafting, villagers, Echo). This is a stacked infrastructure change. No models, inventory styling, crafting animations, VFX, encounters or world art are changed.
+Includes Claude's Pass 4 visual branch at `20dc610`, merged with the persistence infrastructure. The single merge conflict joins the saved world clock/night-state calculation to Claude's new atmosphere code. Claude's hero, gear, paper-doll inventory, crafting presentation, scenery and VFX are retained. The persistence integration adds no new visual design.
 
 ## Player behavior
 
@@ -110,4 +110,4 @@ npm run test:persistence
 npm run test:browser -- persistence crafting village
 ```
 
-Unit tests cover the permanent key, legacy/pre-crafting migration, multiple classes, identity and revision checks, all nine slots, reinforcement, real crafting transfer, quests/world state, death data, Bellstones/night time, quota/malformed/future-schema recovery, missing primary, twenty reload/update cycles, idempotent respec and an asynchronous mock provider. Browser tests exercise the actual title/class/name flow, legacy migration, pickup/equip, death, continued quests/crafting, Bellstones, two classes and repeated reloads. Existing crafting/village suites are also used as regressions; see the PR validation results for the actual run outcomes.
+Unit tests cover the permanent key, legacy/pre-crafting migration, multiple classes, identity and revision checks, all nine slots, reinforcement, real crafting transfer, quests/world state, death data, Bellstones/night time, quota/malformed/future-schema recovery, missing primary, twenty reload/update cycles, idempotent respec and an asynchronous mock provider. Browser tests exercise the actual title/class/name flow, legacy migration, pickup/equip, death, continued quests/crafting, Bellstones, two classes and repeated reloads. Integration checks also open Claude's paper doll after migration/reload and verify the equipped hero renderer and all nine slots. Existing crafting/village suites are also used as regressions; see the PR validation results for the actual run outcomes.
