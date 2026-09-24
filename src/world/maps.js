@@ -280,6 +280,26 @@ export function buildOverworld() {
   // painted after the lanterns so the village's lamp posts stay exactly where they were
   g.road([[44, 56], [45, 50], [45, 44]], 1, T.PATH);                                  // to the Conservatory
 
+  // ---- Pass 5 composed landmarks. Each checks its footprint so it never blocks a road.
+  {
+    const open = t => t === T.GRASS || t === T.FLOWERS || t === T.FOREST || t === T.TREE;
+    const fits = (x, y, w, d) => { for (let j = 0; j < d; j++) for (let i = 0; i < w; i++) if (!open(g.get(x + i, y + j))) return false; return !g.defs.some(q => q.x !== undefined && q.x > x - 1 && q.x < x + w + 1 && q.z > y - 1 && q.z < y + d + 1); };
+    const place = (model, x, y, w, d, extra = {}) => { if (fits(x, y, w, d)) { g.deco(model, x, y, w, d, extra); return true; } return false; };
+    // the village sits under a root the size of a street; only its feet are solid
+    g.def({ type: 'landmark', model: 'rootarch', x: 58, z: 46.6, w: 22, d: 2 });
+    for (const [x, y] of [[46, 46], [47, 46], [69, 46], [70, 46]]) if (open(g.get(x, y))) g.set(x, y, T.PROP);
+    // a lost garden trowel bridges the Mirrowrun north of the east road
+    const ry = 44, rx = Math.round(84 + 5 * Math.sin(ry * 0.07) + 2 * Math.sin(ry * 0.19));
+    for (let x = rx - 3; x <= rx + 3; x++) { if (g.get(x, ry) === T.WATER || g.get(x, ry) === T.DEEP) g.set(x, ry, T.BRIDGE); }
+    g.def({ type: 'landmark', model: 'trowelbridge', x: rx + 0.5, z: ry + 0.5, w: 9, d: 1.4, y: 0.02 });
+    // a spool that rolled into Whisperwood, still trailing its thread
+    for (const [x, y] of [[20, 58], [18, 60], [22, 56], [16, 62], [26, 56], [12, 50], [28, 52]]) if (place('bigspool', x, y, 2, 2)) { g.def({ type: 'landmark', model: 'threadline', x: x + 4, z: y + 1.4, w: 6, d: 0.2, ry: 0.3 }); break; }
+    // porcelain ruins before the glasshouse
+    [[38, 38, 0.2], [52, 41, -0.3], [39, 45, 0.5], [51, 36, 0.1]].forEach(([x, y, tilt]) => place('shard', x, y, 2, 1, { tilt }));
+    // a teacup the size of a house beside the stream, south of the east road
+    for (const [x, y] of [[78, 62], [77, 64], [79, 66], [74, 66], [72, 70], [88, 64], [90, 58]]) if (place('bigteacup', x, y, 3, 3)) break;
+  }
+
   // Breakables & secrets
   const bushSpots = [];
   for (let y = 10; y < 95; y++) for (let x = 3; x < 146; x++) {

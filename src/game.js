@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildOverworld, buildDungeon, buildGrotto, buildRift } from './world/maps.js';
-import { buildTerrain, buildLiquids, buildScenery, windUniform, clipUniform, waterU, windowMat, lampMat } from './world/build.js';
+import { buildTerrain, buildLiquids, buildScenery, windUniform, clipUniform, waterU, windowMat, lampMat, bendUniform } from './world/build.js';
 import { T, blocksObject } from './world/tiles.js';
 import { FX } from './fx.js';
 import { PITCH } from './engine/pixel.js';
@@ -353,6 +353,7 @@ export class Game {
     if (o.kind === 'surge' && e.isBoss) dmg = Math.max(1, Math.round(dmg)); // (surge unchanged vs bosses)
     const r = e.onHit({ dmg, kind: o.kind, kb: o.kb, dir: o.dir, src: o.src || p, crit, heavy });
     if (r !== 'hit') return r;
+    if (heavy && !(this.impactT > this.time)) { this.impactT = this.time + 0.15; this.impact(e.x, e.z, 1.4, 0.8); }
     this.guide.event('attack');
     e.hpShow = 3;
     if (!o.quiet || crit) this.ui.float(e.x, 1.0 + (e.eliteScale ? 0.3 : 0), e.z, (crit ? '' : '') + dmg + (crit ? '!' : ''), crit ? '#ffd25e' : '#ffffff', crit);
@@ -972,6 +973,15 @@ export class Game {
       setTimeout(() => { this.camFocus = null; this.camZoom = 1; this.cutscene = false; this.ui.show('letterbox', false); }, shots.length * 2300 + 300);
     }, 2200);
   }
+  // a heavy impact: grass flattens outward, leaves and dust jump
+  impact(x, z, r = 2, k = 1) {
+    const B = bendUniform.value;
+    let slot = 1; for (let i = 2; i < 4; i++) if (B[i].w < B[slot].w) slot = i;
+    B[slot].set(x, z, r, 0.9 * k);
+    const t = this.tileAt(Math.floor(x), Math.floor(z));
+    const leafy = t === T.GRASS || t === T.FLOWERS || t === T.FOREST || t === T.MOSS;
+    for (let i = 0; i < 8 * k; i++) { const a = Math.random() * 6.28, rr = Math.random() * r; this.fx.add({ x: x + Math.cos(a) * rr, y: 0.05, z: z + Math.sin(a) * rr, vx: Math.cos(a) * 2.5, vz: Math.sin(a) * 2.5, vy: 2 + Math.random() * 2, color: leafy ? (i % 3 ? 0x7ccb52 : 0xc8742a) : 0xb8a888, life: 0.8, size: leafy ? 0.05 : 0.07, g: leafy ? 3 : 8, wob: leafy ? 2 : 0 }); }
+  }
   // ------------------------------------------------ combat helpers
   hitArc(src, x, z, facing, range, halfAng, opts) {
     for (const e of this.entities) {
@@ -1064,7 +1074,7 @@ export class Game {
   }
   doSurge(p) {
     this.surge = 0; this.hudDirty = true;
-    sfx('surge'); this.pr.addShake(1.2); this.pr.addFlash(0.5, 0xfff3b0); this.hitstop(0.1);
+    sfx('surge'); this.pr.addShake(1.2); this.pr.addFlash(0.5, 0xfff3b0); this.hitstop(0.1); this.impact(p.x, p.z, 5, 1.4);
     this.fx.ring(p.x, p.z, 0.5, 6, 0xfff3b0, 0.6); this.fx.ring(p.x, p.z, 0.3, 4, 0xffd25e, 0.45, 0.4);
     this.fx.burst(p.x, 0.3, p.z, 40, [0xfff3b0, 0xffd25e, 0xffffff], 6);
     p.attackId++; p.hitSet.clear();
@@ -1196,6 +1206,10 @@ export class Game {
     this.autosaveT = (this.autosaveT || 0) + dt;
     if (this.autosaveT >= 15) { this.autosaveT = 0; this.save(); }
     windUniform.value = this.time;
+    // foliage bends around the player and flattens under recent impacts
+    const B = bendUniform.value;
+    if (this.player) B[0].set(this.player.x, this.player.z, 0.8, this.player.state === 'roll' ? 0.5 : 0.3);
+    for (let i = 1; i < 4; i++) B[i].w = Math.max(0, B[i].w - dt * 0.9);
     this.liquidTime.value = this.time;
     const input = this.input;
     this.ui.update(dt);

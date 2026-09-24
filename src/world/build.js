@@ -6,6 +6,9 @@ import { hash2, vnoise } from '../engine/util.js';
 import { geo, MAT, PROPS, decoModel, B } from '../models.js';
 
 export const windUniform = { value: 0 };
+// local foliage reaction: the player (slot 0) and up to three recent impacts push grass aside
+// (x, z, radius, strength)
+export const bendUniform = { value: [0, 1, 2, 3].map(() => new THREE.Vector4(0, 0, 0, 0)) };
 // Geometry south of the current dungeon room is cut down to a stump so walls never hide the player.
 export const clipUniform = { value: 1e9 };
 // Shared, animated by Game.atmosphere(): water light level, rain amount, sky tint.
@@ -207,12 +210,17 @@ class Instancer {
     if (sway) {
       mat = MAT.clone();
       mat.onBeforeCompile = sh => {
-        sh.uniforms.wind = windUniform;
-        sh.vertexShader = 'uniform float wind;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        sh.uniforms.wind = windUniform; sh.uniforms.bend = bendUniform;
+        sh.vertexShader = 'uniform float wind; uniform vec4 bend[4];\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
           #ifdef USE_INSTANCING
           vec3 ip = vec3(instanceMatrix[3][0], 0., instanceMatrix[3][2]);
           float sw = sin(wind*1.8 + ip.x*0.7 + ip.z*0.5) * 0.35 + sin(wind*3.1 + ip.x*1.3)*0.1;
           transformed.x += sw * position.y * 0.6; transformed.z += sw * position.y * 0.3;
+          for (int i = 0; i < 4; i++) {
+            vec2 dv = ip.xz - bend[i].xy; float dd = length(dv) + 1e-3;
+            float k = bend[i].w * (1.0 - smoothstep(0.0, bend[i].z, dd));
+            transformed.xz += (dv / dd) * k * position.y * 1.6; transformed.y -= k * position.y * 0.35;
+          }
           #endif`);
       };
     }
@@ -253,6 +261,8 @@ export function buildScenery(area) {
   } });
   // deco footprint map
   const decoMask = new Uint8Array(w * h);
+  // visual-only landmarks (walkable, or standing on tiles that already block)
+  for (const d of area.defs) if (d.type === 'landmark') { const m = new THREE.Mesh(geo(decoModel(d)), MAT); m.position.set(d.x, d.y || 0, d.z); m.rotation.y = d.ry || 0; m.castShadow = true; m.receiveShadow = true; group.add(m); }
   for (const d of area.defs) if (d.type === 'deco') {
     const x0 = Math.round(d.x - d.w / 2), y0 = Math.round(d.z - d.d / 2);
     for (let j = 0; j < d.d; j++) for (let i = 0; i < d.w; i++) decoMask[(y0 + j) * w + x0 + i] = 1;

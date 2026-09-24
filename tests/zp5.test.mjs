@@ -57,6 +57,11 @@ export default async function (page, R) {
     await sim(page, 2); await shot(page, 'p5_reinforce');
     await page.evaluate(() => window.__game.ui.closeCraft());
   }
+  if (on('world')) {
+    await fresh(page, 'samurai', { stage: 1, level: 8 });
+    await page.evaluate(() => { const g = window.__game; g.flags.dayOffset = 420 * 0.63; g.time = 0; g.raining = false; g.rainK = 0; g.weatherT = 999; document.getElementById('guide').classList.add('hidden'); });
+    for (const [x, z, n] of [[58.5, 52.5, 'village_root'], [86.5, 47.5, 'trowel'], [45.5, 46, 'glasshouse'], [22, 62, 'spool'], [76.5, 71, 'teacup']]) { await at(page, x, z); await sim(page, 12); await shot(page, 'p5_world_' + n); }
+  }
   if (on('cons')) {
     await fresh(page, 'witch', { stage: 1, level: 9 });
     await page.evaluate(() => { const g = window.__game; g.inv.bellows = true; g.warpTo('conservatory', 'entrance'); });

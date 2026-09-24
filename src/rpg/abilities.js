@@ -95,6 +95,7 @@ export class Rupture extends Entity {
   }
 }
 export function resonanceRing(g, x, z, r, mult, color = 0xffd25e) {
+  g.impact && g.impact(x, z, r + 0.5, 1);
   g.fx.ring(x, z, 0.3, r, color, 0.45); g.fx.ring(x, z, 0.2, r * 0.7, 0xffffff, 0.3, 0.15);
   for (let i = 0; i < 3; i++) g.fx.ring(x, z, 0.1, r * (0.4 + i * 0.3), color, 0.5, 0.05 + i * 0.12);
   sfx('resonate');

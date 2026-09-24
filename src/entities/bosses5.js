@@ -392,7 +392,7 @@ export class CrownedToad extends BossBase {
   land(r) {
     const g = this.g, p = this.p;
     drop(this.mk); this.mk = null;
-    sfx('thud'); sfx('splash'); g.pr.addShake(1.0); g.hitstop(0.05);
+    sfx('thud'); sfx('splash'); g.pr.addShake(1.0); g.hitstop(0.05); g.impact(this.x, this.z, r + 2, 1.3);
     g.fx.ring(this.x, this.z, 0.4, r, 0xe8f8ff, 0.45); g.fx.ring(this.x, this.z, 0.2, r + 2.5, 0x9ad8ff, 0.9, 0.05);
     for (let i = 0; i < 30; i++) { const a = Math.random() * 6.28, sp = 2 + Math.random() * 4; g.fx.add({ x: this.x + Math.cos(a) * r * 0.6, y: 0.1, z: this.z + Math.sin(a) * r * 0.6, vx: Math.cos(a) * sp, vz: Math.sin(a) * sp, vy: 3 + Math.random() * 4, color: i % 2 ? 0xe8f8ff : 0x9ad8ff, life: 0.8, size: 0.08, g: 12 }); }
     if (Math.hypot(p.x - this.x, p.z - this.z) < r + p.r) p.hurt({ dmg: 2.6, x: this.x, z: this.z, src: this, kb: 10, heavy: true });
