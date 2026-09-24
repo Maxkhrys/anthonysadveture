@@ -159,7 +159,7 @@ html,body{margin:0;height:100%;background:#0d0a14;overflow:hidden;font-family:va
 .slotbox small{position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:9px;color:#b8aac8;letter-spacing:.5px;background:#0007}
 .cell:hover,.slotbox:hover{transform:translateY(-1px);filter:brightness(1.15)}
 .cell.sel,.slotbox.sel{outline:2px solid #fff;outline-offset:1px;z-index:1}
-.ico{width:100%;height:100%;image-rendering:pixelated;padding:3px;pointer-events:none;filter:drop-shadow(1px 1px 0 #0008)}
+img.ico,.slotbox .ico,.cell .ico,.big-ico .ico{width:100%;height:100%;image-rendering:pixelated;padding:3px;pointer-events:none;filter:drop-shadow(1px 1px 0 #0008)}
 .rar0{border-color:#8a8278!important;background:linear-gradient(160deg,#2a2530,#15111c)!important}
 .rar1{border-color:#5ab84a!important;background:linear-gradient(160deg,#1f3a24,#121a16)!important}
 .rar2{border-color:#4aa8ff!important;background:linear-gradient(160deg,#1c2e4a,#10162a)!important}
@@ -202,7 +202,7 @@ html,body{margin:0;height:100%;background:#0d0a14;overflow:hidden;font-family:va
 #classcards{display:flex;gap:18px;flex-wrap:wrap;justify-content:center}
 .ccard{width:260px;background:linear-gradient(#2a1f3d,#1b1426);border:3px solid #000;box-shadow:0 0 0 3px #5a4a70;padding:16px;cursor:pointer;transition:transform .15s}
 .ccard.on{box-shadow:0 0 0 3px var(--gold),0 0 30px #ffd25e55;transform:translateY(-6px)}
-.ccard .ico{font-size:54px;text-align:center}
+.ccard .ico{width:auto;height:auto;font-size:54px;line-height:1;text-align:center;margin-bottom:4px}
 .ccard h3{margin:4px 0 0;font-size:26px;text-align:center}
 .ccard .role{text-align:center;color:var(--paper2);font-size:13px;margin-bottom:8px}
 .ccard p{font-size:13px;line-height:1.35;color:#e8dcc0;min-height:72px}
@@ -313,3 +313,11 @@ body.aiming #game{cursor:none}
 .dev-input:focus{border-color:#ffd25e;box-shadow:0 0 4px #ffd25e66}
 .dev-send{background:#2c2040;border:1px solid #d9b36a;color:#ffd25e;font-family:var(--font);font-size:14px;padding:4px 14px;cursor:pointer}
 .dev-send:hover{background:#3e2e5a}
+.dev-toolbar{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #ffffff14}
+.dev-btn{background:#1f182c;border:1px solid #4a3860;color:#e8dcc0;font-family:var(--font);font-size:12px;padding:2px 8px;cursor:pointer;transition:all .1s}
+.dev-btn:hover{background:#38284e;border-color:#ffd25e;color:#ffd25e}
+.dev-categories{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-bottom:6px;font-size:11px}
+.dev-cat-label{color:#8a8098;margin-right:2px}
+.dev-cat-btn{background:#151020;border:1px solid #3a2e48;color:#9ad8ff;font-family:var(--font);font-size:11px;padding:1px 6px;cursor:pointer}
+.dev-cat-btn:hover{background:#2a203c;border-color:#9ad8ff;color:#fff}
+

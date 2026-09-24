@@ -250,7 +250,7 @@ export class UI {
   drawDungeon(x, W, H, sc) {
     const g = this.g, a = g.area, p = g.player;
     const ox = (W - a.w * sc) / 2, oz = (H - a.h * sc) / 2;
-    for (const r of a.rooms) {
+    for (const r of (a.rooms || [])) {
       if (!g.flags['visited:' + a.id + ':' + r.id] && g.room !== r) continue;
       x.drawImage(this.miniCache, r.x0, r.z0, r.x1 - r.x0, r.z1 - r.z0, ox + r.x0 * sc, oz + r.z0 * sc, (r.x1 - r.x0) * sc, (r.z1 - r.z0) * sc);
       if (r.def && r.def.boss) { x.fillStyle = '#e8424f'; x.fillRect(ox + (r.x0 + 8) * sc - 2, oz + (r.z0 + 5) * sc - 2, 5, 5); }
