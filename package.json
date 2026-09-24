@@ -1,0 +1,10 @@
+{
+  "name": "mossling-the-silent-bell",
+  "version": "0.1.0",
+  "description": "A tiny pixel-styled 3D action-adventure. Runs in the browser; no build step.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node serve.mjs"
+  }
+}

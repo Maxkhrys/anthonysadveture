@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mossling: The Silent Bell</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="ui">
+  <div id="hud" class="hidden">
+    <div id="hearts"></div>
+    <div id="surge"><div id="surge-fill"></div><span>BELL SURGE</span></div>
+    <div id="purse"><i class="pip"></i><span id="coins">0</span></div>
+    <div id="slots">
+      <div class="slot" id="slot-item"><b>L</b><div class="icon"></div><div class="cap"></div></div>
+      <div class="slot" id="slot-potion"><b>Q</b><div class="icon potion"></div><div class="cap" id="potion-count"></div></div>
+    </div>
+    <div id="keys"></div>
+    <div id="chimes"></div>
+    <div id="area-name"></div>
+    <div id="objective"></div>
+    <canvas id="minimap" width="140" height="100"></canvas>
+  </div>
+  <div id="boss-bar" class="hidden"><div class="name"></div><div class="bar"><div class="fill"></div></div></div>
+  <div id="prompt" class="hidden"></div>
+  <div id="toast" class="hidden"></div>
+  <div id="dialog" class="hidden"><div class="who"></div><div class="text"></div><div class="more">▼</div><div class="choices"></div></div>
+  <div id="banner" class="hidden"><div class="small"></div><div class="big"></div></div>
+  <div id="fade"></div>
+  <div id="title" class="screen">
+    <div class="logo"><div class="sub">a tiny adventure in a very big world</div><h1>MOSSLING</h1><h2>The Silent Bell</h2></div>
+    <div class="menu" id="title-menu"></div>
+    <div class="foot">WASD move · J attack · K shield · Space roll · L tool · E interact · R surge · Q tonic · Esc menu</div>
+  </div>
+  <div id="pause" class="screen hidden">
+    <div class="panel">
+      <div class="tabs"><span data-tab="map" class="on">Map</span><span data-tab="quests">Journal</span><span data-tab="gear">Gear</span><span data-tab="controls">Controls</span></div>
+      <div class="tab-body" id="tab-map"><canvas id="bigmap" width="560" height="400"></canvas></div>
+      <div class="tab-body hidden" id="tab-quests"></div>
+      <div class="tab-body hidden" id="tab-gear"></div>
+      <div class="tab-body hidden" id="tab-controls">
+        <table>
+          <tr><td>Move</td><td>WASD / Arrows / Left stick</td></tr>
+          <tr><td>Sword (hold to charge spin)</td><td>J / Left click / Pad X</td></tr>
+          <tr><td>Shield (tap just before a hit to parry)</td><td>K / Right click / Pad LB</td></tr>
+          <tr><td>Roll (invulnerable)</td><td>Space / Shift / Pad A</td></tr>
+          <tr><td>Tool (hold to charge)</td><td>L / Pad Y</td></tr>
+          <tr><td>Interact / talk / advance</td><td>E / Enter / Pad B</td></tr>
+          <tr><td>Bell Surge (when full)</td><td>R / Pad RB</td></tr>
+          <tr><td>Drink tonic</td><td>Q / Pad Back</td></tr>
+          <tr><td>Menu</td><td>Esc / Tab / Pad Start</td></tr>
+          <tr><td>Toggle music</td><td>M</td></tr>
+        </table>
+      </div>
+      <div class="pause-foot">Esc to resume · <a id="btn-save">Save now</a> · <a id="btn-title">Quit to title</a></div>
+    </div>
+  </div>
+  <div id="shop" class="screen hidden"><div class="panel"><h3>Posy's Bramble &amp; Bolt</h3><div id="shop-list"></div><div class="pause-foot">W/S choose · E buy · Esc leave</div></div></div>
+  <div id="gameover" class="screen hidden"><h1>The bell falls quiet…</h1><p>Press E to rise again</p></div>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
