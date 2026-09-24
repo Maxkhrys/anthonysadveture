@@ -36,7 +36,7 @@ import { Seamkeeper, CrownedToad } from './entities/bosses5.js';
 import { MATS, recipeById } from './rpg/crafting.js';
 import { DevConsole } from './dev/console.js';
 
-import { defaultInventory, identifyItem, BELLSTONES, worldPhase, respecInventory } from './persistence/model.js';
+import { defaultInventory, identifyItem, BELLSTONES, BELLSTONE_NAMES, worldPhase, respecInventory } from './persistence/model.js';
 import { snapshotCharacter, restoreCharacter, CharacterSession } from './persistence/session.js';
 export const BAG_SIZE = 30;
 const BUILDERS = { overworld: buildOverworld, dungeon: buildDungeon, grotto: buildGrotto, devroom: buildDevRoom, conservatory: buildConservatory };
@@ -551,6 +551,7 @@ export class Game {
   }
   // A future Bellstone menu can use this list and guarded hook without world-art edits.
   unlockedBellstones() { return BELLSTONES.filter(b => this.discoveredBellstones.includes(b.id)); }
+  bellstoneName(id) { return BELLSTONE_NAMES[id] || id; }
   travelToBellstone(id) {
     const target = this.unlockedBellstones().find(b => b.id === id);
     const atStone = this.entities.some(e => e instanceof O.Bellstone && Math.hypot(e.x - this.player.x, e.z - this.player.z) < 2);
@@ -604,6 +605,7 @@ export class Game {
     this.ui.updateHud();
     this.guide.render();
     this.bell = this.entities.find(e => e instanceof O.Bell);
+    if (this.flags.deathDrop && this.flags.deathDrop.area === id) this.spawn(new DeathCache(this, this.flags.deathDrop));
     if (area.id === 'dungeon' && this.flags.bossKilled && !this.inv.chimes.includes('verdant')) this.spawnChime();
   }
   spawnDef(d) {
@@ -721,11 +723,20 @@ export class Game {
     sfx('hurt');
     this.ui.bossBar(null);
     this.stats.deaths = (this.stats.deaths || 0) + 1;
+    // Souls-lite: half the pips you carry fall where you fell. Get back there to pick them up;
+    // fall again first and that older pile is gone. Gear, materials and progress are never lost.
+    const old = this.flags.deathDrop;
+    const lostOld = old ? old.coins : 0;
+    const drop = Math.floor(this.inv.coins * 0.5);
+    const at = this.player.lastSafe || this.player;
+    this.flags.deathDrop = drop > 0 ? { area: this.area.id, x: at.x, z: at.z, coins: drop } : null;
+    this.inv.coins -= drop;
+    this.lastDeathDrop = { drop, lostOld };
     this.save();
     const h = this.player.lastHit;
-    const rest = { village: 'the Thimblewick Bellstone', entrance: 'the Hollow\'s entrance Bellstone', pre: 'the Bellstone before the Root Gate', dungeon: 'the Hollow\'s mouth' }[this.checkpoint.spawn] || 'your last rest';
+    const rest = { village: 'the Thimblewick Bellstone', entrance: 'the Hollow\'s entrance Bellstone', pre: 'the Bellstone before the Root Gate', dungeon: 'the Hollow\'s mouth', atrium: 'the Glass Atrium Bellstone', canopy: 'the Bellfruit Canopy Bellstone' }[this.checkpoint.spawn] || 'your last rest';
     const el = document.querySelector('#gameover .recap');
-    if (el) el.innerHTML = (h ? `Felled by <b>${h.by}</b>${h.lvl ? ' (Lv ' + h.lvl + ')' : ''} — the last blow took <b>${h.n}</b> health.<br>` : '') + `You will wake at ${rest} with full health and tonics. Gear, crafting and story progress are kept.`;
+    if (el) el.innerHTML = (h ? `Felled by <b>${h.by}</b>${h.lvl ? ' (Lv ' + h.lvl + ')' : ''} — the last blow took <b>${h.n}</b> health.<br>` : '') + `You will wake at ${rest} with full health and tonics. Gear, crafting and story progress are kept.` + (this.lastDeathDrop.drop ? `<br><span style="color:#ffd25e">◆ ${this.lastDeathDrop.drop} pips fell where you did — go back for them.</span>` : '') + (this.lastDeathDrop.lostOld ? `<br><span style="color:#f99">The ${this.lastDeathDrop.lostOld} pips from your last fall are gone.</span>` : '');
     setTimeout(() => { this.dead = true; this.ui.show('gameover', true); }, 1300);
   }
   revive() {
@@ -741,6 +752,8 @@ export class Game {
     inv.hp = inv.maxHp; inv.potions = inv.maxPotions; this.res = 100;
     this.checkpoint = { area: this.area.id, spawn: stone.spawn };
     this.flags['rested:' + stone.spawn] = true;
+    // resting wakes the world: every standard foe you cleared outside comes back now (bosses never do)
+    if (this.area.id === 'overworld' && this.respawnQ && this.respawnQ.length) { for (const r of this.respawnQ) this.spawnDef(r.def); this.respawnQ = []; }
     const id = this.area.id + ':' + stone.spawn;
     if (!this.discoveredBellstones.includes(id)) this.discoveredBellstones.push(id);
     this.guide.event('rest');
@@ -1236,6 +1249,27 @@ export class Game {
     if (this.noRender) return;
     this.ui.drawMini();
     this.pr.render(this.scene, dt);
+  }
+}
+
+// Where you fell: your dropped pips, marked by a tall gold beam you can see from afar.
+class DeathCache extends Entity {
+  constructor(g, d) {
+    super(g, d.x, d.z); this.d = d; this.t = 0; this.alwaysUpdate = true;
+    this.beam = new THREE.Mesh(new THREE.BoxGeometry(0.18, 5, 0.18), new THREE.MeshBasicMaterial({ color: 0xffd25e, transparent: true, opacity: 0.35, depthWrite: false }));
+    this.beam.position.y = 2.5; this.obj.add(this.beam);
+    this.pile = new THREE.Group(); this.obj.add(this.pile);
+    for (let i = 0; i < 5; i++) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.05), new THREE.MeshBasicMaterial({ color: i % 2 ? 0xffd25e : 0xe0a030 })); m.position.set(Math.cos(i * 1.3) * 0.18, 0.08 + i * 0.03, Math.sin(i * 1.3) * 0.18); m.rotation.y = i; this.pile.add(m); }
+  }
+  update(dt) {
+    const g = this.g, p = g.player; this.t += dt;
+    this.beam.material.opacity = 0.25 + Math.sin(this.t * 3) * 0.1; this.pile.rotation.y += dt;
+    if (Math.random() < 0.2) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.4, y: 0.2, z: this.z + (Math.random() - 0.5) * 0.4, vy: 1.4, g: 0, color: 0xffd25e, life: 0.8, size: 0.05 });
+    if (Math.hypot(p.x - this.x, p.z - this.z) < 0.7 && p.state !== 'dead') {
+      g.addCoins(this.d.coins); sfx('soulpick'); sfx('pipbig'); g.fx.burst(this.x, 0.6, this.z, 24, [0xffd25e, 0xffffff], 3, { g: -1 });
+      g.ui.toast('Recovered ' + this.d.coins + ' pips', '', 2); g.flags.deathDrop = null; this.remove(); g.save();
+    }
+    this.sync();
   }
 }
 

@@ -64,7 +64,11 @@ export const BELLSTONES = [
   { id: 'overworld:village', area: 'overworld', spawn: 'village' },
   { id: 'dungeon:entrance', area: 'dungeon', spawn: 'entrance' },
   { id: 'dungeon:pre', area: 'dungeon', spawn: 'pre' },
+  // Pass 5 (additive)
+  { id: 'conservatory:atrium', area: 'conservatory', spawn: 'atrium' },
+  { id: 'conservatory:canopy', area: 'conservatory', spawn: 'canopy' },
 ];
+export const BELLSTONE_NAMES = { 'overworld:village': 'Thimblewick', 'dungeon:entrance': 'Hollow Mouth', 'dungeon:pre': 'Root Gate', 'conservatory:atrium': 'Glass Atrium', 'conservatory:canopy': 'Bellfruit Canopy' };
 
 export function normalizeCharacter(input) {
   requireRecord(input, 'character');

@@ -149,7 +149,6 @@ export function buildOverworld() {
   g.road([[26, 40], [29, 26], [29, 19]], 1, T.FOREST);                               // forest trail to grotto
   g.road([[114, 53], [113, 44]], 1, T.ASH);                              // volcano pass
   g.road([[76, 57], [80, 66], [88, 75], [92, 76]], 1, T.PATH);                        // lakeside path
-  g.road([[44, 56], [45, 50], [45, 44]], 1, T.PATH);                                  // to the Conservatory
   g.road([[34, 48], [32, 62], [28, 72], [24, 78]], 1, T.FOREST);                      // woodland trail to the fen
 
   // Pier
@@ -276,6 +275,9 @@ export function buildOverworld() {
       if (placed.length >= 11) break;
     }
   }
+
+  // painted after the lanterns so the village's lamp posts stay exactly where they were
+  g.road([[44, 56], [45, 50], [45, 44]], 1, T.PATH);                                  // to the Conservatory
 
   // Breakables & secrets
   const bushSpots = [];

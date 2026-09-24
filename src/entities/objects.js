@@ -514,6 +514,14 @@ export class Bellstone extends Entity {
     const g = this.g;
     g.rest(this);
     this.swing = 1;
+    // then: where to? (fast travel between discovered Bellstones)
+    const here = g.area.id + ':' + this.spawn;
+    const dest = g.unlockedBellstones().filter(b => b.id !== here);
+    setTimeout(() => {
+      if (g.ui.talking || g.dead) return;
+      const opts = dest.map(b => ({ label: 'Travel to ' + g.bellstoneName(b.id), cb: () => { if (!g.travelToBellstone(b.id)) g.ui.toast('The Bellstone will not carry you now.', 'Not while foes are near.', 1.6); } }));
+      if (opts.length) g.ui.ask(this.name + ' Bellstone', 'The bell hums with every other Bellstone you have woken. Ring it again to travel.', [...opts, { label: 'Stay here', cb: () => {} }]);
+    }, 350);
     sfx('chime'); g.fx.ring(this.x, this.z, 0.3, 2.2, 0xfff3b0, 0.6); g.fx.ring(this.x, this.z, 0.2, 3.4, 0xffd25e, 0.9, 0.3);
     g.fx.burst(this.x, 0.9, this.z, 16, [0xfff3b0, 0xffd25e], 2, { g: -1 });
     g.ui.toast('Rested at the ' + this.name + ' Bellstone', 'Life and tonics restored · You will wake here if you fall.', 2.4);
