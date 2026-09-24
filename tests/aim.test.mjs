@@ -11,7 +11,7 @@ async function range(page) {
   return page.evaluate(() => {
     const g = window.__game, p = g.player;
     const open = (x, z) => { const t = g.tileAt(Math.floor(x), Math.floor(z)); return [0, 1, 2, 15, 16, 17, 18].includes(t) && !g.solidAt(x, z, 0.4); };
-    for (let r = 0; r < 14; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+    for (let r = 0; r < 30; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
       const x = Math.floor(p.x) + dx + 0.5, z = Math.floor(p.z) + dz + 0.5;
       let ok = true;
       for (let a = -6; a <= 6 && ok; a++) for (let b = -2; b <= 2 && ok; b++) if (!open(x + a, z + b)) ok = false;

@@ -50,6 +50,77 @@ migration, recovery, provider architecture, limitations and tests.
 | Map, journal, gear, controls, settings | Esc / Tab | Start |
 | Music on/off | M | |
 
+## Pass 4: visual quality
+
+A presentation-only pass. No item, crafting, save, combat-number or boss-logic rules changed.
+Before/after captures are in `docs/screens/`.
+
+- **Hero and gear (`src/hero.js`).** A new layered figure with a face (it blinks, glances at your aim and squints
+  when hit) and class silhouettes:
+  - **Samurai:** topknot, hachimaki headband, shoulder guards, scabbard.
+  - **Archer:** feathered hood, quiver, cape.
+  - **Witch:** tall hat, long hair, robe.
+
+  **Visual equipment slots** are head, neck, chest, arms, legs, boots and weapon. Each reads whatever is equipped
+  in that slot, or from `helm`/`charm`/`armor`. Arms, legs and boots fall back to the chest piece's matching set,
+  so the outfit always reads as one piece. A future `arms`/`legs`/`boots`/`ring` slot will draw (and appear in the
+  inventory) automatically. Changing gear updates the model at once.
+- **Weapons.** Every base has its own silhouette, and special blades have glowing parts. The 12 Legendary weapons
+  get unique details. `item.visualScale` lets rare oversized weapons scale cleanly.
+- **Inventory.**
+  - A live, rotatable 3D paper doll on a mossy plinth, with slots around it.
+  - Pixel icons rendered from the real item models.
+  - Rarity frames, with Legendaries glowing.
+  - A large preview of the selected item, and green/red stat differences against what you're wearing.
+- **Workbench.** Shows Weapon + Essence + Material = Result with real icons, and a restrained "forge" pulse when
+  crafting succeeds.
+- **World.**
+  - A painted ground-detail shader, so tiles stop reading as a grid.
+  - Instanced clover, stones, toadstools, ferns, fallen leaves, twigs, root runs and a second layer of grass.
+  - **Miniature scale:** a few forest-edge tree tiles are a giant acorn, thimble, teacup, spool, bucket, log,
+    matchbox or trowel instead. Those tiles still block exactly as before, so paths and navigation are unchanged.
+  - Buttons and coins lie in the grass.
+- **Thimblewick.**
+  - Lantern posts along the lanes, and barrels, crates, pots and sacks against the houses.
+  - Chimney smoke, and windows and lamps that light up at night.
+  - Villagers work when idle: Posy wipes her stall, Oswin hauls sacks, Tamsin ponders, Brisk keeps watch, Fennel
+    plays.
+- **Atmosphere.**
+  - Per-region fog and mood through aerial perspective in the post pass.
+  - Real nights: darker, bluer, and lit by lamps and windows through a small pool of point lights.
+  - Pink dawns and amber dusks.
+  - Butterflies by day, fireflies at night, falling leaves in Whisperwood.
+- **Water.**
+  - Sky reflection, lapping shore foam and glints.
+  - Rings when it rains, and the water dims at night.
+  - Splashes when something falls in, and a wake from projectiles.
+- **Combat VFX.**
+  - Two-tone slash trails tinted by your blade.
+  - Grass clippings, and charge motes gathering at the bow or staff.
+  - Smoke on spell blasts.
+  - Per-creature death debris (shell, stone, leaves, spores, cloth) with a puff of shadow.
+- **Bramblemaw.**
+  - Letterboxed reveal, a push-in camera and a name card with a music sting.
+  - Spores drifting through the arena.
+  - A visible enrage at its existing phase-two threshold.
+- **Camera distance** is a new setting, from Very close to Widest. The default is unchanged.
+- **Map.** An illustrated parchment map with pins, labels, a compass and a heading arrow. Loot chests only appear
+  once you've been near them, so secrets aren't spoiled.
+- **Title.** A golden-hour drift over Thimblewick and a gilded logo.
+
+**Performance.** Scenery used to draw the whole map every frame. It is now batched per 16-tile chunk and
+frustum-culled, and flat dressing doesn't cast shadows.
+
+| Scene | Before: draw calls / triangles | After: draw calls / triangles |
+|---|---|---|
+| Village | 198 / 457k | 306 / 224k |
+| Forest | 100 / 451k | 243 / 283k |
+| Crowd of 24 | 294 / 464k | 387 / 224k |
+
+Game-update time stays around 0.3 ms per frame, or under 2 ms with a crowd. The UI preview uses its own small WebGL
+canvas and only renders while the bag is open. `node tests/run.mjs zperf` reprints these numbers, and
+`OUT=dir node tests/run.mjs zshots` recaptures the screenshot set.
+
 ## Pass 3: aim, fights, crafting, and a village that answers back
 
 **Aiming.** Movement and aim are separate.

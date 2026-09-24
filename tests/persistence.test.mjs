@@ -40,6 +40,23 @@ export default async function (page, R) {
   R.ok(loaded.upgrade === 4 && loaded.craft === 'thornrebuke' && loaded.shard === 12, 'reinforcement and crafting persist');
   R.ok(loaded.quest === 2 && loaded.dungeon === 8 && loaded.deaths === 1 && loaded.hp > 0, 'death retains quests/dungeon/gear and restores life on continue');
   R.ok(loaded.bellstones.some(b => b.id === 'overworld:village') && loaded.time >= 250, 'Bellstone discovery and world time persist');
+  const display = await page.evaluate(async () => {
+    const g = window.__game;
+    const { gearVisual } = await import('/src/hero.js');
+    const visual = gearVisual(g.inv.equip);
+    g.ui.openInventory();
+    g.ui.doll.frame(1 / 60);
+    const result = {
+      head: visual.head?.itemInstanceId,
+      slots: g.ui.dollSlots().length,
+      canvas: !!document.querySelector('#paperdoll canvas'),
+      playerGear: typeof g.player.m.setGear === 'function',
+    };
+    g.ui.closeInventory();
+    return result;
+  });
+  R.ok(display.head === first.head && display.slots === 9, 'Claude equipment display reads migrated gear and all nine profile slots');
+  R.ok(display.canvas && display.playerGear, 'Claude paper doll and equipped hero rendering work after reload');
   await reload();
   await page.evaluate(() => { window.__game.story.opening = () => {}; });
   await page.locator('#title-menu div').filter({ hasText: /^New Character$/ }).click();

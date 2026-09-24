@@ -258,20 +258,78 @@ export class UI {
     for (const e of g.entities) if (e.constructor.name === 'Chest' && e.visible && !e.opened && g.flags['visited:' + a.id + ':' + g.roomAt(e.x, e.z)?.id]) { x.fillStyle = '#ffd25e'; x.fillRect(ox + e.x * sc - 1, oz + e.z * sc - 1, 3, 3); }
     x.fillStyle = '#fff'; x.fillRect(ox + p.x * sc - 2, oz + p.z * sc - 2, 4, 4);
   }
+  // An illustrated parchment map (4 px per tile), built once per area.
+  buildIllustrated() {
+    const a = this.g.area, S = 4;
+    const c = document.createElement('canvas'); c.width = a.w * S; c.height = a.h * S;
+    const x = c.getContext('2d');
+    const H = (i, j, k = 0) => { let h = (i * 374761393 + j * 668265263 + k * 982451653) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967295; };
+    const PAL = { land: '#e8d6a8', land2: '#dcc592', forest: '#9fb07a', forest2: '#8a9c68', sand: '#f0dca6', ash: '#a8908a', water: '#8fb8c8', deep: '#6e9ab4', cliff: '#b8a07a', rock: '#8a7a78', path: '#c89a62', stone: '#d8cbb0', lava: '#e07a4a' };
+    const T_ = a.tiles, tl = (i, j) => (i < 0 || j < 0 || i >= a.w || j >= a.h) ? T.CLIFF : T_[j * a.w + i];
+    for (let j = 0; j < a.h; j++) for (let i = 0; i < a.w; i++) {
+      const t = tl(i, j), n = H(i, j);
+      let col = PAL.land;
+      if (t === T.FOREST || t === T.TREE) col = n < 0.5 ? PAL.forest : PAL.forest2;
+      else if (t === T.SAND || t === T.SANDSTONE) col = PAL.sand; else if (t === T.ASH) col = PAL.ash;
+      else if (t === T.WATER) col = PAL.water; else if (t === T.DEEP) col = PAL.deep;
+      else if (t === T.CLIFF) col = PAL.cliff; else if (t === T.ROCK) col = PAL.rock; else if (t === T.PATH || t === T.BRIDGE || t === T.DOCK) col = PAL.path;
+      else if (t === T.STONE) col = PAL.stone; else if (t === T.LAVA) col = PAL.lava; else if (n < 0.3) col = PAL.land2;
+      x.fillStyle = col; x.fillRect(i * S, j * S, S, S);
+    }
+    // ink details
+    for (let j = 0; j < a.h; j++) for (let i = 0; i < a.w; i++) {
+      const t = tl(i, j), n = H(i, j, 1), X = i * S, Y = j * S;
+      if (t === T.TREE && n < 0.55) { x.fillStyle = n < 0.25 ? '#5a7a44' : '#6a8a4e'; x.fillRect(X + 1, Y, 2, 2); x.fillRect(X, Y + 1, 4, 2); x.fillStyle = '#4a3a2a'; x.fillRect(X + 1, Y + 3, 1, 1); }
+      if ((t === T.WATER || t === T.DEEP) && n < 0.12) { x.fillStyle = '#e8f4f8a0'; x.fillRect(X, Y + 1, 2, 1); x.fillRect(X + 2, Y + 2, 2, 1); }
+      if ((t === T.CLIFF || t === T.ROCK) && ((i + j) % 2 === 0)) { x.fillStyle = '#6a5a4a80'; x.fillRect(X, Y + 3, 3, 1); }
+      if ((t === T.WATER || t === T.DEEP) && tl(i, j - 1) !== T.WATER && tl(i, j - 1) !== T.DEEP) { x.fillStyle = '#5a7a8a'; x.fillRect(X, Y, S, 1); }
+      if (t === T.PATH && n < 0.35) { x.fillStyle = '#9a6a3a'; x.fillRect(X + 1, Y + 1, 1, 1); }
+    }
+    for (const d of a.defs) if (d.type === 'deco' && ['house', 'shop', 'windmill', 'belltower', 'tent', 'hollowtree', 'chimegate', 'shrine'].includes(d.model)) {
+      const X = (d.x - d.w / 2) * S, Y = (d.z - d.d / 2) * S, W = d.w * S, D = d.d * S;
+      x.fillStyle = d.model === 'hollowtree' ? '#5a7a44' : d.model === 'tent' ? '#6a4a6a' : '#b05a42';
+      x.fillRect(X + 1, Y + 1, W - 2, D - 2); x.fillStyle = '#3a2a2a'; x.fillRect(X + 1, Y + D - 2, W - 2, 1);
+    }
+    // paper grain + deckled edge
+    const img = x.getImageData(0, 0, c.width, c.height), px = img.data;
+    for (let k = 0; k < px.length; k += 4) { const v = (H(k, 7, 3) - 0.5) * 14; px[k] += v; px[k + 1] += v; px[k + 2] += v * 0.8; }
+    x.putImageData(img, 0, 0);
+    const gr = x.createRadialGradient(c.width / 2, c.height / 2, c.height * 0.35, c.width / 2, c.height / 2, c.width * 0.62);
+    gr.addColorStop(0, '#0000'); gr.addColorStop(1, '#5a3a1a70'); x.fillStyle = gr; x.fillRect(0, 0, c.width, c.height);
+    x.strokeStyle = '#5a3a1a'; x.lineWidth = 3; x.strokeRect(4, 4, c.width - 8, c.height - 8); x.strokeStyle = '#8a6a3a'; x.lineWidth = 1; x.strokeRect(9, 9, c.width - 18, c.height - 18);
+    // compass rose
+    const cx = c.width - 44, cy = c.height - 50;
+    x.fillStyle = '#5a3a1a'; x.beginPath(); x.moveTo(cx, cy - 24); x.lineTo(cx + 6, cy); x.lineTo(cx, cy + 24); x.lineTo(cx - 6, cy); x.fill();
+    x.beginPath(); x.moveTo(cx - 24, cy); x.lineTo(cx, cy - 6); x.lineTo(cx + 24, cy); x.lineTo(cx, cy + 6); x.fill();
+    x.fillStyle = '#c8402a'; x.beginPath(); x.moveTo(cx, cy - 24); x.lineTo(cx + 6, cy); x.lineTo(cx - 6, cy); x.fill();
+    x.font = 'bold 13px Pixelify Sans, monospace'; x.fillStyle = '#5a3a1a'; x.fillText('N', cx - 4, cy - 28);
+    this.illus = c; this.illusArea = a;
+  }
   drawBigMap() {
     const g = this.g, a = g.area;
     const cv = $('bigmap'), x = cv.getContext('2d');
     if (this.miniArea !== a) this.buildMapCanvas();
     x.imageSmoothingEnabled = false;
-    x.fillStyle = '#0d0a14'; x.fillRect(0, 0, cv.width, cv.height);
+    x.fillStyle = '#1b1426'; x.fillRect(0, 0, cv.width, cv.height);
     if (a.dungeon) { this.drawDungeon(x, cv.width, cv.height, Math.min(cv.width / a.w, cv.height / a.h) * 0.9); x.fillStyle = '#fff'; x.font = '16px Pixelify Sans, monospace'; x.fillText(a.name, 10, 22); return; }
+    if (this.illusArea !== a) this.buildIllustrated();
     const sc = Math.min(cv.width / a.w, cv.height / a.h);
-    x.drawImage(this.miniCache, 0, 0, a.w * sc, a.h * sc);
-    this.markers(x, (mx, mz) => [mx * sc, mz * sc], 7);
-    x.font = '12px Pixelify Sans, monospace'; x.fillStyle = '#fff';
-    for (const l of this.g.story.labels()) { x.fillStyle = '#000a'; x.fillText(l.t, l.x * sc + 1, l.z * sc + 1); x.fillStyle = '#fff3cf'; x.fillText(l.t, l.x * sc, l.z * sc); }
+    x.drawImage(this.illus, 0, 0, a.w * sc, a.h * sc);
+    // markers: friendly pins, the current objective pulses
+    const t = performance.now() / 1000;
+    for (const m of this.g.story.markers()) {
+      const px = m.x * sc, pz = m.z * sc;
+      if (m.pulse) { x.strokeStyle = m.color; x.lineWidth = 2; x.beginPath(); x.arc(px, pz, 7 + (t * 8) % 8, 0, 6.3); x.stroke(); }
+      x.fillStyle = '#2a1a10'; x.beginPath(); x.moveTo(px, pz + 2); x.lineTo(px - 5, pz - 6); x.lineTo(px + 5, pz - 6); x.fill();
+      x.fillStyle = m.color; x.beginPath(); x.arc(px, pz - 7, 5, 0, 6.3); x.fill(); x.strokeStyle = '#2a1a10'; x.lineWidth = 1.5; x.stroke();
+    }
+    x.font = '13px Pixelify Sans, monospace'; x.textAlign = 'center';
+    for (const l of this.g.story.labels()) { const hw = x.measureText(l.t).width / 2 + 8, lx = Math.max(hw, Math.min(a.w * sc - hw, l.x * sc)); x.lineWidth = 3; x.strokeStyle = '#f0e0b8'; x.strokeText(l.t, lx, l.z * sc); x.fillStyle = '#4a2a14'; x.fillText(l.t, lx, l.z * sc); }
+    x.textAlign = 'left';
     const p = g.player;
-    x.fillStyle = '#fff'; x.fillRect(p.x * sc - 4, p.z * sc - 4, 8, 8); x.fillStyle = '#e0463c'; x.fillRect(p.x * sc - 2, p.z * sc - 2, 4, 4);
+    x.save(); x.translate(p.x * sc, p.z * sc); x.rotate(-p.facing + Math.PI);
+    x.fillStyle = '#fff'; x.beginPath(); x.moveTo(0, -8); x.lineTo(6, 6); x.lineTo(0, 3); x.lineTo(-6, 6); x.fill(); x.strokeStyle = '#c8302a'; x.lineWidth = 2; x.stroke();
+    x.restore();
   }
 
   update(dt) {
