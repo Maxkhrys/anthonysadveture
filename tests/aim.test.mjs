@@ -68,9 +68,9 @@ export default async function (page, R) {
 
   // keyboard fallback: J fires in the facing direction without touching the mouse
   await page.evaluate(() => { const g = window.__game; for (const e of g.entities) if (e.isEnemy) e.remove(); g.player.facing = Math.PI; });
-  await page.keyboard.press('j'); await sim(page, 1); await sim(page, 1);
+  await page.keyboard.press('c'); await sim(page, 1); await sim(page, 1);
   const kb = await page.evaluate(() => { const g = window.__game, a = g.entities.find(e => e.kind === 'arrow'); return { src: g.player.aimSrc, dir: a && a.dir }; });
-  R.ok(kb.src === 'keys' && kb.dir !== undefined && Math.abs(Math.abs(kb.dir) - Math.PI) < 0.05, 'J switches to keyboard aim and fires where you face', JSON.stringify(kb));
+  R.ok(kb.src === 'keys' && kb.dir !== undefined && Math.abs(Math.abs(kb.dir) - Math.PI) < 0.05, 'C switches to keyboard aim and fires where you face', JSON.stringify(kb));
 
   // Rain of Arrows: cursor placement, range clamp, preview, obstruction, no cost on failure
   await page.evaluate(() => { const g = window.__game; g.inv.level = 6; g.inv.skills = [1, 1, 1]; g.recalc(); g.res = 100; for (const e of g.entities) if (e.isEnemy) e.remove(); });

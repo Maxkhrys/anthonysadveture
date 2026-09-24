@@ -8,7 +8,7 @@ async function toChoices(page, max = 30) {
     await sim(page, 30);
     const d = await dialog(page);
     if (!d || d.choices.length) return d;
-    await sim(page, 1, ['KeyE']); await sim(page, 1);
+    await sim(page, 1, ['KeyF']); await sim(page, 1);
   }
   return dialog(page);
 }

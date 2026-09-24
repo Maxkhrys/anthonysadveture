@@ -24,7 +24,7 @@ export default async function (page, R) {
   await sim(page, 20);
   const ms2 = await page.evaluate(() => { const g = window.__game; const t0 = performance.now(); for (let i = 0; i < 40; i++) { g.update(1 / 60); } return (performance.now() - t0) / 40; });
   R.note('combat(12 foes) frame ms = ' + ms2.toFixed(1));
-  await sim(page, 1, ['KeyJ']); await sim(page, 3); await shot(page, '05_combat');
+  await sim(page, 1, ['KeyC']); await sim(page, 3); await shot(page, '05_combat');
   await page.evaluate(() => { const g = window.__game; const e = g.entities.filter(e => e.isEnemy).slice(0, 4); e.forEach(x => x.die({ dir: 0 })); });
   await sim(page, 4); await shot(page, '05b_deaths');
   await page.evaluate(() => { for (const e of window.__game.entities) if (e.isEnemy) e.remove(); });

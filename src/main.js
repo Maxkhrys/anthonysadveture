@@ -17,7 +17,7 @@ import { Boss } from './entities/boss.js';
 
 const $ = id => document.getElementById(id);
 const TIPS = [
-  'Tap <b>K</b> just before an enemy strikes to <b>parry</b> — the next blow is a guaranteed critical.',
+  'Tap <b>Q</b> just before an enemy strikes to <b>parry</b> — the next blow is a guaranteed critical.',
   'An <b style="color:#ffa02a">orange !</b> means a heavy blow: a held guard will break. Parry it or roll.',
   'Elite monsters glow with a coloured aura. Light hits won\'t stop their attacks — but they always drop gear.',
   'Bellstones refill your life and tonics, and you wake at the last one if you fall. Nothing is lost.',
@@ -65,7 +65,7 @@ async function buildMenu() {
   }
   if (game.saveProvider.exportRecovery) menu.push({ label: 'Export Save / Recovery Copy', act: exportRecovery });
   menu.push({ label: 'Settings', act: () => openTitleSettings() });
-  menu.push({ label: 'How to Play', act: () => { sfx('select'); game.ui.say(null, 'MOVE: WASD · AIM: mouse · ATTACK: click or J (hold to charge) · GUARD: K / right click (tap to parry) · ROLL: Space\nABILITIES: 1, 2, 3 · TOOL: L · INTERACT: E · BAG: I · TONIC: Q · SURGE: R · MENU: Esc\n\nWatch for the *!* over an enemy: it is about to strike. Rest at Bellstones to refill tonics. Bring essences to Posy\'s workbench.'); } });
+  menu.push({ label: 'How to Play', act: () => { sfx('select'); game.ui.say(null, 'MOVE: WASD · AIM: mouse · ATTACK: click or C (hold to charge) · GUARD: Q / right click (tap to parry) · ROLL: Space\nABILITIES: 1–6 · TOOL: L · INTERACT: F · BAG: E · TONIC: H · SKILLS: K · JOURNAL: J · MAP: M · SURGE: R · MENU: Esc\n\nWatch for the *!* over an enemy: it is about to strike. Rest at Bellstones to refill tonics. Bring essences to Posy\'s workbench.'); } });
 }
 function renderMenu() {
   $('title-menu').replaceChildren();
@@ -114,6 +114,16 @@ async function boot() {
   try { provider = new LocalSaveProvider(localStorage); }
   catch { provider = { loadCharacters() { throw new Error('Browser storage unavailable. Enable storage to play with durable saves.'); } }; }
   game = new Game(pr, input, provider);
+  game.ui.navigate = page => {
+    if (!['play', 'pause'].includes(mode) || game.dead || game.locked() || game.ui.craftOpen || !$('shop').classList.contains('hidden')) return;
+    game.ui.closeInventory(); game.ui.show('pause', false);
+    input.keys.clear(); input.taps.clear(); input.mouse.clear(); input.mtaps.clear();
+    input.state = {}; input.prev = {};
+    if (page === 'resume') { mode = 'play'; return; }
+    if (page === 'bag' || page === 'skills') {
+      mode = 'play'; game.ui.invTab = page; game.ui.openInventory();
+    } else { mode = 'pause'; game.ui.openPause(); game.ui.tab(page); }
+  };
   window.__game = game; window.__items = ITEMS; window.__craft = CRAFT; window.__combat = COMBAT; window.__Boss = Boss; window.__skills = SKILLS; window.__gear = GEAR; window.__elements = ELEMENTS; window.__m3 = M3; window.__settings = SETTINGS; window.__devDefs = DEVDEFS; // test hooks
   progress(45, 'Growing Whisperwood…'); await tick();
   game.loadArea('overworld', 'start');
@@ -209,6 +219,10 @@ function frame(now) {
     game.camFocus = { x: 40 + Math.sin(titleT * 0.05) * 18, z: 55 + Math.cos(titleT * 0.04) * 8 };
     game.render(dt);
     return;
+  }
+  if (['play', 'pause'].includes(mode) && !game.locked() && !game.dead && !game.ui.craftOpen && $('shop').classList.contains('hidden')) {
+    const page = input.pressed('map') ? 'map' : input.pressed('journal') ? 'quests' : input.pressed('skills') ? 'skills' : mode === 'pause' && input.pressed('inventory') ? 'bag' : null;
+    if (page) { const same = mode === 'pause' && game.ui.curTab === page || game.ui.invOpen && game.ui.invTab === page; game.ui.navigate(same ? 'resume' : page); game.render(0.0001); return; }
   }
   if (mode === 'pause') {
     game.ui.updatePause(input);
