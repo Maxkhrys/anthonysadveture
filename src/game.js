@@ -35,6 +35,7 @@ import { HangingBell, BellSequence, CrackedGlass, BossTrigger, TollRack } from '
 import { Seamkeeper, CrownedToad } from './entities/bosses5.js';
 import { MATS, recipeById } from './rpg/crafting.js';
 import { DevConsole } from './dev/console.js';
+import './dev/pass5.js'; // Pass 5 dev commands plug into the console's tables
 
 import { defaultInventory, identifyItem, BELLSTONES, BELLSTONE_NAMES, worldPhase, respecInventory } from './persistence/model.js';
 import { snapshotCharacter, restoreCharacter, CharacterSession } from './persistence/session.js';
@@ -1202,6 +1203,7 @@ export class Game {
 
   // ------------------------------------------------ main update
   update(dt) {
+    dt *= this.timeScale ?? 1; // dev capture: freeze / slow motion
     this.time += dt;
     this.autosaveT = (this.autosaveT || 0) + dt;
     if (this.autosaveT >= 15) { this.autosaveT = 0; this.save(); }
