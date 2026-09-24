@@ -74,6 +74,8 @@ export class Projectile extends Entity {
     this.obj.rotation.y = this.dir;
     if (this.kind !== 'arrow' && this.kind !== 'power' && this.kind !== 'crescent') this.m.rotation.x += dt * 12;
     if (Math.random() < 0.6) g.fx.add({ x: this.x, y: this.y, z: this.z, color: this.color, life: 0.25, size: this.kind === 'fireball' ? 0.1 : 0.05, g: 0 });
+    // skimming water leaves a wake
+    if (Math.random() < 0.35) { const tt = g.tileAt(Math.floor(this.x), Math.floor(this.z)); if (tt === 4 || tt === 5) g.fx.add({ x: this.x, y: -0.1, z: this.z, vy: 0.8, g: 6, color: 0xe8f8ff, life: 0.35, size: 0.05, floor: -0.14 }); }
     // swept test along this frame's whole path, so fast shots never skip small targets
     const hits = [];
     for (const e of g.entities) {
@@ -195,6 +197,7 @@ export class RimeField extends Entity {
 export function blast(g, x, z, r, mult, color, o = {}) {
   g.fx.ring(x, z, 0.2, r, color, 0.35);
   g.fx.burst(x, 0.4, z, 16, [color, 0xffffff], 3.5, { life: 0.45 });
+  for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28; g.fx.add({ x: x + Math.cos(a) * r * 0.4, y: 0.2, z: z + Math.sin(a) * r * 0.4, vx: Math.cos(a) * 1.2, vz: Math.sin(a) * 1.2, vy: 0.5, g: 0, drag: 1.5, color: o.burn ? 0x5a3a2a : 0xd8d0e0, life: 0.8, size: 0.16, grow: 1.4, shrink: false, soft: true }); }
   sfx('poof'); g.pr.addShake(0.2);
   for (const e of enemiesNear(g, x, z, r)) {
     g.playerHit(e, { mult, kind: 'blast', kb: 5, dir: Math.atan2(e.x - x, e.z - z), ability: o.ability, forceBurn: o.burn });

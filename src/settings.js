@@ -7,13 +7,14 @@ const OPTS = [
   { k: 'master', name: 'Master volume', vals: [0, 0.25, 0.5, 0.75, 1], pct: true },
   { k: 'music', name: 'Music volume', vals: [0, 0.25, 0.5, 0.75, 1, 1.25], pct: true },
   { k: 'sfx', name: 'Effects volume', vals: [0, 0.25, 0.5, 0.75, 1, 1.25], pct: true },
+  { k: 'zoom', name: 'Camera distance', vals: [0.75, 0.85, 1, 1.15, 1.3, 1.5], labels: ['Very close', 'Close', 'Default', 'Far', 'Farther', 'Widest'] },
   { k: 'shake', name: 'Screen shake', vals: [0, 0.5, 1], labels: ['Off', 'Reduced', 'Full'] },
   { k: 'numbers', name: 'Damage numbers', vals: [true, false], labels: ['On', 'Off'] },
   { k: 'guide', name: 'Tutorial guide', vals: [true, false], labels: ['Shown', 'Hidden'] },
   { k: 'pixel', name: 'Pixel size', vals: [0, 2, 3, 4, 5], labels: ['Auto', 'Fine (2x)', 'Classic (3x)', 'Chunky (4x)', 'Huge (5x)'] },
   { k: 'quality', name: 'Shadows', vals: ['high', 'low'], labels: ['High', 'Low (faster)'] },
 ];
-export const DEFAULTS = { difficulty: 'normal', master: 1, music: 1, sfx: 1, shake: 1, numbers: true, guide: true, pixel: 0, quality: 'high' };
+export const DEFAULTS = { zoom: 1, difficulty: 'normal', master: 1, music: 1, sfx: 1, shake: 1, numbers: true, guide: true, pixel: 0, quality: 'high' };
 
 export function loadSettings() {
   try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { return { ...DEFAULTS }; }

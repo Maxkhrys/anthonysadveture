@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildOverworld, buildDungeon, buildGrotto, buildRift } from './world/maps.js';
-import { buildTerrain, buildLiquids, buildScenery, windUniform, clipUniform } from './world/build.js';
+import { buildTerrain, buildLiquids, buildScenery, windUniform, clipUniform, waterU, windowMat, lampMat } from './world/build.js';
 import { T, blocksObject } from './world/tiles.js';
 import { FX } from './fx.js';
 import { PITCH } from './engine/pixel.js';
@@ -25,18 +25,17 @@ import { AimView } from './aim.js';
 import { ensureCraftState, gainMat, learn } from './rpg/crafting.js';
 import { tileBlocks } from './entities/entity.js';
 
-const SAVE_KEY = 'mossling-save-v2';
+import { defaultInventory, identifyItem, BELLSTONES, worldPhase, respecInventory } from './persistence/model.js';
+import { snapshotCharacter, restoreCharacter, CharacterSession } from './persistence/session.js';
 export const BAG_SIZE = 30;
 const BUILDERS = { overworld: buildOverworld, dungeon: buildDungeon, grotto: buildGrotto };
 
-export function defaultInv() {
-  return { cls: 'samurai', level: 1, xp: 0, sp: 0, skills: [1, 0, 0], equip: { weapon: null, helm: null, armor: null, charm: null }, bag: [], vessels: 0,
-    hp: 60, maxHp: 60, coins: 0, keys: 0, bigkey: false, bellows: false, galeValve: false, potions: 2, maxPotions: 3, chimes: [],
-    mats: { shard: 0, thornheart: 0, echo: 0, ember: 0, sailcloth: 0 }, sigils: {}, sigilsOwned: [], recipes: [] };
-}
+export const defaultInv = defaultInventory;
 
 export class Game {
-  constructor(pr, input) {
+  constructor(pr, input, saveProvider = null) {
+    this.saveProvider = saveProvider;
+    this.discoveredBellstones = [];
     this.pr = pr; this.input = input;
     this.scene = new THREE.Scene();
     this.world = new THREE.Group(); this.scene.add(this.world);
@@ -73,6 +72,7 @@ export class Game {
 
   // ------------------------------------------------ RPG layer
   setClass(cls) {
+    if (this.profile && this.profile.classId !== cls) throw new Error('Create another character to change class.');
     const inv = this.inv;
     inv.cls = cls;
     inv.equip.weapon = starterWeapon(cls);
@@ -83,7 +83,7 @@ export class Game {
     this.pstats = computeStats(inv);
     inv.maxHp = this.pstats.maxHp;
     inv.hp = Math.min(inv.hp, inv.maxHp);
-    if (this.player && this.player.m.setWeapon) this.player.m.setWeapon(inv.equip.weapon);
+    if (this.player && this.player.m.setGear) this.player.m.setGear(inv.equip);
     this.hudDirty = true;
   }
   // incoming damage multiplier and the largest share of max life one blow may take
@@ -130,37 +130,92 @@ export class Game {
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; e.obj.add(ring); e.aura = ring;
     e.displayName = e.elite + ' ' + ({ blot: 'Blotling', beetle: 'Thornback', puffer: 'Puffer', wisp: 'Hushwisp', knight: 'Hush Knight', seedling: 'Seedling', ...MONSTER_NAMES }[e.kind] || 'Hushling');
   }
-  // day/night + weather for the overworld
+  // day/night, weather and biome mood for the overworld
   atmosphere(dt) {
     const a = this.area;
-    if (!a || a.id !== 'overworld') return;
     const u = this.pr.postMat.uniforms;
-    const day = ((this.time + (this.flags.dayOffset || 0)) / 420 + 0.32) % 1;
+    const phase = worldPhase(this.time, this.flags.dayOffset || 0);
+    this.isNight = phase.isNight;
+    if (!a || a.id !== 'overworld') {
+      waterU.light.value = a && a.dark ? 0.75 : 1; waterU.night.value = 0; waterU.rain.value = 0;
+      u.fogAmt.value = a && a.dark ? 0.2 : 0; u.fogColor.value.set(a && a.rift ? 0x3a2a5a : 0x1a1426); u.contrast.value = 1.04;
+      this.lampTick(dt, 0.8);
+      return;
+    }
+    const day = phase.fraction;
     this.dayT = day;
     const L = Math.max(0, Math.min(1, Math.sin((day - 0.2) * Math.PI * 2) * 1.4 + 0.45)); // 0 night .. 1 day
+    const N = 1 - L;
     const warm = Math.max(0, 1 - Math.abs(L - 0.45) * 3); // dawn/dusk glow
+    const dawn = day < 0.5 ? 1 : 0; // mornings run pink-gold, evenings amber-violet
     this.weatherT = (this.weatherT ?? 120) - dt;
     if (this.weatherT <= 0) { this.raining = !this.raining && Math.random() < 0.55; this.weatherT = this.raining ? 50 + Math.random() * 60 : 120 + Math.random() * 180; if (this.raining && !this.cutscene) this.ui.toast('Rain rolls in over Lanternreach…', '', 1.6); }
     this.rainK = (this.rainK || 0) + ((this.raining ? 1 : 0) - (this.rainK || 0)) * Math.min(1, dt * 0.5);
     const r = this.rainK;
-    const lit = 0.45 + 0.55 * L;
-    this.sun.intensity = 2.3 * lit * (1 - r * 0.45);
-    this.sun.color.setRGB(1, 0.94 - warm * 0.2 - (1 - L) * 0.1, 0.82 - warm * 0.35 + (1 - L) * 0.15);
-    this.hemi.intensity = (0.75 + 0.5 * L) * (1 - r * 0.2);
-    this.hemi.color.setRGB(0.6 + 0.15 * L, 0.7 + 0.15 * L, 1.0);
-    this.scene.background.setRGB(0.1 + 0.46 * L - r * 0.1, 0.12 + 0.66 * L - r * 0.1, 0.25 + 0.66 * L - r * 0.05);
+    // biome mood from the region you stand in
+    const reg = this.region ? this.region.name : '';
+    const MOOD = {
+      'Thimblewick': { fog: 0xf6e2b8, amt: 0.12 }, 'Whisperwood': { fog: 0x9ac8a0, amt: 0.3 }, 'Sunscald Reach': { fog: 0xf8d8a0, amt: 0.26 },
+      'Cinderpeak Foothills': { fog: 0xc86a4a, amt: 0.34 }, 'Hush Encampment': { fog: 0x8a7aa8, amt: 0.3 }, 'Lake Mirrow': { fog: 0xb8d8f0, amt: 0.3 },
+      'Chime Gate': { fog: 0xe0e8f8, amt: 0.32 }, 'Saltwhistle Shore': { fog: 0xd8ecf4, amt: 0.22 },
+    }[reg] || { fog: 0xd0e0f0, amt: 0.18 };
+    this.moodFog = this.moodFog || new THREE.Color(MOOD.fog);
+    const nightFog = new THREE.Color(0x1a2448), rainFog = new THREE.Color(0x8a96a8);
+    const tgt = new THREE.Color(MOOD.fog).lerp(nightFog, N * 0.85).lerp(rainFog, r * 0.5);
+    if (warm > 0) tgt.lerp(new THREE.Color(dawn ? 0xffb0a0 : 0xffa060), warm * 0.35);
+    this.moodFog.lerp(tgt, Math.min(1, dt * 1.5));
+    u.fogColor.value.copy(this.moodFog);
+    u.fogAmt.value += ((MOOD.amt + r * 0.2 + N * 0.12) - u.fogAmt.value) * Math.min(1, dt * 1.5);
+    const lit = 0.22 + 0.78 * L;
+    this.sun.intensity = 2.5 * lit * (1 - r * 0.45);
+    this.sun.color.setRGB(1, 0.94 - warm * 0.22 - N * 0.2, 0.84 - warm * 0.4 + N * 0.25);
+    this.hemi.intensity = (0.55 + 0.7 * L) * (1 - r * 0.2);
+    this.hemi.color.setRGB(0.45 + 0.3 * L, 0.55 + 0.3 * L, 1.0);
+    this.hemi.groundColor.setRGB(0.3 + 0.12 * L, 0.26 + 0.1 * L, 0.24 + 0.05 * N);
+    this.scene.background.setRGB(0.06 + 0.5 * L - r * 0.1, 0.08 + 0.7 * L - r * 0.1, 0.2 + 0.7 * L - r * 0.05);
     const hush = this.flags.hushLifted ? 1 : 0;
-    u.grade.value.set((hush ? 1.06 : 0.97) + warm * 0.08 - (1 - L) * 0.12, (hush ? 1.03 : 0.95) - warm * 0.02 - (1 - L) * 0.06, (hush ? 0.96 : 1.04) - warm * 0.08 + (1 - L) * 0.1);
-    u.desat.value = (hush ? 0 : 0.14) + r * 0.18;
-    u.vignette.value = 0.35 + (1 - L) * 0.35;
-    u.bloom.value = 0.22 + (1 - L) * 0.25;
-    this.playerLamp.intensity = L < 0.5 ? (0.5 - L) * 8 : 0;
+    u.grade.value.set((hush ? 1.06 : 0.98) + warm * 0.1 - N * 0.3, (hush ? 1.03 : 0.96) - warm * 0.01 - N * 0.18, (hush ? 0.96 : 1.03) - warm * 0.1 + N * 0.12);
+    u.desat.value = (hush ? 0 : 0.1) + r * 0.2 + N * 0.12;
+    u.vignette.value = 0.4 + N * 0.5;
+    u.bloom.value = 0.25 + N * 0.45;
+    u.contrast.value = 1.06 + N * 0.04;
+    this.playerLamp.intensity = N > 0.45 ? (N - 0.45) * 7 : 0;
+    this.playerLamp.color.setHex(0xffd8a0);
     this.playerLamp.position.set(this.player.x, 1.4, this.player.z);
+    // windows and lamps warm up as the light goes
+    const glow = Math.max(0, Math.min(1, (N - 0.25) * 2 + r * 0.3));
+    windowMat.color.setRGB(0.48 + 0.52 * glow, 0.72 + 0.1 * glow, 0.91 - 0.5 * glow).multiplyScalar(1 + glow * 0.4);
+    lampMat.color.setRGB(0.54 + 0.46 * glow, 0.48 + 0.4 * glow, 0.35 + 0.2 * glow).multiplyScalar(1 + glow * 0.6);
+    this.lampTick(dt, glow);
+    waterU.light.value = 0.45 + 0.55 * L - r * 0.1; waterU.night.value = N > 0.55 ? 1 : 0; waterU.rain.value = r; waterU.sky.value.copy(this.scene.background).lerp(new THREE.Color(0xffffff), 0.25);
     // rain streaks and puddle splashes
     if (r > 0.05) for (let i = 0; i < 14 * r; i++) this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 26, y: 4 + Math.random() * 2, z: this.cam.z + (Math.random() - 0.5) * 20, vx: -1.5, vy: -18, g: 0, drag: 0, color: 0xb8d0f0, life: 0.28, size: 0.035, stretch: 5, shrink: false });
-    if (r > 0.05 && Math.random() < r) this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 22, y: 0.03, z: this.cam.z + (Math.random() - 0.5) * 16, vy: 0.5, g: 3, color: 0xdfe8ff, life: 0.25, size: 0.06 });
-    // fireflies at night
-    if (L < 0.4 && Math.random() < 0.3) this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 24, y: 0.4 + Math.random(), z: this.cam.z + (Math.random() - 0.5) * 18, vx: (Math.random() - 0.5) * 0.4, vz: (Math.random() - 0.5) * 0.4, g: 0, drag: 0, color: 0xd8ff8a, life: 2.5, size: 0.05 });
+    if (r > 0.05 && Math.random() < r * 1.5) this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 22, y: 0.03, z: this.cam.z + (Math.random() - 0.5) * 16, vy: 0.8, g: 5, color: 0xdfe8ff, life: 0.22, size: 0.05 });
+    // fireflies at night, butterflies and drifting seeds by day
+    if (N > 0.55 && Math.random() < 0.35) this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 24, y: 0.4 + Math.random(), z: this.cam.z + (Math.random() - 0.5) * 18, vx: (Math.random() - 0.5) * 0.4, vz: (Math.random() - 0.5) * 0.4, g: 0, drag: 0, color: 0xd8ff8a, life: 2.5, size: 0.05, wob: 0.8 });
+    if (L > 0.6 && r < 0.3 && Math.random() < 0.06) { const c = [0xffd25e, 0xf06a8a, 0x9ad8ff, 0xffffff][Math.floor(Math.random() * 4)]; this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 22, y: 0.4 + Math.random() * 0.6, z: this.cam.z + (Math.random() - 0.5) * 16, vx: (Math.random() - 0.5) * 0.8, vz: (Math.random() - 0.5) * 0.6, vy: 0.05, g: 0, drag: 0, color: c, life: 4, size: 0.07, wob: 3, shrink: false }); }
+    // Whisperwood sheds leaves
+    if (reg === 'Whisperwood' && Math.random() < 0.25) this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 24, y: 2.5 + Math.random(), z: this.cam.z + (Math.random() - 0.5) * 18, vx: 0.4, vy: -0.35, g: 0, drag: 0, color: Math.random() < 0.5 ? 0xc8742a : 0x8aa83a, life: 6, size: 0.06, wob: 1.5, shrink: false });
+    // chimney smoke (only near the camera)
+    this.smokeT = (this.smokeT || 0) - dt;
+    if (this.smokeT <= 0 && a.chimneys) {
+      this.smokeT = 0.18;
+      for (const c of a.chimneys) if (Math.abs(c.x - this.cam.x) < 14 && Math.abs(c.z - this.cam.z) < 11) this.fx.add({ x: c.x + (Math.random() - 0.5) * 0.1, y: c.y, z: c.z, vx: 0.25 + Math.random() * 0.1, vy: 0.45, vz: -0.05, g: 0, drag: 0.2, color: N > 0.6 ? 0x6a6a7a : 0xe8e4dc, life: 2.6, size: 0.09, grow: 2.4, shrink: false, soft: true });
+    }
+  }
+  // pool the scene's point lights onto the lamps and lit windows nearest the camera
+  lampTick(dt, glow) {
+    const a = this.area;
+    if (a.dark || !a.lights || !a.lights.length || glow <= 0.02) { if (!a.dark) this.lamps.forEach(l => l.intensity = 0); return; }
+    this.lampSort = (this.lampSort || 0) - dt;
+    if (this.lampSort <= 0) { this.lampSort = 0.5; this.nearLights = a.lights.filter(l => Math.abs(l.x - this.cam.x) < 14 && Math.abs(l.z - this.cam.z) < 11).sort((p, q) => Math.hypot(p.x - this.cam.x, p.z - this.cam.z) - Math.hypot(q.x - this.cam.x, q.z - this.cam.z)); }
+    const src = this.nearLights || [];
+    this.lamps.forEach((l, i) => {
+      const s = src[i];
+      if (!s) { l.intensity = 0; return; }
+      l.position.set(s.x, s.y || 0.9, s.z); l.color.setHex(0xffb060);
+      l.intensity = glow * (s.kind === 'lamp' ? 5 : 2.6) * (1 + Math.sin(this.time * 9 + i * 2) * 0.06);
+    });
   }
   worldTick(dt) {
     if (!this.area || this.area.id !== 'overworld' || this.locked()) return;
@@ -173,6 +228,8 @@ export class Game {
       if (this.time < r.t || Math.hypot(r.def.x - p.x, r.def.z - p.z) < 22) return true;
       this.spawnDef(r.def); return false;
     });
+    // chests only appear on the map once you've been near them (no spoilers)
+    for (const e of this.entities) if (e instanceof LootChest && !this.flags['seenchest:' + e.id] && Math.hypot(e.x - p.x, e.z - p.z) < 9) this.flags['seenchest:' + e.id] = true;
     // roaming Pip Thief
     this.thiefT = (this.thiefT ?? 60) - 2;
     if (this.thiefT <= 0 && this.inv.level >= 2) {
@@ -277,6 +334,8 @@ export class Game {
   pickupItem(it) {
     const inv = this.inv;
     if (inv.bag.length >= BAG_SIZE) return false;
+    identifyItem(it, this.profile?.id);
+    if ([...inv.bag, ...Object.values(inv.equip).filter(Boolean)].some(held => held.itemInstanceId === it.itemInstanceId)) return false;
     inv.bag.push(it);
     const R = RARITY[it.r];
     sfx(it.r >= 2 ? 'pipbig' : 'pip');
@@ -286,6 +345,7 @@ export class Game {
     this.stats.items = (this.stats.items || 0) + 1;
     if (!this.flags.tutLoot) { this.flags.tutLoot = true; setTimeout(() => this.ui.toast('You found gear!', 'Press I to open your bag and equip it.', 3.5), 600); }
     this.hudDirty = true;
+    this.save();
     return true;
   }
   canEquip(it) { return !it.cls || it.cls === this.inv.cls; }
@@ -300,6 +360,7 @@ export class Game {
     sfx('unlock');
     this.guide.event('equip');
     this.recalc();
+    this.save();
   }
   salvageItem(i) {
     const inv = this.inv, it = inv.bag[i];
@@ -346,19 +407,46 @@ export class Game {
     this.hudDirty = true;
   }
 
-  save() {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ inv: this.inv, flags: this.flags, checkpoint: this.checkpoint, playTime: this.playTime, stats: this.stats })); } catch (e) {}
-  }
-  static hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
-  load() {
+  async save() {
+    if (!this.profile || !this.characterSession) return false;
     try {
-      const s = JSON.parse(localStorage.getItem(SAVE_KEY));
-      this.inv = Object.assign(defaultInv(), s.inv); this.flags = s.flags || {}; this.checkpoint = s.checkpoint || this.checkpoint;
-      ensureCraftState(this.inv); // saves from before crafting simply start with empty pouches
-      this.playTime = s.playTime || 0; this.stats = s.stats || {};
-      this.recalc(); this.inv.hp = this.inv.maxHp;
+      await this.characterSession.save(snapshotCharacter(this));
+      this.profile.revision = this.characterSession.profile.revision;
       return true;
-    } catch (e) { return false; }
+    } catch (error) {
+      this.ui.toast('Progress could not be saved', error.message, 6);
+      return false;
+    }
+  }
+  async load(id) {
+    const profiles = await this.saveProvider.loadCharacters();
+    const profile = profiles.find(p => p.id === id) || (!id && profiles[0]);
+    if (!profile) throw new Error('Character not found.');
+    if (!BUILDERS[profile.world.checkpoint.area]) throw new Error('This character needs an unavailable area. Original save retained.');
+    restoreCharacter(this, profile);
+    this.characterSession = new CharacterSession(this.saveProvider, profile);
+    ensureCraftState(this.inv);
+    this.recalc(); this.inv.hp = this.inv.maxHp;
+    return true;
+  }
+  async createCharacter(name, cls) {
+    const inv = defaultInv(cls);
+    inv.equip.weapon = starterWeapon(cls);
+    const profile = await this.saveProvider.createCharacter({ name, classId: cls, inventory: inv });
+    await this.load(profile.id);
+  }
+  async respec() {
+    respecInventory(this.inv, CLASSES[this.inv.cls].abilities);
+    this.recalc();
+    return this.save();
+  }
+  // A future Bellstone menu can use this list and guarded hook without world-art edits.
+  unlockedBellstones() { return BELLSTONES.filter(b => this.discoveredBellstones.includes(b.id)); }
+  travelToBellstone(id) {
+    const target = this.unlockedBellstones().find(b => b.id === id);
+    const atStone = this.entities.some(e => e instanceof O.Bellstone && Math.hypot(e.x - this.player.x, e.z - this.player.z) < 2);
+    if (!target || !atStone || this.dead || this.player.state === 'dead' || this.player.combatT > 0 || this.locked()) return false;
+    this.warpTo(target.area, target.spawn); return true;
   }
 
   // ------------------------------------------------ areas
@@ -385,7 +473,8 @@ export class Game {
     this.playerLamp.intensity = area.dark ? 3 : 0;
     if (area.rift) { this.hemi.intensity = 2.3; this.hemi.color.set(0xc8b0ff); this.sun.intensity = 1.4; this.playerLamp.intensity = 5; }
     this.fx.setAmbient(id === 'overworld' ? 'pollen' : 'motes');
-    this.pr.setViewHeight(area.dungeon ? 13.2 : 12);
+    this.baseVH = area.dungeon ? 13.2 : 12; this.camZoom = 1;
+    this.pr.setViewHeight(this.baseVH * ((this.settings && this.settings.zoom) || 1));
     this.updateGrade();
     // player
     const sp = typeof spawn === 'object' ? spawn : area.spawns[spawn] || Object.values(area.spawns)[0];
@@ -506,6 +595,7 @@ export class Game {
     sfx('hurt');
     this.ui.bossBar(null);
     this.stats.deaths = (this.stats.deaths || 0) + 1;
+    this.save();
     const h = this.player.lastHit;
     const rest = { village: 'the Thimblewick Bellstone', entrance: 'the Hollow\'s entrance Bellstone', pre: 'the Bellstone before the Root Gate', dungeon: 'the Hollow\'s mouth' }[this.checkpoint.spawn] || 'your last rest';
     const el = document.querySelector('#gameover .recap');
@@ -525,6 +615,8 @@ export class Game {
     inv.hp = inv.maxHp; inv.potions = inv.maxPotions; this.res = 100;
     this.checkpoint = { area: this.area.id, spawn: stone.spawn };
     this.flags['rested:' + stone.spawn] = true;
+    const id = this.area.id + ':' + stone.spawn;
+    if (!this.discoveredBellstones.includes(id)) this.discoveredBellstones.push(id);
     this.guide.event('rest');
     this.ui.hearts(true); this.hudDirty = true;
     this.save();
@@ -570,17 +662,25 @@ export class Game {
     this.bossActive = b;
     this.spawn(b);
     this.cutscene = true;
-    this.camFocus = { x: d.x, z: d.z + 3 };
+    // reveal: letterbox, a slow push-in on the bulb, then the name card with a sting
+    this.camFocus = { x: d.x, z: d.z + 1.5 }; this.camZoom = 0.72;
     sfx('roar'); this.pr.addShake(1);
     playMusic(null);
-    this.ui.banner('THE CHOKING ROOT', 'BRAMBLEMAW', 2.6);
-    setTimeout(() => { this.cutscene = false; this.camFocus = null; this.musicOverride('boss'); this.ui.bossBar(b.name, 1); }, 2400);
+    this.ui.show('letterbox', true);
+    setTimeout(() => {
+      sfx('bossSting'); this.pr.addFlash(0.25, 0xff7ab0); this.pr.addShake(0.6);
+      const nc = document.getElementById('namecard'); nc.querySelector('.nc-sub').textContent = 'THE CHOKING ROOT'; nc.querySelector('.nc-name').textContent = 'BRAMBLEMAW'; this.ui.show('namecard', true);
+      for (let i = 0; i < 40; i++) { const a = Math.random() * 6.28; this.fx.add({ x: d.x + Math.cos(a) * 2, y: 0.2, z: d.z + Math.sin(a) * 2, vx: Math.cos(a) * 3, vz: Math.sin(a) * 3, vy: 2, color: i % 2 ? 0x7fd36a : 0xc04a7a, life: 1.2, size: 0.1 }); }
+    }, 900);
+    setTimeout(() => { this.camZoom = 1; this.ui.show('namecard', false); this.ui.show('letterbox', false); }, 3100);
+    setTimeout(() => { this.cutscene = false; this.camFocus = null; this.musicOverride('boss'); this.ui.bossBar(b.name, 1); }, 3400);
   }
   onBossDying(b) {
     for (const e of this.entities) if (e.isEnemy && e !== b && !e.dead) e.die(null, 'fall');
     this.ui.bossBar(null);
     this.cutscene = true;
-    this.camFocus = { x: b.x, z: b.z + 2 };
+    this.camFocus = { x: b.x, z: b.z + 2 }; this.camZoom = 0.8;
+    setTimeout(() => { this.camZoom = 1; }, 3800);
   }
   onBossDead(b) {
     this.flags.bossKilled = true;
@@ -852,6 +952,8 @@ export class Game {
   // ------------------------------------------------ main update
   update(dt) {
     this.time += dt;
+    this.autosaveT = (this.autosaveT || 0) + dt;
+    if (this.autosaveT >= 15) { this.autosaveT = 0; this.save(); }
     windUniform.value = this.time;
     this.liquidTime.value = this.time;
     const input = this.input;
@@ -909,6 +1011,9 @@ export class Game {
     this.render(dt);
   }
   render(dt) {
+    // camera distance: the player's setting, times any dramatic zoom (boss intros)
+    const vh = (this.baseVH || 12) * ((this.settings && this.settings.zoom) || 1) * (this.camZoom || 1);
+    if (Math.abs(vh - this.pr.viewHeight) > 0.01) this.pr.setViewHeight(this.pr.viewHeight + (vh - this.pr.viewHeight) * Math.min(1, dt * 4 + (dt === 0 ? 1 : 0)));
     const t = this.camTarget();
     const k = 1 - Math.exp(-dt * (this.room ? 7 : 6));
     this.cam.x += (t.x - this.cam.x) * k; this.cam.z += (t.z - this.cam.z) * k;
@@ -921,7 +1026,7 @@ export class Game {
       const src = this.entities.filter(e => (e instanceof O.Torch && e.lit) || (e instanceof O.Door && e.lit)).sort((a, b) => Math.hypot(a.x - this.cam.x, a.z - this.cam.z) - Math.hypot(b.x - this.cam.x, b.z - this.cam.z));
       this.lamps.forEach((l, i) => { const s = src[i]; if (s) { l.position.set(s.x, 1.2, s.z); l.intensity = 6 + Math.sin(this.time * 15 + i) * 0.8; } else l.intensity = 0; });
       this.playerLamp.position.set(this.player.x, 1.4, this.player.z);
-    } else this.lamps.forEach(l => l.intensity = 0);
+    }
     this.atmosphere(dt);
     if (this.noRender) return;
     this.ui.drawMini();

@@ -4,6 +4,7 @@ import { sfx } from './engine/audio.js';
 import { CLASSES, xpNeed, computeStats } from './rpg/classes.js';
 import { RARITY, AFFIXES, itemIcon, itemPower, statLine, baseById } from './rpg/items.js';
 import { recipeById, MATS } from './rpg/crafting.js';
+import { DollPreview, itemIconURL } from './preview.js';
 
 const $ = id => document.getElementById(id);
 const AB_ICON = { iaido: '💨', tempest: '🌀', oni: '👹', multishot: '🎯', snare: '🪤', rain: '🌧️', nova: '❄️', chain: '⚡', familiar: '🐈‍⬛' };
@@ -106,14 +107,40 @@ export function installRpgUI(UI) {
     this.renderInventory();
   };
   P.closeInventory = function () { this.invOpen = false; this.show('inventory', false); };
+  // ---- presentation helpers (display only; item rules live in game.js / items.js)
+  const SLOT_DEFS = [
+    { k: 'helm', alts: ['head'], label: 'Head', side: 'L' }, { k: 'charm', alts: ['neck', 'necklace'], label: 'Neck', side: 'L' },
+    { k: 'armor', alts: ['chest'], label: 'Chest', side: 'L' }, { k: 'arms', alts: ['gloves'], label: 'Arms', side: 'L' },
+    { k: 'weapon', alts: [], label: 'Weapon', side: 'R' }, { k: 'legs', alts: ['pants'], label: 'Legs', side: 'R' },
+    { k: 'boots', alts: ['feet'], label: 'Boots', side: 'R' }, { k: 'ring1', alts: [], label: 'Ring', side: 'R' }, { k: 'ring2', alts: [], label: 'Ring', side: 'R' },
+  ];
+  // only slots the character actually has are shown (new slots appear automatically)
+  P.dollSlots = function () {
+    const eq = this.g.inv.equip;
+    const out = [];
+    for (const d of SLOT_DEFS) { const k = [d.k, ...d.alts].find(k => k in eq); if (k) out.push({ ...d, key: k }); }
+    return out;
+  };
+  const icon = (it, cls) => { try { const u = itemIconURL(it, cls); return u ? `<img class="ico" src="${u}" alt="">` : itemIcon(it); } catch (e) { return itemIcon(it); } };
+  P.icon = function (it) { return icon(it, this.g.inv.cls); };
+  const statVal = (it, k) => (it && it.stats && it.stats[k]) || 0;
+  P.compareHtml = function (it, cur) {
+    if (!it || !cur || it === cur) return '';
+    const rows = [];
+    const d = (label, a, b, fmt = v => v, better = 1) => { const diff = Math.round((a - b) * 10) / 10; if (!diff) return; rows.push(`<div class="${diff * better > 0 ? 'up' : 'down'}">${diff > 0 ? '▲ +' : '▼ '}${fmt(diff)} ${label}</div>`); };
+    if (it.slot === 'weapon') { d('avg damage', (it.min + it.max) / 2, (cur.min + cur.max) / 2); d('speed', it.spd, cur.spd, v => v.toFixed(2)); }
+    const keys = new Set([...Object.keys(it.stats || {}), ...Object.keys(cur.stats || {})]);
+    for (const k of keys) { const A = AFFIXES[k]; d(A ? A.name + (A.pct ? ' %' : '') : k === 'armor' ? 'Armour' : k === 'hp' ? 'Max Health' : k, statVal(it, k), statVal(cur, k)); }
+    return rows.length ? `<div class="delta"><div class="sub">vs. equipped</div>${rows.join('')}</div>` : '<div class="delta"><div class="sub">Same stats as equipped</div></div>';
+  };
   P.itemHtml = function (it, cmp) {
-    if (!it) return '<div class="tt"><div class="sub">Empty</div></div>';
+    if (!it) return '<div class="tt"><div class="sub">Empty slot</div></div>';
     const g = this.g, R = RARITY[it.r];
-    const base = baseById(it.base);
-    const typeName = it.slot === 'weapon' ? { katana: 'Katana', bow: 'Bow', staff: 'Staff', wand: 'Wand' }[it.kind] : { helm: 'Helm', armor: 'Armour', charm: 'Charm' }[it.slot];
+    const typeName = it.slot === 'weapon' ? { katana: 'Katana', bow: 'Bow', staff: 'Staff', wand: 'Wand' }[it.kind] : { helm: 'Helm', armor: 'Armour', charm: 'Charm' }[it.slot] || it.slot;
     const clsTxt = it.cls ? ` · <span style="color:${it.cls === g.inv.cls ? '#9f9' : '#f88'}">${CLASSES[it.cls].name}</span>` : '';
-    let h = `<h4 style="color:${R.color}">${it.name}</h4><div class="sub">${R.name} ${typeName} · item level ${it.ilvl}${clsTxt}</div>`;
+    let h = `<div class="tt-head"><div class="big-ico rar${it.r}">${this.icon(it)}</div><div><h4 style="color:${R.color}">${it.name}</h4><div class="sub">${R.name} ${typeName} · item level ${it.ilvl}${clsTxt}</div>`;
     if (it.slot === 'weapon') h += `<div class="dmg">${it.min}–${it.max} damage · ${it.spd.toFixed(2)} speed</div>`;
+    h += `</div></div>`;
     const lines = [];
     for (const k in it.stats) {
       const isAff = it.affixes.includes(k);
@@ -124,8 +151,9 @@ export function installRpgUI(UI) {
     h += lines.join('');
     if (it.utext) h += `<div class="uq">★ ${it.utext}</div>`;
     if (it.craft) { const r = recipeById(it.craft); h += `<div class="uq" style="color:#9ad8ff">✦ ${r.name}: ${r.effect}</div>`; }
+    if (cmp !== undefined) h += this.compareHtml(it, cmp);
     h += `<div class="sub" style="margin-top:4px">Salvage: ${Math.max(1, Math.round(it.value * 0.35))} pips · Power ${itemPower(it)}</div>`;
-    return `<div class="tt">${h}</div>`;
+    return `<div class="tt rarb${it.r}">${h}</div>`;
   };
   P.renderInventory = function () {
     const g = this.g, inv = g.inv;
@@ -133,24 +161,30 @@ export function installRpgUI(UI) {
     $('inv-bag').classList.toggle('hidden', this.invTab !== 'bag');
     $('inv-skills').classList.toggle('hidden', this.invTab !== 'skills');
     if (this.invTab === 'skills') return this.renderSkills();
-    const slots = ['weapon', 'helm', 'armor', 'charm'];
-    $('paperdoll').innerHTML = slots.map((s, i) => { const it = inv.equip[s]; return `<div class="slotbox ${this.invSel === -1 - i ? 'sel' : ''}" data-eq="${i}" style="border-color:${it ? RARITY[it.r].color : '#3a3050'}">${it ? itemIcon(it) : ''}<small>${s}</small></div>`; }).join('');
+    const slots = this.dollSlots();
+    this.invSel = Math.max(-slots.length, this.invSel);
+    const slotHtml = (d, i) => { const it = inv.equip[d.key]; return `<div class="slotbox ${this.invSel === -1 - i ? 'sel' : ''} ${it ? 'rar' + it.r : 'empty'}" data-eq="${i}" title="${d.label}">${it ? this.icon(it) : `<span class="ghost">${{ Head: '⛑', Neck: '◌', Chest: '▣', Arms: '✋', Weapon: '⚔', Legs: '‖', Boots: '▙', Ring: '○' }[d.label] || '·'}</span>`}<small>${d.label}</small></div>`; };
+    const Ls = slots.map((d, i) => d.side === 'L' ? slotHtml(d, i) : '').join(''), Rs = slots.map((d, i) => d.side === 'R' ? slotHtml(d, i) : '').join('');
+    $('paperdoll').innerHTML = `<div class="doll-col">${Ls}</div><div class="doll-stage"><div class="doll-name">${CLASSES[inv.cls].name} · Lv ${inv.level}</div></div><div class="doll-col">${Rs}</div>`;
+    this.doll = this.doll || new DollPreview();
+    this.doll.mount($('paperdoll').querySelector('.doll-stage'));
+    this.doll.setGear(inv.cls, inv.equip);
     const ps = g.pstats;
     const C = CLASSES[inv.cls];
     const row = (a, b) => `<div>${a}: <b>${b}</b></div>`;
-    $('statsheet').innerHTML = [row('Class', C.name), row('Level', inv.level), row('XP', inv.xp + '/' + xpNeed(inv.level)), row('Health', Math.round(inv.hp) + '/' + inv.maxHp), row('Damage', ps.wmin + '–' + ps.wmax), row('Atk speed', ps.wspd.toFixed(2)), row('Crit', ps.crit.toFixed(0) + '%'), row('Crit dmg', '+' + ps.critDmg + '%'), row('Armour', ps.armor), row('Dmg +', ps.dmgPct + '%'), row('Life steal', ps.lifesteal + '%'), row('Cooldowns', '-' + ps.cdr + '%'), row('Move', '+' + ps.moveSpd + '%'), row('Magic find', ps.mf + '%'), row('Pips', inv.coins), row('Bag', inv.bag.length + '/30')].join('') + (inv.mats ? `<div style="margin-top:6px;font-size:13px">${Object.keys(MATS).filter(k => inv.mats[k]).map(k => `<span title="${MATS[k].desc}"><b style="color:${MATS[k].color}">${MATS[k].icon}</b> ${MATS[k].name} ×${inv.mats[k]}</span>`).join('<br>') || '<span style="color:#a99">No crafting materials yet.</span>'}</div>` : '');
+    $('statsheet').innerHTML = [row('Health', Math.round(inv.hp) + '/' + inv.maxHp), row('Damage', ps.wmin + '–' + ps.wmax), row('Armour', ps.armor), row('Crit', ps.crit.toFixed(0) + '%'), row('Crit dmg', '+' + ps.critDmg + '%'), row('Atk speed', ps.wspd.toFixed(2)), row('Dmg +', ps.dmgPct + '%'), row('Life steal', ps.lifesteal + '%'), row('Cooldowns', '-' + ps.cdr + '%'), row('Move', '+' + ps.moveSpd + '%'), row('Magic find', ps.mf + '%'), row('XP', inv.xp + '/' + xpNeed(inv.level)), row('Pips', inv.coins), row('Bag', inv.bag.length + '/30')].join('') + (inv.mats ? `<div class="mats">${Object.keys(MATS).filter(k => inv.mats[k]).map(k => `<span title="${MATS[k].desc}"><b style="color:${MATS[k].color}">${MATS[k].icon}</b> ${MATS[k].name} ×${inv.mats[k]}</span>`).join('') || '<span style="color:#a99">No crafting materials yet.</span>'}</div>` : '');
     let cells = '';
     for (let i = 0; i < 30; i++) {
       const it = inv.bag[i];
       if (!it) { cells += `<div class="cell ${this.invSel === i ? 'sel' : ''}" data-i="${i}"></div>`; continue; }
       const cur = inv.equip[it.slot];
       const mark = !g.canEquip(it) ? '<span class="no">✕</span>' : itemPower(it) > itemPower(cur) ? '<span class="up">▲</span>' : '';
-      cells += `<div class="cell ${this.invSel === i ? 'sel' : ''}" data-i="${i}" style="border-color:${RARITY[it.r].color};background:${RARITY[it.r].color}18">${itemIcon(it)}${mark}</div>`;
+      cells += `<div class="cell rar${it.r} ${this.invSel === i ? 'sel' : ''}" data-i="${i}">${this.icon(it)}${mark}</div>`;
     }
     $('baggrid').innerHTML = cells;
-    const sel = this.invSel >= 0 ? inv.bag[this.invSel] : inv.equip[slots[-1 - this.invSel]];
-    const cmp = sel && this.invSel >= 0 ? inv.equip[sel.slot] : null;
-    $('tooltip').innerHTML = this.itemHtml(sel) + (sel && this.invSel >= 0 ? `<div class="cmp"><div class="sub">Currently equipped:</div>${cmp ? this.itemHtml(cmp) : '<div class="tt">—</div>'}</div>` : '');
+    const sel = this.invSel >= 0 ? inv.bag[this.invSel] : inv.equip[(slots[-1 - this.invSel] || {}).key];
+    const cmp = sel && this.invSel >= 0 ? inv.equip[sel.slot] || null : undefined;
+    $('tooltip').innerHTML = this.itemHtml(sel, cmp) + (sel && this.invSel >= 0 ? `<div class="cmp"><div class="sub">Currently equipped:</div>${cmp ? this.itemHtml(cmp) : '<div class="tt">—</div>'}</div>` : '');
     $('baggrid').querySelectorAll('.cell').forEach(c => {
       const i = +c.dataset.i;
       c.onclick = () => { this.invSel = i; sfx('select'); this.renderInventory(); };
@@ -158,6 +192,11 @@ export function installRpgUI(UI) {
       c.oncontextmenu = e => { e.preventDefault(); this.invSel = i; g.salvageItem(i); this.renderInventory(); };
     });
     $('paperdoll').querySelectorAll('.slotbox').forEach(c => { c.onclick = () => { this.invSel = -1 - +c.dataset.eq; this.renderInventory(); }; });
+    if (!this.dollLoop) {
+      let last = performance.now();
+      const loop = now => { if (!this.invOpen) { this.dollLoop = null; return; } this.dollLoop = requestAnimationFrame(loop); this.doll.frame(Math.min(0.05, (now - last) / 1000)); last = now; };
+      this.dollLoop = requestAnimationFrame(loop);
+    }
   };
   P.renderSkills = function () {
     const g = this.g, inv = g.inv, C = CLASSES[inv.cls];
@@ -189,7 +228,7 @@ export function installRpgUI(UI) {
     let s = this.invSel, moved = false;
     if (s < 0) {
       if (input.pressed('left')) { s = Math.min(-1, s + 1); moved = true; }
-      if (input.pressed('right')) { s = Math.max(-4, s - 1); moved = true; }
+      if (input.pressed('right')) { s = Math.max(-this.dollSlots().length, s - 1); moved = true; }
       if (input.pressed('down')) { s = 0; moved = true; }
     } else {
       if (input.pressed('left')) { s = Math.max(0, s - 1); moved = true; }

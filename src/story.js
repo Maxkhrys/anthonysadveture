@@ -38,7 +38,7 @@ export class Story {
     if (this.g.inv.chimes.includes('verdant') && !f['chest:echo-chest']) m.push({ x: 32.5, z: 29.5, color: '#9ad8ff' });
     if (this.g.inv.mats && (this.g.inv.mats.thornheart || this.g.inv.mats.echo || this.g.inv.mats.ember || this.g.inv.mats.sailcloth)) m.push({ x: 55.3, z: 64.8, color: '#c9a8ff', pulse: true });
     const g = this.g;
-    if (g.area && g.area.id === 'overworld') for (const e of g.entities) if (e.constructor.name === 'LootChest' && !e.opened) m.push({ x: e.x, z: e.z, color: ['#c89a5a', '#c0c0d0', '#ffd25e'][e.tier] });
+    if (g.area && g.area.id === 'overworld') for (const e of g.entities) if (e.constructor.name === 'LootChest' && !e.opened && f['seenchest:' + e.id]) m.push({ x: e.x, z: e.z, color: ['#c89a5a', '#c0c0d0', '#ffd25e'][e.tier] });
     return m;
   }
   labels() {
