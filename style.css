@@ -443,3 +443,31 @@ body.aiming #game{cursor:none}
 #chud #surge-fill{top:auto;height:var(--k,0%)!important}
 .ab.cool .ic{filter:grayscale(.7) brightness(.55)}
 .ab .cdt{font-size:18px}
+.cr-tabs{margin-left:18px;font-size:14px;display:inline-flex;gap:8px;align-items:center;vertical-align:middle}
+.cr-tabs span{padding:2px 10px;border:2px solid #3a3050;cursor:pointer;color:#b8aac8}
+.cr-tabs span.on{border-color:var(--gold);color:var(--gold)}
+.cr-tabs small{font-size:10px;color:#8a7a9a}
+.rf-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin:6px 0}
+.rf-grid div{display:flex;flex-direction:column;background:#0d0914;border:1px solid #3a3050;padding:4px 6px}
+.rf-grid span{font-size:10px;color:#a898b8}
+.rf-grid b{font-size:16px}
+.rf-grid b.up{color:#9fe88a}
+.bagbar{grid-column:1/-1;display:flex;gap:4px;font-size:11px;margin-bottom:2px}
+.bagbar span{padding:1px 7px;border:1px solid #3a3050;color:#b8aac8;cursor:pointer;background:#120d1c}
+.bagbar span.on{border-color:var(--gold);color:var(--gold)}
+.bagbar .sort{margin-left:auto}
+.cell .lk{position:absolute;left:1px;top:0;font-size:10px}
+.cell .ul{position:absolute;right:2px;top:0;font-size:10px;color:var(--gold);text-shadow:1px 1px 0 #000}
+.cell .oc{position:absolute;right:2px;bottom:0;font-size:11px;color:#fc8}
+.cell.isset{box-shadow:inset 0 0 0 2px #7fd36a80}
+.cell.afx{animation:afx 1.6s infinite alternate}
+@keyframes afx{to{box-shadow:inset 0 0 0 2px var(--ac),0 0 10px var(--ac)}}
+.slotbox.justeq{animation:justeq .6s}
+@keyframes justeq{0%{transform:scale(1.18);box-shadow:0 0 0 3px #fff,0 0 18px var(--gold)}}
+.uplvl{color:var(--gold);font-size:.85em}
+.sub.fam{color:#c8d8f0}
+.setbox{margin-top:5px;padding:4px 6px;border:1px solid var(--sc);background:#0d0914;font-size:12px}
+.setbox b{color:var(--sc)}
+.setbox div{color:#8a7a9a}
+.setbox div.on{color:#e8f0d8}
+.setbox small{color:#8a7a9a;font-size:10px}

@@ -9,7 +9,7 @@ import { CLASSES, abilityRankMult } from '../rpg/classes.js';
 import { unitAt, baseById } from '../rpg/items.js';
 import { Projectile, Trap, RainZone, Familiar, frostNova, chainLightning, thornBurst, EchoShot, IaidoEcho, RimeField, blast, bolt } from '../rpg/combat.js';
 import { SKILLS, rankOf, rankCd, rankMult, LOADOUT_SIZE } from '../rpg/skills.js';
-import { GhostBlade, SeverLine, WindTrail, Rupture, resonanceRing, Tether, StormPins, NeedleRain, GardenSeed, cometShards, HexCurse, MothSwarm, threadTick, foes } from '../rpg/abilities.js';
+import { GhostBlade, SeverLine, WindTrail, Rupture, resonanceRing, Tether, StormPins, NeedleRain, GardenSeed, cometShards, HexCurse, MothSwarm, threadTick, foes, tongueLash, releaseMoths } from '../rpg/abilities.js';
 import { soak } from '../rpg/elements.js';
 import { hasEngraving, hasSigil } from '../rpg/crafting.js';
 import { AIM_H } from '../aim.js';
@@ -169,6 +169,7 @@ export class Player extends Entity {
         g.addSurge(12);
         if (g.talent('perfectguard')) g.res = Math.min(100, g.res + 15 * g.talent('perfectguard'));
         if (g.talent('counterdraw')) this.counterT = 3;
+        if (hasEngraving(g, 'porcelainguard')) this.glaze();
         this.parryT = g.time;
         g.stats.parries = (g.stats.parries || 0) + 1;
         return 'parry';
@@ -208,6 +209,7 @@ export class Player extends Entity {
     const L = lvl || g.zoneLevel(this.x, this.z);
     // enemies hit a little harder per level than the base unit, to keep pace with the armour
     // and life that gear adds along the way
+    if (this.porcelainT > 0 && src) { raw *= 0.4; this.porcelainT = 0; sfx('shatter'); g.fx.burst(this.x, 0.5, this.z, 16, [0xe8e0d0, 0xffffff, 0x9ad8ff], 3.5); }
     let n = Math.max(1, Math.round(raw * unitAt(L) * (1 + 0.05 * (L - 1)) * 1.05 * g.pstats.dr * g.diffMult()));
     // no unexplained one-shots: a single blow can take at most a set share of your life
     n = Math.min(n, Math.ceil(inv.maxHp * g.hitCap()));
@@ -220,12 +222,14 @@ export class Player extends Entity {
     else if (inv.hp <= inv.maxHp * 0.25) sfx('low');
   }
   knock(ang, s) { this.kx = Math.sin(ang) * s; this.kz = Math.cos(ang) * s; }
+  glaze() { this.porcelainT = 4; this.g.fx.ring(this.x, this.z, 0.2, 0.7, 0xe8e0d0, 0.3); sfx('glass'); }
   // rolled through an attack inside the invulnerable window
   perfectDodge(h) {
     const g = this.g;
     if (this.pdT > g.time) return;
     this.pdT = g.time + 0.4;
     g.stats.perfectDodges = (g.stats.perfectDodges || 0) + 1;
+    if (hasEngraving(g, 'porcelainguard')) this.glaze();
     g.fx.ring(this.x, this.z, 0.1, 0.9, 0xdff4ff, 0.25);
     if (g.pstats.uniques.has('stillwater')) { this.stillT = 3; g.ui.float(this.x, 1.3, this.z, 'STILLWATER', '#9ad8ff', false, true); }
     const src = h.src && h.src.isEnemy ? h.src : null;
@@ -285,8 +289,15 @@ export class Player extends Entity {
     else { const t = g.nearestEnemy(this.x, this.z, 9, this.facing, 0.5); if (t) this.facing = Math.atan2(t.x - this.x, t.z - this.z); }
     this.setState('shoot'); this.aimT = 0; this.buffer = 0; this.stillSince = this.stillSince ?? this.g.time;
   }
+  // every charged attack (spin, power shot, fireball, wand fan) passes through here first
+  onCharged() {
+    const g = this.g;
+    if (hasEngraving(g, 'crowntongue')) tongueLash(g, this);
+    if (hasEngraving(g, 'mothwing')) releaseMoths(g, this);
+  }
   fireBasic(power) {
     const g = this.g, f = this.facing, w = this.inv.equip.weapon, U = w && w.unique, fam = this.family;
+    if (power) this.onCharged();
     if (power && hasEngraving(g, 'millwind')) g.gust(this, 1, true);
     let ox = this.x + Math.sin(f) * 0.4, oz = this.z + Math.cos(f) * 0.4;
     if (!g.shotClear(this.x, this.z, ox, oz)) { ox = this.x; oz = this.z; } // hugging a wall: never spawn inside it
@@ -422,7 +433,8 @@ export class Player extends Entity {
     const s = this.state;
     const ps = g.pstats;
     for (const k in this.cdMap) if (this.cdMap[k] > 0) this.cdMap[k] = Math.max(0, this.cdMap[k] - dt);
-    this.counterT = Math.max(0, (this.counterT || 0) - dt); this.stillT = Math.max(0, (this.stillT || 0) - dt);
+    this.counterT = Math.max(0, (this.counterT || 0) - dt); this.stillT = Math.max(0, (this.stillT || 0) - dt); this.porcelainT = Math.max(0, (this.porcelainT || 0) - dt);
+    if (this.porcelainT > 0 && Math.random() < 0.25) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.5, y: 0.3 + Math.random() * 0.5, z: this.z + (Math.random() - 0.5) * 0.5, g: 0, color: 0xe8e0d0, life: 0.3, size: 0.04 });
     if (mlen > 0.1 && this.state !== 'aim') this.stillSince = g.time;
     this.rebukeT = Math.max(0, (this.rebukeT || 0) - dt);
     this.combatT = Math.max(0, (this.combatT || 0) - dt);
@@ -667,7 +679,7 @@ export class Player extends Entity {
         if (this.chargeT >= 0.7 && this.chargeT - dt < 0.7) { sfx('charged'); g.fx.burst(this.x, 0.6, this.z, 10, 0xfff3b0, 1.5, { g: 0 }); }
         if (this.chargeT >= 0.7 && Math.random() < 0.4) g.fx.add({ x: this.x + Math.sin(this.facing + 0.8) * 0.4, y: 0.5 + Math.random() * 0.3, z: this.z + Math.cos(this.facing + 0.8) * 0.4, vy: 1, g: 0, color: 0xfff3b0, life: 0.3, size: 0.05 });
         if (!inp.down('attack') || locked) {
-          if (this.chargeT >= 0.7 || this.stillT > 0) { g.guide.event('charge'); this.faceAim(); if (hasEngraving(g, 'millwind')) g.gust(this, 1, true); this.spinMult = (1 + 0.2 * g.talent('tollingweight')) * (this.stillT > 0 ? 1.4 : 1); this.stillT = 0; const WU = this.inv.equip.weapon && this.inv.equip.weapon.unique; if (WU === 'bellclapper') resonanceRing(g, this.x, this.z, 3, 1.5); if (WU === 'parasol') { soak(g, this.x, this.z, 2.6); g.fx.ring(this.x, this.z, 0.2, 2.6, 0x6ab8ff, 0.4); } this.setState('spin'); this.attackId++; this.hitSet.clear(); sfx('spin'); g.fx.arc(this.x, 0.3, this.z, 0, 1.9, 0, 0xfff3b0, 0.3, 0.6, true); g.fx.ring(this.x, this.z, 0.5, 2.2, 0xfff3b0, 0.3, 0.2); }
+          if (this.chargeT >= 0.7 || this.stillT > 0) { g.guide.event('charge'); this.faceAim(); if (hasEngraving(g, 'millwind')) g.gust(this, 1, true); this.onCharged(); this.spinMult = (1 + 0.2 * g.talent('tollingweight')) * (this.stillT > 0 ? 1.4 : 1); this.stillT = 0; const WU = this.inv.equip.weapon && this.inv.equip.weapon.unique; if (WU === 'bellclapper') resonanceRing(g, this.x, this.z, 3, 1.5); if (WU === 'parasol') { soak(g, this.x, this.z, 2.6); g.fx.ring(this.x, this.z, 0.2, 2.6, 0x6ab8ff, 0.4); } this.setState('spin'); this.attackId++; this.hitSet.clear(); sfx('spin'); g.fx.arc(this.x, 0.3, this.z, 0, 1.9, 0, 0xfff3b0, 0.3, 0.6, true); g.fx.ring(this.x, this.z, 0.5, 2.2, 0xfff3b0, 0.3, 0.2); }
           else this.setState('move');
         }
         break;

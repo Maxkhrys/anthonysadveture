@@ -231,7 +231,7 @@ function makeItem(base, r, ilvl, legend = null) {
   if (legend) { it.name = legend.name; it.unique = legend.u; it.utext = legend.text; if (legend.u === 'firstchime') it.stats.dmgPct = (it.stats.dmgPct || 0) + 20; if (legend.u === 'pipmagnet') it.stats.mf = (it.stats.mf || 0) + 80; if (legend.u === 'huntermoon') it.stats.crit = (it.stats.crit || 0) + 25; }
   else {
     let name = base.name;
-    if (chosen.length) name = AFFIXES[chosen[0]].pre[Math.min(AFFIXES[chosen[0]].pre.length - 1, Math.floor(r / 1.5))] + ' ' + name;
+    if (chosen.length && !base.set) name = AFFIXES[chosen[0]].pre[Math.min(AFFIXES[chosen[0]].pre.length - 1, Math.floor(r / 1.5))] + ' ' + name;
     if (r >= 2 && !base.set) name += ' ' + pick(SUFFIX);
     if (top && top.tierIndex >= 5) name = top.tierName + ' ' + name;
     it.name = name;

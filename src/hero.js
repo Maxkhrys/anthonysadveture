@@ -32,6 +32,26 @@ const HELM_LOOK = {
 const CHARM_LOOK = { bellcharm: 'bell', rabbitfoot: 'clover', emberlocket: 'locket', tidepearl: 'pearl' };
 
 const shade = (c, k) => new THREE.Color(c).multiplyScalar(k).getHex();
+// a box that renders unlit (ember stitching, porcelain cracks, lantern glass)
+const G = (...a) => Object.assign(B(...a), { glow: true });
+const BELL = 0xb88a3a, BELL_D = 0x7a5a26, BELL_L = 0xe0b860, TEAL = 0x2a5a5a;
+const SHELL = 0x2a4a2a, SHELL_L = 0x5aa86a, THORN = 0x6a4a2a, LEAF = 0x5a9a3a;
+const SOOT = 0x2a1a24, SOOT2 = 0x3a2432, EMBER = 0xff8a2a, CERAMIC = 0xe8e0d0;
+// set pieces carry their set's look; arm/leg/boot pieces have their own
+Object.assign(ARMOR_LOOK, {
+  bw_chest: { main: BELL, second: TEAL, trim: BELL_L, shape: 'bellwarden', legs: TEAL, boots: BELL_D, arms: TEAL },
+  ts_chest: { main: SHELL, second: LEAF, trim: SHELL_L, shape: 'thornstalker', legs: LEAF, boots: SHELL, arms: 0x3a5a2a },
+  cw_chest: { main: SOOT, second: SOOT2, trim: EMBER, shape: 'cinderwoven', legs: SOOT2, boots: SOOT, arms: SOOT },
+  leafwraps: { main: 0x5a9a3a, second: 0x3a6a2a }, beetlebracers: { main: 0x8a3a2a, second: 0xe8d0a0 },
+  mossleggings: { main: 0x4a6a3a, second: 0x3a5a2a }, hakama: { main: 0x2f3f6a, second: 0x1f2f4a },
+  barkboots: { main: 0x6a4a2a, second: 0x4a3018 }, wickboots: { main: 0xe8dcc0, second: 0x8a6a4a },
+  bw_arms: { main: BELL, second: TEAL, set: 'bellwarden' }, bw_legs: { main: BELL, second: TEAL, set: 'bellwarden' }, bw_boots: { main: BELL_D, second: BELL_L, set: 'bellwarden' },
+  ts_arms: { main: 0x3a5a2a, second: THORN, set: 'thornstalker' }, ts_legs: { main: LEAF, second: SHELL, set: 'thornstalker' }, ts_boots: { main: SHELL, second: SHELL_L, set: 'thornstalker' },
+  cw_arms: { main: SOOT, second: EMBER, set: 'cinderwoven' }, cw_legs: { main: SOOT2, second: EMBER, set: 'cinderwoven' }, cw_boots: { main: SOOT, second: CERAMIC, set: 'cinderwoven' },
+});
+Object.assign(HELM_LOOK, { bw_helm: 'bellwarden', ts_helm: 'mantis', cw_helm: 'porcelain' });
+Object.assign(CHARM_LOOK, { porcelainpendant: 'porcelain', clapperchain: 'clapper' });
+const setOf = it => it && (it.set || (ARMOR_LOOK[it.base] && ARMOR_LOOK[it.base].set));
 
 // which item fills each visual slot
 export function gearVisual(equip = {}) {
@@ -68,6 +88,22 @@ export function torsoParts(cls, chest) {
   if (shape === 'straps') P.push(B(0.05, 0.26, 0.02, -0.06, 0.16, 0.115, second, 0, 0, 0.45), B(0.05, 0.26, 0.02, 0.06, 0.16, -0.115, second, 0, 0, -0.45));
   if (shape === 'leafy') P.push(B(0.16, 0.05, 0.2, -0.16, 0.38, 0, trim, 0, 0, 0.35), B(0.16, 0.05, 0.2, 0.16, 0.38, 0, trim, 0, 0, -0.35), B(0.1, 0.12, 0.02, 0, 0.26, 0.115, trim));
   if (shape === 'scales') for (let r = 0; r < 3; r++) for (let c = -1; c <= 1; c++) P.push(B(0.085, 0.05, 0.02, c * 0.09 + (r % 2) * 0.03, 0.24 + r * 0.055, 0.115, r % 2 ? main : shade(main, 1.2)));
+  if (shape === 'bellwarden') {
+    P.push(B(0.26, 0.26, 0.03, 0, 0.1, 0.12, TEAL), B(0.04, 0.26, 0.031, 0, 0.1, 0.122, BELL_L)); // teal tabard with a bronze seam
+    for (const x of [-0.1, 0.1]) P.push(B(0.12, 0.13, 0.03, x, 0.24, 0.125, shade(BELL, 1.1)), B(0.02, 0.02, 0.02, x - 0.04, 0.33, 0.14, BELL_L), B(0.02, 0.02, 0.02, x + 0.04, 0.33, 0.14, BELL_L));
+    for (const sgn of [-1, 1]) for (let i = 0; i < 3; i++) P.push(B(0.2 - i * 0.05, 0.05, 0.26 - i * 0.05, sgn * 0.21, 0.28 + i * 0.05, 0, i ? BELL : BELL_D)); // bell-shaped pauldrons
+    P.push(B(0.06, 0.08, 0.06, 0, 0.38, 0.14, BELL_L)); // little clapper at the throat
+  }
+  if (shape === 'thornstalker') {
+    P.push(B(0.28, 0.2, 0.03, 0, 0.18, 0.12, SHELL), B(0.2, 0.14, 0.031, 0.02, 0.22, 0.123, shade(SHELL, 1.35)), B(0.08, 0.05, 0.032, 0.05, 0.3, 0.125, SHELL_L)); // glossy shell plate + highlight
+    for (const sgn of [-1, 1]) { P.push(B(0.16, 0.06, 0.24, sgn * 0.2, 0.34, 0, SHELL, 0, 0, sgn * -0.4)); for (let i = 0; i < 3; i++) P.push(B(0.025, 0.1, 0.025, sgn * (0.16 + i * 0.05), 0.4 + (i % 2) * 0.02, -0.02 + i * 0.03, THORN, 0, 0, sgn * -0.6)); }
+    for (let i = 0; i < 5; i++) P.push(B(0.07, 0.12, 0.02, -0.14 + i * 0.07, 0.02, 0.12, i % 2 ? LEAF : shade(LEAF, 0.8), 0.2)); // leaf skirt strips
+  }
+  if (shape === 'cinderwoven') {
+    P.push(B(0.34, 0.12, 0.26, 0, 0.04, 0, SOOT2), B(0.4, 0.1, 0.3, 0, -0.04, 0, SOOT), B(0.1, 0.12, 0.03, 0.08, 0.22, 0.125, CERAMIC), B(0.1, 0.1, 0.03, -0.08, 0.14, 0.125, CERAMIC)); // kiln-fired porcelain plates
+    P.push(G(0.012, 0.28, 0.012, -0.03, 0.02, 0.124, EMBER), G(0.012, 0.012, 0.012, -0.03, 0.12, 0.13, 0xffd25e), G(0.1, 0.012, 0.012, 0.0, 0.24, 0.126, EMBER), G(0.06, 0.012, 0.012, -0.07, 0.07, 0.155, EMBER), G(0.012, 0.06, 0.012, 0.11, 0.2, 0.142, 0x3a1a1a)); // ember stitching + a crack
+    for (const sgn of [-1, 1]) P.push(B(0.14, 0.07, 0.22, sgn * 0.2, 0.33, 0, CERAMIC, 0, 0, sgn * -0.3), G(0.1, 0.012, 0.012, sgn * 0.2, 0.37, 0.1, EMBER));
+  }
   if (shape === 'plate') P.push(B(0.34, 0.1, 0.25, 0, 0.3, 0, shade(main, 1.15)), B(0.3, 0.04, 0.02, 0, 0.26, 0.125, trim), B(0.3, 0.04, 0.02, 0, 0.32, 0.125, trim));
   // class silhouettes that stay on over any armour
   if (cls === 'samurai') {
@@ -78,7 +114,7 @@ export function torsoParts(cls, chest) {
     P.push(B(0.12, 0.36, 0.1, 0.08, 0.2, -0.16, 0x7a4a2a, 0, 0, -0.35), B(0.02, 0.14, 0.02, 0.0, 0.52, -0.16, 0xf0f0f0, 0, 0, -0.35), B(0.03, 0.06, 0.03, -0.01, 0.62, -0.16, 0xe8424f, 0, 0, -0.35), B(0.02, 0.14, 0.02, 0.06, 0.54, -0.16, 0xf0f0f0, 0, 0, -0.35), B(0.03, 0.06, 0.03, 0.05, 0.64, -0.16, 0x7fd36a, 0, 0, -0.35)); // quiver + fletchings
     P.push(B(0.34, 0.28, 0.03, 0, 0.1, -0.13, 0x3a6a2e), B(0.3, 0.06, 0.03, 0, 0.06, -0.14, 0x2e5a24)); // short cape
   }
-  if (cls === 'witch' || (A && A.shape === 'robe')) {
+  if (cls === 'witch' || (A && (A.shape === 'robe' || A.shape === 'cinderwoven'))) {
     P.push(B(0.34, 0.12, 0.26, 0, 0.04, 0, second), B(0.4, 0.1, 0.3, 0, -0.04, 0, shade(second, 0.8)), B(0.44, 0.04, 0.32, 0, -0.06, 0, A ? trim : 0x2e1a4a)); // robe skirt to the ankles
     if (A && A.shape === 'robe') P.push(B(0.03, 0.03, 0.02, -0.08, 0.28, 0.115, 0xfff3b0), B(0.03, 0.03, 0.02, 0.07, 0.2, 0.115, 0xfff3b0), B(0.03, 0.03, 0.02, -0.12, 0.06, 0.155, 0xfff3b0));
   }
@@ -92,6 +128,13 @@ export function legParts(cls, legsItem, bootsItem, chest, side) {
   const P = [B(0.11, 0.1, 0.12, 0, -0.12, 0, pants), B(0.13, 0.1, 0.16, 0, -0.21, 0.015, boot), B(0.135, 0.03, 0.165, 0, -0.14, 0.015, shade(boot, 1.25))];
   if ((Bo && Bo.r >= 2) || (A && A.r >= 3)) P.push(B(0.04, 0.04, 0.02, 0, -0.17, 0.1, (Bo || A).rar));
   if (cls === 'samurai' && !L) P.push(B(0.12, 0.08, 0.13, 0, -0.08, 0, shade(pants, 1.2))); // hakama flare
+  const ls = setOf(legsItem), bs = setOf(bootsItem);
+  if (ls === 'bellwarden') P.push(B(0.13, 0.08, 0.05, 0, -0.1, 0.05, BELL), B(0.13, 0.015, 0.052, 0, -0.06, 0.05, BELL_L));
+  if (ls === 'thornstalker') P.push(B(0.12, 0.1, 0.02, 0, -0.12, 0.07, LEAF, 0.15), B(0.02, 0.06, 0.02, side * 0.06, -0.12, 0.02, THORN, 0, 0, side * 0.7));
+  if (ls === 'cinderwoven') P.push(G(0.012, 0.08, 0.012, 0.03, -0.14, 0.062, EMBER));
+  if (bs === 'bellwarden') P.push(B(0.12, 0.05, 0.08, 0, -0.23, 0.1, BELL_D), B(0.04, 0.04, 0.04, 0, -0.18, 0.1, BELL_L));
+  if (bs === 'thornstalker') P.push(B(0.14, 0.05, 0.12, 0, -0.26, -0.04, SHELL_L), B(0.03, 0.08, 0.03, 0, -0.16, -0.09, THORN, -0.6)); // cricket-leg spur
+  if (bs === 'cinderwoven') P.push(B(0.135, 0.02, 0.17, 0, -0.26, 0.015, CERAMIC), G(0.04, 0.012, 0.012, 0, -0.18, 0.1, EMBER));
   return P;
 }
 export function armParts(cls, armsItem, chest) {
@@ -101,6 +144,12 @@ export function armParts(cls, armsItem, chest) {
   const P = [B(0.09, 0.12, 0.09, 0, -0.14, 0, sleeve), B(0.1, 0.06, 0.1, 0, -0.2, 0, bracer), B(0.085, 0.06, 0.085, 0, -0.26, 0, SKIN)];
   if (R && R.r >= 2) P.push(B(0.03, 0.03, 0.02, 0, -0.18, 0.055, R.rar));
   if (cls === 'witch') P.push(B(0.12, 0.05, 0.12, 0, -0.18, 0, shade(sleeve, 0.85))); // bell sleeves
+  const as = setOf(armsItem);
+  if (as === 'bellwarden') P.push(B(0.13, 0.08, 0.13, 0, -0.22, 0, BELL), B(0.14, 0.02, 0.14, 0, -0.17, 0, BELL_L));
+  if (as === 'thornstalker') for (let i = 0; i < 3; i++) P.push(B(0.025, 0.07, 0.025, 0.05, -0.12 - i * 0.05, 0, THORN, 0, 0, -0.9));
+  if (as === 'cinderwoven') P.push(B(0.105, 0.08, 0.105, 0, -0.26, 0, SOOT), G(0.106, 0.012, 0.106, 0, -0.21, 0, EMBER));
+  // hands: a gripping fist with a thumb
+  P.push(B(0.03, 0.035, 0.035, 0.035, -0.25, 0.035, SKIN_D));
   return P;
 }
 export function headParts(cls) {
@@ -119,6 +168,7 @@ export function headParts(cls) {
 // hats / helms: the class hat when no helm is worn, so the silhouette always reads
 export function helmParts(cls, helm) {
   const kind = helm ? (HELM_LOOK[helm.base] || 'cap') : { samurai: 'none', archer: 'hood', witch: 'witchhat' }[cls];
+  // (a porcelain mask covers the face: the eyes show through as dark slits)
   const rar = helm ? RAR[helm.r || 0] : 0xffd25e;
   const P = [];
   switch (kind) {
@@ -134,6 +184,9 @@ export function helmParts(cls, helm) {
       break;
     }
     case 'bell': P.push(B(0.46, 0.2, 0.42, 0, 0.18, 0, 0xc89a3a), B(0.36, 0.1, 0.32, 0, 0.38, 0, 0xd8aa4a), B(0.2, 0.06, 0.2, 0, 0.47, 0, 0xc89a3a), B(0.5, 0.04, 0.46, 0, 0.18, 0, 0xe8c060), B(0.06, 0.06, 0.02, 0, 0.3, 0.22, rar)); break;
+    case 'bellwarden': P.push(B(0.46, 0.2, 0.42, 0, 0.16, 0, BELL), B(0.38, 0.1, 0.34, 0, 0.36, 0, shade(BELL, 1.1)), B(0.22, 0.06, 0.2, 0, 0.46, 0, BELL), B(0.5, 0.05, 0.46, 0, 0.16, 0, BELL_L), B(0.04, 0.16, 0.04, 0, 0.52, 0, BELL_D), B(0.1, 0.08, 0.1, 0, 0.62, 0, BELL_L)); break; // bell helm with a clapper crest
+    case 'mantis': P.push(B(0.42, 0.18, 0.38, 0, 0.2, -0.02, SHELL), B(0.3, 0.06, 0.32, 0, 0.38, -0.02, shade(SHELL, 1.3)), G(0.1, 0.1, 0.06, -0.16, 0.26, 0.16, 0x9aff6a), G(0.1, 0.1, 0.06, 0.16, 0.26, 0.16, 0x9aff6a), B(0.02, 0.26, 0.02, -0.08, 0.42, 0.06, THORN, -0.5, 0, 0.3), B(0.02, 0.26, 0.02, 0.08, 0.42, 0.06, THORN, -0.5, 0, -0.3), B(0.44, 0.06, 0.06, 0, 0.14, 0.18, SHELL_L)); break;
+    case 'porcelain': P.push(B(0.44, 0.24, 0.4, 0, 0.16, -0.03, SOOT), B(0.3, 0.1, 0.3, 0, 0.38, -0.05, SOOT2, -0.2), B(0.34, 0.26, 0.04, 0, -0.06, 0.19, CERAMIC), G(0.01, 0.14, 0.012, 0.06, -0.02, 0.213, EMBER), G(0.05, 0.01, 0.012, 0.08, 0.05, 0.213, EMBER), B(0.06, 0.03, 0.01, -0.08, 0.05, 0.212, 0x1a1020), B(0.06, 0.03, 0.01, 0.08, 0.05, 0.212, 0x1a1020)); break; // hood + cracked porcelain mask
     case 'cap': P.push(B(0.42, 0.12, 0.38, 0, 0.24, 0, 0x7a6a5a), B(0.06, 0.06, 0.02, 0, 0.28, 0.2, rar)); break;
   }
   return P;
@@ -146,6 +199,8 @@ export function neckParts(charm) {
   if (kind === 'clover') P.push(B(0.04, 0.04, 0.02, -0.02, 0.3, 0.13, 0x6fdc5a), B(0.04, 0.04, 0.02, 0.02, 0.3, 0.13, 0x6fdc5a), B(0.04, 0.04, 0.02, 0, 0.33, 0.13, 0x6fdc5a));
   if (kind === 'locket') P.push(B(0.06, 0.07, 0.03, 0, 0.29, 0.13, 0xff8a2a));
   if (kind === 'pearl') P.push(B(0.05, 0.05, 0.05, 0, 0.29, 0.13, 0xe8f4ff));
+  if (kind === 'porcelain') P.push(B(0.07, 0.08, 0.03, 0, 0.28, 0.13, CERAMIC), G(0.01, 0.06, 0.012, 0.01, 0.29, 0.147, EMBER));
+  if (kind === 'clapper') P.push(B(0.03, 0.06, 0.03, 0, 0.3, 0.13, BELL_D), B(0.06, 0.05, 0.04, 0, 0.26, 0.13, BELL_L));
   P.push(B(0.02, 0.02, 0.02, 0.03, 0.31, 0.15, rar));
   return P;
 }
@@ -243,10 +298,89 @@ function legendary(u, W) {
   }
   return W;
 }
+// Named weapons: each its own silhouette (never a recolour of a base weapon)
+function named(base, it) {
+  const r = it ? it.r : 4;
+  switch (base) {
+    case 'seamripper': { // a needle-thin blade with a thread eye and a stitched grip
+      const P = [...hilt(0x3a2a3a, 0xd84a6a, 0.16), B(0.12, 0.02, 0.1, 0, 0.1, 0, 0xc0c0c8)];
+      for (let i = 0; i < 6; i++) P.push(B(0.03 - i * 0.003, 0.12, 0.018, 0, 0.12 + i * 0.12, 0, i % 2 ? 0xe8eef4 : 0xd0d8e0));
+      P.push(B(0.05, 0.05, 0.02, 0, 0.84, 0, 0xc0c0c8), B(0.02, 0.025, 0.022, 0, 0.855, 0, 0x1a1a2a)); // the eye
+      return { parts: P, glow: [B(0.012, 0.3, 0.012, 0.03, 0.55, 0.02, 0xd84a6a, 0, 0, 0.3), B(0.012, 0.012, 0.3, 0.06, 0.4, 0.1, 0xd84a6a)] };
+    }
+    case 'wickblade': { // wax blade: drips down the edge, a live flame on the tip
+      const P = [...hilt(0x5a3a2a, 0xc89a5a, 0.15), B(0.14, 0.04, 0.1, 0, 0.1, 0, 0xc0a060)];
+      for (let i = 0; i < 5; i++) P.push(B(0.06, 0.12, 0.03, 0, 0.14 + i * 0.11, -0.01 * i, i % 2 ? 0xf0e4c8 : 0xe8dcc0), B(0.025, 0.04 + (i % 3) * 0.02, 0.032, 0.035, 0.18 + i * 0.11, -0.01 * i, 0xf8f0dc));
+      return { parts: P, glow: [B(0.012, 0.06, 0.012, 0, 0.7, -0.05, 0x3a2a1a), B(0.05, 0.08, 0.05, 0, 0.74, -0.05, 0xffb347), B(0.03, 0.05, 0.03, 0, 0.8, -0.05, 0xfff3b0)] };
+    }
+    case 'bellclapper': { // a bronze bell-clapper swung like a greatsword
+      const P = [B(0.05, 0.3, 0.05, 0, -0.2, 0, 0x3a2a1a), B(0.06, 0.03, 0.06, 0, -0.2, 0, BELL_L), B(0.07, 0.04, 0.07, 0, 0.1, 0, BELL_D), B(0.045, 0.5, 0.045, 0, 0.1, 0, BELL_D)];
+      for (let i = 0; i < 4; i++) P.push(B(0.1 + i * 0.03, 0.07, 0.1 + i * 0.03, 0, 0.58 + i * 0.06, 0, i % 2 ? BELL : shade(BELL, 1.12)));
+      P.push(B(0.2, 0.1, 0.2, 0, 0.82, 0, BELL), B(0.14, 0.06, 0.14, 0, 0.92, 0, BELL_L), B(0.06, 0.03, 0.21, 0, 0.7, 0, 0x5a8a7a)); // verdigris band
+      return { parts: P, glow: [B(0.04, 0.04, 0.04, 0, 0.98, 0, 0xfff3b0)], scale: 1.1 };
+    }
+    case 'hatpin': { // a long hatpin: pearl head, rose ribbon, needle point
+      const P = [B(0.022, 0.9, 0.022, 0, -0.05, 0, 0xe0e4ec), B(0.012, 0.12, 0.012, 0, 0.85, 0, 0xffffff)];
+      P.push(B(0.1, 0.1, 0.1, 0, -0.14, 0, 0xf4eee4), B(0.06, 0.06, 0.06, 0.03, -0.1, 0.03, 0xffffff), B(0.14, 0.03, 0.03, 0, -0.03, 0, 0xd86a8a, 0, 0, 0.4), B(0.03, 0.08, 0.02, 0.06, -0.08, 0, 0xd86a8a, 0, 0, 0.6));
+      return { parts: P, glow: [] };
+    }
+    case 'lilypad': { // a reed longbow with lily pads at the tips and a frog-green grip
+      const W = bow('longbow', it); W.parts = W.parts.map(p => (p[6] === 0x6a4a2a ? [...p.slice(0, 6), 0x5a8a3a, ...p.slice(7)] : p));
+      W.parts.push(B(0.18, 0.02, 0.18, 0, 0.5, 0.06, 0x4a9a3a), B(0.06, 0.021, 0.06, 0.05, 0.5, 0.1, 0x2a6a2a), B(0.18, 0.02, 0.18, 0, -0.52, 0.06, 0x4a9a3a), B(0.06, 0.06, 0.06, 0, 0.53, 0.1, 0xf0a0c0));
+      return W;
+    }
+    case 'spoolstring': { // two wooden spool ends for limbs, strung with red thread
+      const P = [B(0.055, 0.14, 0.055, 0, -0.07, 0, 0x6a4a2a)];
+      for (const sg of [1, -1]) { P.push(B(0.04, 0.24, 0.04, 0, sg * 0.18 - 0.12, 0.06, 0xb07a4a, sg * 0.4), B(0.14, 0.05, 0.14, 0, sg * 0.34, 0.12, 0xc89060), B(0.1, 0.06, 0.1, 0, sg * 0.34 - 0.04, 0.12, 0xd84a6a)); }
+      P.push(B(0.012, 0.66, 0.012, 0, -0.34, 0.1, 0xd84a6a));
+      return { parts: P, glow: [B(0.03, 0.03, 0.03, 0, 0.34, 0.2, 0xd84a6a)] };
+    }
+    case 'glasswing': { // pale limbs with translucent dragonfly wings
+      const W = bow('recurve', it); W.parts = W.parts.map(p => (p[6] === 0x8a3a2a || p[6] === shade(0x8a3a2a, 0.7) ? [...p.slice(0, 6), 0xd8e8f0, ...p.slice(7)] : p));
+      W.glow = [B(0.26, 0.05, 0.015, 0.14, 0.24, 0.05, 0xbfe8f0, 0, 0, 0.35), B(0.22, 0.05, 0.015, 0.12, 0.18, 0.05, 0xdff8ff, 0, 0, 0.2), B(0.26, 0.05, 0.015, 0.14, -0.24, 0.05, 0xbfe8f0, 0, 0, -0.35), B(0.22, 0.05, 0.015, 0.12, -0.18, 0.05, 0xdff8ff, 0, 0, -0.2)];
+      return W;
+    }
+    case 'mothlight': { // a crook with a hanging lantern and a moth circling it
+      const W = staff('crookstaff', it);
+      W.parts.push(B(0.012, 0.1, 0.012, 0.12, 0.44, 0, 0x2a2a2a), B(0.1, 0.02, 0.1, 0.12, 0.34, 0, 0x3a2a1a), B(0.1, 0.02, 0.1, 0.12, 0.24, 0, 0x3a2a1a));
+      W.glow = [B(0.08, 0.1, 0.08, 0.12, 0.26, 0, 0xfff3b0), B(0.08, 0.03, 0.01, 0.2, 0.4, 0.06, 0xf0ecd8, 0, 0, 0.5), B(0.08, 0.03, 0.01, 0.2, 0.4, 0.04, 0xf0ecd8, 0, 0, -0.5)];
+      return W;
+    }
+    case 'porcelainrod': { // a cracked porcelain wand; lightning shows through the cracks
+      const P = [B(0.045, 0.46, 0.045, 0, -0.2, 0, CERAMIC), B(0.06, 0.04, 0.06, 0, 0.04, 0, 0x4a6ab0), B(0.06, 0.04, 0.06, 0, -0.18, 0, 0x4a6ab0), B(0.1, 0.12, 0.1, 0, 0.26, 0, CERAMIC), B(0.06, 0.06, 0.06, 0, 0.36, 0, 0xf4f0ea)];
+      return { parts: P, glow: [B(0.012, 0.2, 0.048, 0.01, -0.1, 0, 0x9ad8ff), B(0.012, 0.1, 0.104, -0.02, 0.26, 0, 0x9ad8ff), B(0.05, 0.05, 0.05, 0, 0.42, 0, 0xdff4ff)] };
+    }
+    case 'candelabra': { // a chandler's three-armed candelabra on a staff
+      const W = staff('acornstaff', it); W.parts = W.parts.filter(p => p[6] !== 0x9a6f3a && p[6] !== 0x6a4a1e);
+      W.parts.push(B(0.3, 0.03, 0.04, 0, 0.5, 0, 0xc0a060), B(0.03, 0.12, 0.03, -0.14, 0.52, 0, 0xc0a060), B(0.03, 0.12, 0.03, 0.14, 0.52, 0, 0xc0a060));
+      for (const x of [-0.14, 0, 0.14]) W.parts.push(B(0.05, 0.1, 0.05, x, 0.62 + (x ? 0 : 0.06), 0, 0xf8f0e0));
+      W.glow = [-0.14, 0, 0.14].map(x => B(0.035, 0.06, 0.035, x, 0.73 + (x ? 0 : 0.06), 0, 0xffb347));
+      return W;
+    }
+  }
+  return null;
+}
+// Oversized universal weapons (held two-handed; item.visualScale grows them cleanly)
+function oversized(base, it) {
+  if (base === 'teaspoon') { // a huge tarnished teaspoon with a royal crest
+    const S = 0xb8b0a0, S2 = 0xd8d0c0, TAR = 0x7a7060;
+    const P = [B(0.05, 0.5, 0.025, 0, -0.18, 0, S), B(0.07, 0.12, 0.03, 0, -0.3, 0, S2), B(0.04, 0.04, 0.032, 0, -0.26, 0.004, 0xd8a840), B(0.035, 0.2, 0.02, 0, 0.32, 0, S)];
+    P.push(B(0.2, 0.26, 0.04, 0, 0.44, 0.02, S), B(0.16, 0.2, 0.03, 0, 0.47, 0.045, S2), B(0.12, 0.06, 0.04, 0, 0.7, 0.02, S), B(0.05, 0.04, 0.02, 0.05, 0.52, 0.06, TAR), B(0.04, 0.05, 0.02, -0.06, 0.6, 0.06, TAR));
+    return { parts: P, glow: [B(0.03, 0.03, 0.02, -0.03, 0.62, 0.07, 0xffffff)] };
+  }
+  if (base === 'parasol') { // a rainmaker's parasol: carved handle, ribbed canopy
+    const C1 = 0x3a6a9a, C2 = 0x2a4a7a;
+    const P = [B(0.03, 0.8, 0.03, 0, -0.2, 0, 0x6a4a2a), B(0.06, 0.1, 0.06, 0.03, -0.26, 0, 0x5a3a1a, 0, 0, 0.8), B(0.04, 0.08, 0.04, 0, 0.62, 0, 0x6a4a2a)];
+    for (let i = 0; i < 4; i++) P.push(B(0.52 - i * 0.12, 0.05, 0.52 - i * 0.12, 0, 0.44 + i * 0.05, 0, i % 2 ? C1 : C2));
+    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; P.push(B(0.02, 0.02, 0.28, Math.cos(a) * 0.13, 0.46, Math.sin(a) * 0.13, 0xd8d0c0, 0, a, 0)); }
+    return { parts: P, glow: [B(0.03, 0.05, 0.03, 0.27, 0.42, 0, 0x9ad8ff), B(0.03, 0.05, 0.03, -0.27, 0.42, 0, 0x9ad8ff)] };
+  }
+  return { parts: [B(0.06, 0.9, 0.06, 0, -0.1, 0, 0x8a7a6a)], glow: [] };
+}
 export function weaponModel(item, cls = 'samurai') {
   const kind = item ? item.kind : { archer: 'bow', witch: 'staff' }[cls] || 'katana';
   const base = item ? item.base : { archer: 'huntbow', witch: 'acornstaff' }[cls] || 'rustkatana';
-  let W = kind === 'katana' ? katana(base, item) : kind === 'bow' ? bow(base, item) : staff(base, item);
+  let W = named(base, item) || (kind === 'oversized' ? oversized(base, item) : kind === 'katana' ? katana(base, item) : kind === 'bow' ? bow(base, item) : staff(base, item));
   if (item && item.unique) W = legendary(item.unique, W);
   if (item && item.craft) (W.glow || (W.glow = [])).push(B(0.03, 0.03, 0.03, 0.05, kind === 'bow' ? 0 : 0.12, 0.05, 0x9ad8ff));
   W.scale = (W.scale || 1) * (item && item.visualScale ? item.visualScale : 1);
@@ -271,7 +405,9 @@ function pivotG(x, y, z) { const g = new THREE.Group(); g.position.set(x, y, z);
 function setMesh(group, parts, mat = MAT) {
   while (group.children.length) { const c = group.children[0]; group.remove(c); if (c.geometry) c.geometry.dispose(); }
   if (!parts.length) return;
-  const m = new THREE.Mesh(geo(parts), mat); m.castShadow = true; m.layers.enable(1); group.add(m);
+  const lit = parts.filter(p => !p.glow), glow = parts.filter(p => p.glow);
+  if (lit.length) { const m = new THREE.Mesh(geo(lit), mat); m.castShadow = true; m.layers.enable(1); group.add(m); }
+  if (glow.length) { const m = new THREE.Mesh(geo(glow), MAT_GLOW); m.layers.enable(1); group.add(m); }
 }
 
 export function makeHero(cls = 'samurai') {

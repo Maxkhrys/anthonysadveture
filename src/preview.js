@@ -18,9 +18,11 @@ function renderer() {
   return R;
 }
 function lights(scene) {
-  scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x6a5a4a, 1.6));
-  const d = new THREE.DirectionalLight(0xfff0d8, 2.2); d.position.set(2, 4, 3); scene.add(d);
-  const rim = new THREE.DirectionalLight(0x9ad8ff, 1.0); rim.position.set(-3, 2, -3); scene.add(rim);
+  // warm key from the front-left, cool rim from behind, a moss-green bounce from below
+  scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x4a6a3a, 1.35));
+  const d = new THREE.DirectionalLight(0xffe8c8, 2.4); d.position.set(2, 4, 3); scene.add(d);
+  const rim = new THREE.DirectionalLight(0x9ad8ff, 1.6); rim.position.set(-3, 2.5, -3); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0xffc890, 0.5); fill.position.set(-2, 0.5, 2); scene.add(fill);
 }
 
 export class DollPreview {
@@ -30,15 +32,18 @@ export class DollPreview {
     this.cam.position.set(0, 1.1, 4); this.cam.lookAt(0, 0.5, 0);
     const plinth = new THREE.Mesh(geo([B(1.1, 0.1, 1.1, 0, -0.1, 0, 0x5a4a6a), B(1.0, 0.04, 1.0, 0, 0, 0, 0x4f8a3a), B(0.2, 0.05, 0.2, 0.3, 0.03, 0.25, 0x6fb04a), B(0.14, 0.04, 0.14, -0.32, 0.02, -0.2, 0x6fb04a)]), MAT);
     this.scene.add(plinth);
-    this.rotY = 0.5; this.spin = 0.35; this.cls = null; this.t = 0;
+    this.rotY = 0.5; this.spin = 0.35; this.cls = null; this.t = 0; this.zoom = 1;
   }
+  setZoom(z) { this.zoom = Math.max(0.55, Math.min(1.25, z)); const k = this.zoom; this.cam.left = -0.8 * k; this.cam.right = 0.8 * k; this.cam.top = 0.5 + 0.7 * k; this.cam.bottom = 0.5 - 1.45 * k; this.cam.updateProjectionMatrix(); }
   mount(el) {
     const r = renderer();
     if (r.domElement.parentNode !== el) el.appendChild(r.domElement);
-    r.setSize(150, 210, false);
+    r.setSize(168, 236, false);
     if (!this.bound) {
       this.bound = true;
       let drag = null;
+      r.domElement.addEventListener('wheel', e => { e.preventDefault(); this.setZoom(this.zoom * (e.deltaY > 0 ? 1.1 : 0.9)); }, { passive: false });
+      r.domElement.addEventListener('dblclick', () => { this.setZoom(this.zoom < 0.8 ? 1 : 0.6); });
       r.domElement.addEventListener('pointerdown', e => { drag = e.clientX; this.spin = 0; });
       addEventListener('pointerup', () => { drag = null; });
       addEventListener('pointermove', e => { if (drag !== null) { this.rotY += (e.clientX - drag) * 0.02; drag = e.clientX; } });
@@ -53,6 +58,12 @@ export class DollPreview {
       this.hero.armR.rotation.x = cls === 'witch' ? -0.5 : -0.9; this.hero.armR.rotation.z = 0.25; this.hero.sword.rotation.x = cls === 'witch' ? 0.15 : -0.5; this.hero.armL.rotation.z = -0.2; if (cls === 'archer') this.hero.armL.rotation.x = -0.4;
     }
     this.hero.setGear(equip);
+    // hold the weapon the way it is used: two hands for heavy and oversized weapons
+    const w = equip && equip.weapon, big = w && (w.kind === 'oversized' || w.big);
+    this.hero.armL.rotation.set(big ? -0.9 : 0, 0, big ? 0.3 : -0.2);
+    if (w && w.kind === 'bow') this.hero.armL.rotation.x = -0.4;
+    this.hero.armR.rotation.x = w && (w.kind === 'staff' || w.kind === 'wand') ? -0.5 : -0.9;
+    this.hero.sword.rotation.x = w && (w.kind === 'staff' || w.kind === 'wand') ? 0.15 : big ? -0.2 : -0.5;
     this.flash = 0.4;
   }
   frame(dt) {
@@ -86,7 +97,9 @@ export function itemIconURL(item, cls = 'samurai') {
     if (item.kind === 'bow') obj.rotation.y = Math.PI / 2;
     const k = item.kind === 'bow' ? 0.9 : 1.05; size = 0.5 * k * (obj.scale.x || 1); cy = item.kind === 'bow' ? 0 : 0.28;
   } else {
-    const parts = item.slot === 'helm' ? helmParts(item.cls || cls, item) : item.slot === 'charm' ? neckParts(item).map(p => { const q = [...p]; q[5] -= 0.3; return q; })
+    const ring = [0, 1, 2, 3, 4, 5, 6, 7].map(i => { const a = i / 8 * Math.PI * 2; return B(0.07, 0.07, 0.05, Math.cos(a) * 0.14, Math.sin(a) * 0.14, 0, item.unique ? 0xd8b060 : 0xb8b8c8); });
+    if (item.slot === 'ring') ring.push(B(0.1, 0.1, 0.07, 0, 0.16, 0.02, { 0: 0xd8d0c0, 1: 0x6fdc5a, 2: 0x4aa8ff, 3: 0xc46bff, 4: 0xff9a2a }[item.r] || 0xffffff));
+    const parts = item.slot === 'ring' ? ring : item.slot === 'helm' ? helmParts(item.cls || cls, item) : item.slot === 'charm' ? neckParts(item).map(p => { const q = [...p]; q[5] -= 0.3; return q; })
       : item.slot === 'armor' || item.slot === 'chest' ? torsoParts('none', item) : item.slot === 'legs' || item.slot === 'boots' ? legParts('none', item.slot === 'legs' ? item : null, item.slot === 'boots' ? item : null, null, 1)
         : item.slot === 'arms' ? armParts('none', item, null) : torsoParts('none', item);
     obj = new THREE.Mesh(geo(parts.length ? parts : [B(0.2, 0.2, 0.2, 0, 0, 0, 0x888888)]), MAT);

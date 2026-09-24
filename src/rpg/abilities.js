@@ -104,15 +104,15 @@ export function resonanceRing(g, x, z, r, mult, color = 0xffd25e) {
 // ---------------------------------------------------------------- Archer
 // Briar Tether: foes stitched together share damage and snap apart
 export class Tether extends Entity {
-  constructor(g, members, mult, share) {
-    super(g, members[0].x, members[0].z); this.members = members; this.mult = mult; this.share = share; this.t = 0; this.alwaysUpdate = true;
+  constructor(g, members, mult, share, dur = 5) {
+    super(g, members[0].x, members[0].z); this.members = members; this.mult = mult; this.share = share; this.dur = dur; this.t = 0; this.alwaysUpdate = true;
     for (const m of members) m.tether = this;
     sfx('tether');
   }
   update(dt) {
     const g = this.g; this.t += dt;
     this.members = this.members.filter(m => !m.dead);
-    if (this.members.length < 2 || this.t > 5) return this.end(false);
+    if (this.members.length < 2 || this.t > this.dur) return this.end(false);
     for (let i = 0; i < this.members.length - 1; i++) {
       const a = this.members[i], b = this.members[i + 1], d = Math.hypot(a.x - b.x, a.z - b.z);
       if (d > 4.8) return this.end(true);
@@ -255,5 +255,22 @@ export function threadTick(g, p, e, t, mult) {
   g.playerHit(e, { mult: mult * k, kind: 'thread', element: 'lightning', kb: 0.3, dir: Math.atan2(e.x - p.x, e.z - p.z), ability: true, quiet: t < 2.5 });
   if (k > 2.5) g.fx.ring(e.x, e.z, 0.1, 0.7, 0xfff3b0, 0.15);
   sfx('thread');
+}
+// Crowned Tongue engraving: lash the aimed foe to your feet
+export function tongueLash(g, p) {
+  const t = g.nearestEnemy(p.x, p.z, 6, p.aimDir ?? p.facing, 0.45);
+  const tx = t ? t.x : p.x + Math.sin(p.facing) * 5, tz = t ? t.z : p.z + Math.cos(p.facing) * 5;
+  const n = Math.ceil(Math.hypot(tx - p.x, tz - p.z) * 5);
+  for (let i = 0; i <= n; i++) { const u = i / n; g.fx.add({ x: p.x + (tx - p.x) * u, y: 0.45, z: p.z + (tz - p.z) * u, g: 0, color: i % 3 ? 0xe86a8a : 0xf0a0b0, life: 0.18, size: 0.07 }); }
+  sfx('tongue');
+  if (!t) return;
+  if (!t.isBoss) { const a = Math.atan2(p.x - t.x, p.z - t.z), d = Math.hypot(p.x - t.x, p.z - t.z); t.kx = Math.sin(a) * d * 5; t.kz = Math.cos(a) * d * 5; t.stagger = Math.max(t.stagger || 0, 0.6); }
+  t.applyStatus && t.applyStatus('wet', 5);
+  g.playerHit(t, { mult: 0.8, kind: 'splash', element: 'water', kb: 0, dir: 0, ability: false });
+}
+// Mothwing Draw engraving: three seeking moths
+export function releaseMoths(g, p) {
+  for (let i = 0; i < 3; i++) g.spawn(new Projectile(g, { x: p.x, z: p.z, dir: (p.aimDir ?? p.facing) + (i - 1) * 0.8, speed: 7, range: 7, mult: 0.4, kind: 'bolt', element: 'hex', homing: 3.5, color: 0xf0ecd8, noCraft: true }));
+  sfx('moth');
 }
 export { soak, foes };

@@ -3,7 +3,7 @@ const KEYMAP = {
   up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'], left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'],
   attack: ['KeyJ'], shield: ['KeyK'], roll: ['Space', 'ShiftLeft', 'ShiftRight'], item: ['KeyL'],
   interact: ['KeyE', 'Enter'], surge: ['KeyR'], potion: ['KeyQ'], pause: ['Escape', 'Tab', 'KeyP'], music: ['KeyM'],
-  ab1: ['Digit1', 'Numpad1', 'KeyU'], ab2: ['Digit2', 'Numpad2', 'KeyO'], ab3: ['Digit3', 'Numpad3', 'KeyH'], ab4: ['Digit4', 'Numpad4'], ab5: ['Digit5', 'Numpad5'], ab6: ['Digit6', 'Numpad6'], inventory: ['KeyI', 'KeyB'], salvage: ['KeyX', 'Delete'],
+  ab1: ['Digit1', 'Numpad1', 'KeyU'], ab2: ['Digit2', 'Numpad2', 'KeyO'], ab3: ['Digit3', 'Numpad3', 'KeyH'], ab4: ['Digit4', 'Numpad4'], ab5: ['Digit5', 'Numpad5'], ab6: ['Digit6', 'Numpad6'], inventory: ['KeyI', 'KeyB'], salvage: ['KeyX', 'Delete'], lock: ['KeyF'], sort: ['KeyT'], filter: ['KeyG'],
 };
 const PAD = { attack: 2, roll: 0, interact: 1, item: 3, shield: [4], surge: [5, 7], pause: 9, potion: 8 };
 // Holding LT (button 6) switches the face and shoulder buttons to the six ability slots:

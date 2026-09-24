@@ -20,7 +20,8 @@ import { genItem, starterWeapon, RARITY, itemPower } from './rpg/items.js';
 import { GearDrop, LootChest, thornBurst, blast, chainLightning, bolt, Projectile } from './rpg/combat.js';
 import { ensureTree, respecTree, rankOf, SKILLS, nodeById, treeOf } from './rpg/skills.js';
 import { react, isHeavy, elementOf, soak, fanFlames } from './rpg/elements.js';
-import { resonanceRing } from './rpg/abilities.js';
+import { resonanceRing, Tether } from './rpg/abilities.js';
+import { hasEngraving } from './rpg/crafting.js';
 import { flashObj } from './entities/common.js';
 import { loadSettings, applySettings } from './settings.js';
 import { Guide } from './guide.js';
@@ -311,6 +312,8 @@ export class Game {
     if (S.wet > 0 && U.has('toadsignet')) dmg *= 1.15;
     // elemental reactions (wet+lightning, frozen+heavy, fire+wind ...)
     dmg = react(this, e, o, dmg);
+    // Wax Seal engraving: a sealed foe cracks open under fire
+    if (S.wax > 0 && el === 'fire' && hasEngraving(this, 'waxseal')) { dmg *= 1.5; S.wax = 0; this.fx.burst(e.x, 0.5, e.z, 12, [0xf0e0b0, 0xff8a2a], 3); sfx('wax'); this.ui.float(e.x, 1.35, e.z, 'SEAL BROKEN', '#f0e0b0', false, true); }
     // riposte: a parried foe is wide open — the first blow is a guaranteed crit, and all hits land harder
     let riposte = false;
     if (e.parried > 0) { dmg *= 1.5; if (!e.riposted) { e.riposted = true; riposte = true; } }
@@ -364,6 +367,10 @@ export class Game {
       if (crit && U.has('huntermoon')) e.applyStatus && e.applyStatus('mark', 4);
       if (crit && U.has('silentdawn') && p.cdMap.iaido) p.cdMap.iaido *= 0.6;
       if (U.has('toadsignet') && (el === 'lightning' || heavy)) soak(this, e.x, e.z, 1.8, 3);
+      // engravings from the new content
+      if (!o.ability && hasEngraving(this, 'seamstitch') && !e.tether && Math.random() < 0.2) { const n = this.entities.filter(x => x.isEnemy && !x.dead && x !== e && !x.tether && !x.isBoss && Math.hypot(x.x - e.x, x.z - e.z) < 3.5).sort((a, b) => Math.hypot(a.x - e.x, a.z - e.z) - Math.hypot(b.x - e.x, b.z - e.z))[0]; if (n) this.spawn(new Tether(this, [e, n], 0.8, 0.3, 3)); }
+      if (!o.ability && S.burn > 0 && hasEngraving(this, 'waxseal') && !(S.wax > 0)) { e.applyStatus('wax', 3); e.applyStatus('chill', 3); }
+      if (!o.ability && !o.bellshock && hasEngraving(this, 'tollring')) { this.tollN = (this.tollN || 0) + 1; if (this.tollN % 5 === 0) { const x = e.x, z = e.z; this.fx.ring(x, z, 0.2, 1.6, 0xe0b860, 0.35); sfx('resonate'); for (const m of this.entities) if (m.isEnemy && !m.dead && Math.hypot(m.x - x, m.z - z) < 1.6 + (m.r || 0.3)) { m.stagger = Math.max(m.stagger || 0, 0.5); this.playerHit(m, { mult: 1.0, kind: 'resonance', bellshock: true, kb: 4, dir: Math.atan2(m.x - x, m.z - z), noProc: true, quiet: true }); } } }
       // Cinderwoven: abilities set foes alight; burning foes pulse fire (once per second)
       if (o.ability && ps.setBonus.cinderwoven >= 5) {
         if (S.burn > 0 && !(e.cinderT > this.time)) { e.cinderT = this.time + 1; blast(this, e.x, e.z, 1.3, 0.6, 0xff8a2a, { ability: false, burn: false, element: 'fire' }); }
@@ -433,9 +440,17 @@ export class Game {
     this.recalc();
     this.save();
   }
+  isLocked(it) { return !!(it && (this.inv.lockedItems || []).includes(it.itemInstanceId)); }
+  toggleLock(it) {
+    if (!it) return;
+    const L = this.inv.lockedItems || (this.inv.lockedItems = []), i = L.indexOf(it.itemInstanceId);
+    if (i >= 0) L.splice(i, 1); else L.push(it.itemInstanceId);
+    sfx('select'); this.save();
+  }
   salvageItem(i) {
     const inv = this.inv, it = inv.bag[i];
     if (!it) return;
+    if (this.isLocked(it)) { sfx('error'); this.ui.toast('That item is locked.', 'Press F (or click the lock) to unlock it first.', 1.6); return; }
     if (it.craft) { sfx('error'); this.ui.toast('That weapon carries an engraving.', 'Move the engraving at the workbench first, or equip and salvage it later.', 2); return; }
     inv.bag.splice(i, 1);
     const v = Math.max(1, Math.round(it.value * 0.35));
