@@ -191,7 +191,7 @@ export class Player extends Entity {
       return 'block';
     }
     if (this.godMode || this.g.godMode) return 'miss';
-    this.takeDamage(h.dmg * ((h.src && h.src.dmgMul) || 1), h.src && h.src.level, h.src);
+    this.takeDamage(h.dmg * ((h.src && h.src.dmgMul) || 1) * (h.src && h.src.litT > 0 ? 1.2 : 1) * (h.src && h.src.oathT > 0 ? 1.3 : 1), h.src && h.src.level, h.src);
     this.knock(fromAng + Math.PI, h.kb ?? 6);
     if (this.state === 'dead') return 'hit';
     this.setState('hurt');
@@ -432,7 +432,9 @@ export class Player extends Entity {
     let vx = 0, vz = 0;
     const s = this.state;
     const ps = g.pstats;
-    for (const k in this.cdMap) if (this.cdMap[k] > 0) this.cdMap[k] = Math.max(0, this.cdMap[k] - dt);
+    // a Bell Leech's resonance zone stops cooldowns ticking while you stand in it
+    this.disruptT = Math.max(0, (this.disruptT || 0) - dt);
+    if (!(this.disruptT > 0)) for (const k in this.cdMap) if (this.cdMap[k] > 0) this.cdMap[k] = Math.max(0, this.cdMap[k] - dt);
     this.counterT = Math.max(0, (this.counterT || 0) - dt); this.stillT = Math.max(0, (this.stillT || 0) - dt); this.porcelainT = Math.max(0, (this.porcelainT || 0) - dt);
     if (this.porcelainT > 0 && Math.random() < 0.25) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.5, y: 0.3 + Math.random() * 0.5, z: this.z + (Math.random() - 0.5) * 0.5, g: 0, color: 0xe8e0d0, life: 0.3, size: 0.04 });
     if (mlen > 0.1 && this.state !== 'aim') this.stillSince = g.time;

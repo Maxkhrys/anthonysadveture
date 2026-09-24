@@ -80,6 +80,7 @@ export function installSkillUI(UI) {
       el.classList.toggle('active', f > 0);
       if (p.costOf(id) === 0 && S.cost > 0) el.querySelector('.cost').textContent = 'FREE'; else if (el.querySelector('.cost').textContent !== String(S.cost)) el.querySelector('.cost').textContent = S.cost;
     });
+    $('abilities').classList.toggle('disrupted', p.disruptT > 0);
     // calm HUD out of combat
     $('chud').classList.toggle('calm', !(p.combatT > 0) && inv.hp >= inv.maxHp && g.res >= 99 && !g.bossActive);
     // buffs

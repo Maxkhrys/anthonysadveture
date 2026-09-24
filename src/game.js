@@ -15,8 +15,9 @@ import { Pickup } from './entities/common.js';
 import * as O from './entities/objects.js';
 import { Entity } from './entities/entity.js';
 import { MONSTER_NAMES } from './entities/monsters2.js';
+import { ENEMY_MATS } from './entities/monsters3.js';
 import { CLASSES, computeStats, xpNeed, MAX_LEVEL } from './rpg/classes.js';
-import { genItem, starterWeapon, RARITY, itemPower } from './rpg/items.js';
+import { genItem, starterWeapon, RARITY, itemPower, makeNamed } from './rpg/items.js';
 import { GearDrop, LootChest, thornBurst, blast, chainLightning, bolt, Projectile } from './rpg/combat.js';
 import { ensureTree, respecTree, rankOf, SKILLS, nodeById, treeOf } from './rpg/skills.js';
 import { react, isHeavy, elementOf, soak, fanFlames } from './rpg/elements.js';
@@ -128,19 +129,19 @@ export class Game {
     e.level = Math.max(zl, Math.min(pl - 1, zl + 4));
     const mult = 6 * (1 + 0.3 * (e.level - 1));
     e.hp = e.hp * mult; e.maxHp = e.hp;
-    e.xpValue = ({ blot: 6, seedling: 2, beetle: 14, puffer: 10, wisp: 8, knight: 40, scorpion: 14, imp: 12, wraith: 16, brigand: 20, sporeling: 4, treant: 60, golem: 80, thief: 50 }[e.kind] || 6) * (1 + 0.15 * (e.level - 1));
+    e.xpValue = ({ blot: 6, seedling: 2, beetle: 14, puffer: 10, wisp: 8, knight: 40, scorpion: 14, imp: 12, wraith: 16, brigand: 20, sporeling: 4, treant: 60, golem: 80, thief: 50, mantis: 16, slug: 18, moth: 10, porcelain: 30, leech: 20 }[e.kind] || 6) * (1 + 0.15 * (e.level - 1));
     if (!opts.noElite && e.kind !== 'thief' && Math.random() < (opts.eliteChance ?? 0.07)) this.makeElite(e);
     return e;
   }
   makeElite(e) {
-    const mods = ['Swift', 'Brutal', 'Vampiric', 'Armoured', 'Volatile'];
+    const mods = ['Swift', 'Brutal', 'Vampiric', 'Armoured', 'Volatile', 'Resonant', 'Oathbound'];
     e.elite = mods[Math.floor(Math.random() * mods.length)];
     e.hp *= 3; e.maxHp = e.hp; e.xpValue *= 4;
     e.obj.scale.setScalar(1.35); e.eliteScale = 1.35;
     if (e.elite === 'Swift') e.speed *= 1.5;
     if (e.elite === 'Brutal') e.dmgMul = 1.6;
     if (e.elite === 'Armoured') e.dmgTaken = 0.6;
-    const col = { Swift: 0x7ad8ff, Brutal: 0xff5a4a, Vampiric: 0xc4386a, Armoured: 0xc0c0d0, Volatile: 0xffb347 }[e.elite];
+    const col = { Swift: 0x7ad8ff, Brutal: 0xff5a4a, Vampiric: 0xc4386a, Armoured: 0xc0c0d0, Volatile: 0xffb347, Resonant: 0xc46bff, Oathbound: 0xffd25e }[e.elite];
     e.auraColor = col;
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.55, 20), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false }));
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; e.obj.add(ring); e.aura = ring;
@@ -827,6 +828,11 @@ export class Game {
     if (e.kind === 'treant' && Math.random() < 0.3) gainMat(this, 'thornheart', 1, e.x, e.z);
     if ((e.kind === 'imp' && Math.random() < 0.1) || (e.elite === 'Volatile' && Math.random() < 0.4)) gainMat(this, 'ember', 1, e.x, e.z);
     if (e.kind === 'wraith' && e.elite && Math.random() < 0.3) gainMat(this, 'echo', 1, e.x, e.z);
+    // Pass 5 creatures leave their own materials (elites always do); the first one teaches its engraving
+    const EM = ENEMY_MATS[e.kind];
+    if (EM && (e.elite || Math.random() < EM[1])) { gainMat(this, EM[0], 1, e.x, e.z); const teach = { wax: 'waxseal', moth: 'mothwing' }[EM[0]]; if (teach) learn(this, teach); }
+    if (e.elite && e.kind === 'moth' && Math.random() < 0.08) this.spawn(new GearDrop(this, e.x, e.z, makeNamed('mothlight', e.level || this.inv.level)));
+    if (e.elite && e.kind === 'slug' && Math.random() < 0.08) this.spawn(new GearDrop(this, e.x, e.z, makeNamed('candelabra', e.level || this.inv.level)));
     const lvl = e.level || this.inv.level;
     if (e.elite) { this.dropGear(e.x, e.z, { level: lvl, floor: 2, bonus: 0.6 }); if (Math.random() < 0.4) this.dropGear(e.x, e.z, { level: lvl, floor: 1 }); }
     else if (Math.random() < ({ knight: 0.6, beetle: 0.14, puffer: 0.12 }[e.kind] ?? 0.08) * (1 + ps.mf / 200)) this.dropGear(e.x, e.z, { level: lvl, floor: e.kind === 'knight' ? 1 : 0 });

@@ -471,3 +471,6 @@ body.aiming #game{cursor:none}
 .setbox div{color:#8a7a9a}
 .setbox div.on{color:#e8f0d8}
 .setbox small{color:#8a7a9a;font-size:10px}
+#abilities.disrupted .ab{filter:sepia(.9) brightness(.7)}
+#abilities.disrupted{animation:disrupt .5s infinite alternate}
+@keyframes disrupt{to{filter:drop-shadow(0 0 6px #e0b860)}}
