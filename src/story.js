@@ -110,6 +110,25 @@ export class Story {
     };
     menu();
   }
+  // The Silent Toll: the score from the Conservatory reliquary finishes the side story
+  tollScore(npc) {
+    const g = this.g, f = this.f, ui = g.ui;
+    ui.lines([
+      [npc.name, 'Where did you — the *Bellwright\'s Score*? Let me see. Oh. Oh, Moss.'],
+      [npc.name, 'This is the other half of Oswin\'s note. The toll the valley used to ring at dusk, to tell the lost sounds where home was.'],
+      [npc.name, 'Oswin! Fetch the spare bells from the loft. We\'re hanging a toll rack by the tower — tonight.'],
+      [npc.name, 'And you — take this. The Bellwrights\' trick for a blade: every fifth blow rings like a toll. Posy can set it for you.'],
+    ], () => {
+      f.tollHung = true; f.bellscore = false; f.q_glass = 2;
+      learn(g, 'tollring'); gainMat(g, 'filament', 1, npc.x, npc.z); gainMat(g, 'echo', 1);
+      g.gainXp(300); sfx('chime');
+      const d = g.area.defs.find(d => d.type === 'tollrack'); if (d) g.spawnDef(d);
+      const o = g.entities.find(e => e.id === 'oswin'); if (o) { o.x = 54.5; o.z = 58.4; o.home = { x: o.x, z: o.z }; }
+      g.pr.addFlash(0.25, 0xffd25e); g.fx.ring(53.5, 56.5, 0.5, 5, 0xffd25e, 1.2, 0.2);
+      ui.toast('Side quest complete: The Silent Toll', 'Recipe: Tolling Edge · Resonant Filament · Hollow Echo · +300 XP. Thimblewick rings again.', 4);
+      g.save();
+    });
+  }
   // class-aware words
   get cw() {
     const c = this.g.inv.cls;
@@ -159,6 +178,12 @@ export class Story {
             'Every Bellstone was cast from the Dawnbell\'s own bronze. Touch one and it mends you, refills your tonics — and remembers you.',
             'Fall, and you\'ll wake at the last one that knew your name. Nothing you carry is lost.',
           ], short: ['Rest at Bellstones. They mend you and remember you.'] },
+          { id: 'score', label: "• The Bellwright's Score", act: () => this.tollScore(npc), when: () => f.bellscore && !f.tollHung },
+          { id: 'glasshouse', label: 'The old glasshouse', when: () => s >= 1, lines: [
+            'The Conservatory? The Bellwrights grew things there they couldn\'t bear to lose — flowers that rang, fruit shaped like bells.',
+            'When the Hush came in, the glass cracked. Something inside has been *mending* it ever since. Nobody who went to look came back with the whole story.',
+            f.tollHung ? 'And you brought back the Toll. Listen — the whole village rings with it now.' : 'If the Bellwrights left anything written down, it will be in there.',
+          ], short: ['North-west of the village. The Bellwrights\' glasshouse. Something in there mends the broken panes.'] },
           { id: 'vision', label: 'The vision', when: () => s >= 3, lines: [
             'The Bellwrights *hid* the Voices. On purpose. And now something has called them out again.',
             '"Never let the Last Toll ring," you said she whispered. I have read every book in this village, Moss. Not one of them mentions a Last Toll.',
@@ -191,6 +216,11 @@ export class Story {
             '*Ember Motes* fall off Ember Imps near Cinderpeak, and those twitchy, glowing Volatile brutes.',
             f.q_mill === 2 ? 'And Oswin\'s *sailcloth*, of course. Flour and wind — best binding I\'ve ever used.' : 'Oswin swears his old mill sails would make a fine binding, if the mill ever turned again.',
           ], short: ['Thornhearts from the Hollow\'s guardian and Barkhulks. Echoes near Bellwright ruins. Embers from Imps and Volatile elites.'] },
+          { id: 'glass', label: 'The Cracked Conservatory', when: () => s >= 1, lines: [
+            'That old glasshouse north-west of here? The creatures crawling out of it leave the *best* bench scraps.',
+            '*Candle Wax* from the slugs — seals a blade in fire. *Moth Dust* from the lantern moths. *Porcelain* off those walking teapots — their shells crack if you hit them *hard*.',
+            'Bring me any of it. And if you find the Bellwrights\' notes in there, show Tamsin, not me. I\'d only sell them.',
+          ], short: ['Wax, moth dust and porcelain from the glasshouse creatures all make fine engravings.'], then: () => { if (!f.q_glass) { f.q_glass = 1; ui.toast('Side quest: The Silent Toll', 'Explore the Cracked Conservatory, north-west of Thimblewick.', 3); } } },
           { id: 'gossip', label: 'Any news?', lines: () => [
             f.q_camp === 2 ? 'Captain Brisk has been telling everyone he cleared the Hush camp himself. I told him I saw you do it. He\'s sulking.' :
               f.q_mill === 2 ? 'Bread! Real bread, from Oswin\'s flour. I sold three loaves before breakfast.' :
@@ -226,6 +256,14 @@ export class Story {
             'She hums again, but only *half* the note. The other half always came from the bell.',
             'My gran said the Bellwrights built this mill to sing along with it. Everything old in this valley sings along with it, if you listen.',
           ], short: ['Half the note. The other half belongs to the bell.'] },
+          { id: 'toll', label: 'The other half-note', lines: [
+            'The Bellwrights wrote their tunes down, you know. My gran swore they kept the sheets in that glasshouse up the north road.',
+            'If the other half of the mill\'s note is written anywhere, it\'s there. Bring it home and I\'ll hang a rack of bells that\'ll make the whole valley hum.',
+          ], short: ['The Bellwrights kept their music in the glasshouse.'], when: () => !f.tollHung },
+          { id: 'rack', label: 'The toll rack', when: () => f.tollHung, lines: [
+            'Hear that? The mill\'s note and the rack\'s note, together. The *whole* note. First time in a hundred years.',
+            'I come out every morning and tune them. The Hush hates it. Good.',
+          ] },
           { id: 'millwind', label: 'The Millwind edge', lines: [
             'Wind\'s just air that\'s decided where it\'s going. The sailcloth teaches your weapon to decide too.',
             'Put it on at Posy\'s bench. Then every *charged* strike throws a gust: knocks the Hush back, spins a pinwheel, snuffs a candle. Handy when your bellows is busy.',
@@ -247,7 +285,14 @@ export class Story {
         if (!f.q_pier) return L(['A great stone came rolling down in last night\'s rumble. Right onto my pier path!', 'Too heavy for these old arms. You\'re small but stubborn — *walk into it* and push it out of the way?'], () => { f.q_pier = 1; ui.updateHud(); ui.toast('Side quest: Ada\'s Pier', 'Push the stone off the path.', 2.4); });
         if (f.q_pier === 1 && this.pierDone()) return L(['Ha! Clear as a summer tide. Take this — an old tonic bottle of mine. You can carry one more tonic now.'], () => { f.q_pier = 2; g.inv.maxPotions++; g.inv.potions = g.inv.maxPotions; g.gainXp(60); sfx('fanfare'); ui.toast('Tonic Bottle!', 'You can carry one more Red Tonic. All bottles filled.', 3); ui.updateHud(); g.save(); });
         if (f.q_pier === 1) return L(['Push it off the path, dear. Walk right into it. Push it down, then shove it sideways.']);
-        return L(['The fish have gone strange since the bell stopped. They swim in circles around the lake shrine.']);
+        return this.converse(npc, 'Evening, dear. Mind the nets.', [
+          { id: 'fish', label: 'The fish', lines: ['The fish have gone strange since the bell stopped. They swim in circles around the lake shrine.'] },
+          { id: 'fen', label: 'Anything strange out west?', lines: [
+            'Out in *Mirewhistle Fen*, south-west, past the woods? There\'s a mound in the water that *breathes*.',
+            'My da swore the lilies there are bells. Ring all three, he said, and the King of the fen comes up for a look. With a crown on.',
+            'I\'ve never been brave enough. Or foolish enough. You might be both.',
+          ], short: ['Ring the three lilies in Mirewhistle Fen, and something with a crown answers.'] },
+        ]);
       case 'fennel': {
         const hints = [
           'Grandpa says the stone door in the north woods only opens for the *wind*. There\'s a pinwheel next to it!',

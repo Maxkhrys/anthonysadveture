@@ -3,6 +3,7 @@ import { sfx, duckMusic } from './engine/audio.js';
 import { T } from './world/tiles.js';
 import { installRpgUI } from './ui_rpg.js';
 import { installCraftUI } from './ui_craft.js';
+import { installSkillUI } from './ui_skills.js';
 import { SettingsPanel } from './settings.js';
 
 const $ = id => document.getElementById(id);
@@ -211,7 +212,7 @@ export class UI {
     switch (t) {
       case T.GRASS: case T.FLOWERS: return '#5da843'; case T.FOREST: return '#3a7a36'; case T.TREE: return '#2a5a2a';
       case T.PATH: return '#d8b37a'; case T.SAND: return '#f1d38e'; case T.ASH: return '#5b4a4a'; case T.WATER: return '#4aa8c8';
-      case T.DEEP: return '#2a6a9a'; case T.CLIFF: return '#8a7a68'; case T.ROCK: return '#4a4054'; case T.SANDSTONE: return '#c98a58';
+      case T.DEEP: return '#2a6a9a'; case T.SHALLOW: return '#5a9a8a'; case T.CLIFF: return '#8a7a68'; case T.ROCK: return '#4a4054'; case T.SANDSTONE: return '#c98a58';
       case T.LAVA: return '#ff7a2a'; case T.PROP: return '#a06a4a'; case T.STONE: return '#c8bca8'; case T.BRIDGE: case T.DOCK: return '#a87a48';
       case T.WALL: return '#2a2034'; case T.PILLAR: return '#4a3a58'; case T.PIT: return '#000'; case T.FILLED: return '#a0703e';
       case T.FLOOR: case T.MOSS: return '#8c7a6a'; case T.CAVE: return '#5e5566';
@@ -250,7 +251,7 @@ export class UI {
   drawDungeon(x, W, H, sc) {
     const g = this.g, a = g.area, p = g.player;
     const ox = (W - a.w * sc) / 2, oz = (H - a.h * sc) / 2;
-    for (const r of a.rooms) {
+    for (const r of (a.rooms || [])) {
       if (!g.flags['visited:' + a.id + ':' + r.id] && g.room !== r) continue;
       x.drawImage(this.miniCache, r.x0, r.z0, r.x1 - r.x0, r.z1 - r.z0, ox + r.x0 * sc, oz + r.z0 * sc, (r.x1 - r.x0) * sc, (r.z1 - r.z0) * sc);
       if (r.def && r.def.boss) { x.fillStyle = '#e8424f'; x.fillRect(ox + (r.x0 + 8) * sc - 2, oz + (r.z0 + 5) * sc - 2, 5, 5); }
@@ -271,7 +272,7 @@ export class UI {
       let col = PAL.land;
       if (t === T.FOREST || t === T.TREE) col = n < 0.5 ? PAL.forest : PAL.forest2;
       else if (t === T.SAND || t === T.SANDSTONE) col = PAL.sand; else if (t === T.ASH) col = PAL.ash;
-      else if (t === T.WATER) col = PAL.water; else if (t === T.DEEP) col = PAL.deep;
+      else if (t === T.WATER || t === T.SHALLOW) col = PAL.water; else if (t === T.DEEP) col = PAL.deep;
       else if (t === T.CLIFF) col = PAL.cliff; else if (t === T.ROCK) col = PAL.rock; else if (t === T.PATH || t === T.BRIDGE || t === T.DOCK) col = PAL.path;
       else if (t === T.STONE) col = PAL.stone; else if (t === T.LAVA) col = PAL.lava; else if (n < 0.3) col = PAL.land2;
       x.fillStyle = col; x.fillRect(i * S, j * S, S, S);
@@ -339,4 +340,5 @@ export class UI {
   }
 }
 installRpgUI(UI);
+installSkillUI(UI);
 installCraftUI(UI);

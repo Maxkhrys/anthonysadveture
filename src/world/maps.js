@@ -3,7 +3,7 @@
 import { T } from './tiles.js';
 import { fbm, hash2, vnoise } from '../engine/util.js';
 
-class Grid {
+export class Grid {
   constructor(w, h, fill) { this.w = w; this.h = h; this.t = new Uint8Array(w * h).fill(fill); this.hv = new Float32Array(w * h); this.defs = []; }
   in(x, y) { return x >= 0 && y >= 0 && x < this.w && y < this.h; }
   get(x, y) { return this.in(x, y) ? this.t[y * this.w + x] : T.CLIFF; }
@@ -127,6 +127,15 @@ export function buildOverworld() {
     g.set(x, y, T.PROP);
   }
 
+  // The Cracked Conservatory: a clearing north-west of the village, the glass dome visible
+  // over the treeline from the west road
+  g.ellipse(45, 41, 8, 6, T.GRASS, t => t !== T.WATER && t !== T.DEEP);
+  g.ellipse(45, 43.5, 3, 1.6, T.STONE);
+  // Mirewhistle Fen: ankle-deep water in the south-west wood, home of something with a crown
+  g.ellipse(22, 85, 12, 7.5, T.FOREST, t => t !== T.WATER && t !== T.DEEP && t !== T.SAND);
+  g.ellipse(22, 85, 9, 5.2, T.SHALLOW, t => t !== T.WATER && t !== T.DEEP && t !== T.SAND);
+  for (const [x, y] of [[16, 80], [28, 81], [14, 89], [30, 89]]) g.ellipse(x, y, 1.6, 1.2, T.MOSS);
+
   // Village Thimblewick
   g.ellipse(58, 59, 13, 11, T.GRASS, t => t !== T.WATER && t !== T.DEEP);
   g.ellipse(58, 58, 5, 4.5, T.STONE);
@@ -140,6 +149,7 @@ export function buildOverworld() {
   g.road([[26, 40], [29, 26], [29, 19]], 1, T.FOREST);                               // forest trail to grotto
   g.road([[114, 53], [113, 44]], 1, T.ASH);                              // volcano pass
   g.road([[76, 57], [80, 66], [88, 75], [92, 76]], 1, T.PATH);                        // lakeside path
+  g.road([[34, 48], [32, 62], [28, 72], [24, 78]], 1, T.FOREST);                      // woodland trail to the fen
 
   // Pier
   g.rect(59, 94, 61, 94, T.PATH);
@@ -153,6 +163,15 @@ export function buildOverworld() {
   g.deco('hollowtree', 15, 25, 5, 4);
   g.def({ type: 'warp', x: 17.5, z: 29.6, r: 0.8, to: 'dungeon', spawn: 'entrance', label: 'Rootwell Hollow' });
   g.def({ type: 'sign', x: 20.5, z: 31.5, text: 'ROOTWELL HOLLOW\nThe old roots breathe here. Mind your step.' });
+
+  // The Cracked Conservatory
+  g.deco('glasshouse', 41, 36, 8, 6);
+  g.def({ type: 'warp', x: 45.5, z: 42.3, r: 0.6, to: 'conservatory', spawn: 'entrance', label: 'The Cracked Conservatory' });
+  g.def({ type: 'sign', x: 42.5, z: 44.5, text: 'THE CONSERVATORY OF VOICES\nThe glass is cracked and something inside keeps mending it.\n(A place for the brave — and for those who carry the Gustbellows.)' });
+  g.def({ type: 'sign', x: 26.5, z: 78.5, text: 'MIREWHISTLE FEN\nCarved on a lily-shaped stone:\n"Ring the three lilies, and the Crown will answer."' });
+  for (const [i, [x, z]] of [[15.5, 85.5], [28.5, 85.5], [22.5, 80.5]].entries()) g.def({ type: 'hangbell', x, z, group: 'fen', pitch: i, lily: true });
+  g.def({ type: 'bellseq', group: 'fen', order: null, signal: 'fen.rung', transient: true });
+  g.def({ type: 'crowntoad', x: 22.5, z: 86.5 });
 
   // Village buildings
   g.deco('belltower', 57, 55, 2, 2);
@@ -171,6 +190,7 @@ export function buildOverworld() {
   g.def({ type: 'board', x: 62.5, z: 64.3 });
   g.def({ type: 'bellstone', x: 56.5, z: 60.5, spawn: 'village', name: 'Thimblewick' });
   g.def({ type: 'workbench', x: 55.3, z: 64.8 });
+  g.def({ type: 'tollrack', x: 53.5, z: 56.5 }); // appears once the Silent Toll is finished
   g.def({ type: 'millyard', x: 50.5, z: 51.2 });
 
   // The Echo Glade, east of Rootwell Hollow: two short-lived pinwheels with a hedge between.
@@ -257,6 +277,29 @@ export function buildOverworld() {
     }
   }
 
+  // painted after the lanterns so the village's lamp posts stay exactly where they were
+  g.road([[44, 56], [45, 50], [45, 44]], 1, T.PATH);                                  // to the Conservatory
+
+  // ---- Pass 5 composed landmarks. Each checks its footprint so it never blocks a road.
+  {
+    const open = t => t === T.GRASS || t === T.FLOWERS || t === T.FOREST || t === T.TREE;
+    const fits = (x, y, w, d) => { for (let j = 0; j < d; j++) for (let i = 0; i < w; i++) if (!open(g.get(x + i, y + j))) return false; return !g.defs.some(q => q.x !== undefined && q.x > x - 1 && q.x < x + w + 1 && q.z > y - 1 && q.z < y + d + 1); };
+    const place = (model, x, y, w, d, extra = {}) => { if (fits(x, y, w, d)) { g.deco(model, x, y, w, d, extra); return true; } return false; };
+    // the village sits under a root the size of a street; only its feet are solid
+    g.def({ type: 'landmark', model: 'rootarch', x: 58, z: 46.6, w: 22, d: 2 });
+    for (const [x, y] of [[46, 46], [47, 46], [69, 46], [70, 46]]) if (open(g.get(x, y))) g.set(x, y, T.PROP);
+    // a lost garden trowel bridges the Mirrowrun north of the east road
+    const ry = 44, rx = Math.round(84 + 5 * Math.sin(ry * 0.07) + 2 * Math.sin(ry * 0.19));
+    for (let x = rx - 3; x <= rx + 3; x++) { if (g.get(x, ry) === T.WATER || g.get(x, ry) === T.DEEP) g.set(x, ry, T.BRIDGE); }
+    g.def({ type: 'landmark', model: 'trowelbridge', x: rx + 0.5, z: ry + 0.5, w: 9, d: 1.4, y: 0.02 });
+    // a spool that rolled into Whisperwood, still trailing its thread
+    for (const [x, y] of [[20, 58], [18, 60], [22, 56], [16, 62], [26, 56], [12, 50], [28, 52]]) if (place('bigspool', x, y, 2, 2)) { g.def({ type: 'landmark', model: 'threadline', x: x + 4, z: y + 1.4, w: 6, d: 0.2, ry: 0.3 }); break; }
+    // porcelain ruins before the glasshouse
+    [[38, 38, 0.2], [52, 41, -0.3], [39, 45, 0.5], [51, 36, 0.1]].forEach(([x, y, tilt]) => place('shard', x, y, 2, 1, { tilt }));
+    // a teacup the size of a house beside the stream, south of the east road
+    for (const [x, y] of [[78, 62], [77, 64], [79, 66], [74, 66], [72, 70], [88, 64], [90, 58]]) if (place('bigteacup', x, y, 3, 3)) break;
+  }
+
   // Breakables & secrets
   const bushSpots = [];
   for (let y = 10; y < 95; y++) for (let x = 3; x < 146; x++) {
@@ -283,7 +326,7 @@ export function buildOverworld() {
   E('beetle', 76, 42); E('beetle', 72, 38); E('blot', 70, 76); E('blot', 72, 77); E('blot', 69, 78);
   E('puffer', 78, 86); E('blot', 88, 60); E('blot', 90, 62);
   E('beetle', 126, 58); E('beetle', 136, 80); E('puffer', 130, 52); E('puffer', 140, 70); E('blot', 125, 86); E('blot', 127, 88);
-  E('wisp', 96, 82); E('wisp', 116, 84); E('knight', 44, 36);
+  E('wisp', 96, 82); E('wisp', 116, 84); E('knight', 52, 33);
   // Pass 2 zone monsters
   [[128, 48], [134, 54], [140, 62], [124, 70], [138, 78], [130, 86], [143, 90], [122, 60]].forEach(p => E('scorpion', ...p));
   [[118, 44], [122, 43], [126, 45], [108, 46], [114, 47]].forEach(p => E('imp', ...p));
@@ -293,10 +336,14 @@ export function buildOverworld() {
   E('treant', 10, 56); E('treant', 34, 12); E('treant', 22, 70);
   E('golem', 68, 12); E('golem', 80, 13);
   E('brigand', 60, 84); E('brigand', 64, 86);
+  // Pass 5 creatures in the wild
+  E('porcelain', 42, 46); E('moth', 49, 44); E('moth', 39, 42); E('mantis', 36, 40);
+  E('mantis', 14, 64); E('mantis', 30, 70); E('slug', 98, 38); E('slug', 110, 45); E('moth', 100, 70); E('moth', 112, 66);
+  E('leech', 70, 18); E('leech', 78, 20); E('mantis', 26, 88); E('slug', 17, 90);
 
   // Loot chests: [x, y, tier, level]. Each snaps to the nearest open tile.
   const CHESTS = [
-    [8, 38, 0, 3], [14, 58, 1, 3], [34, 20, 1, 4], [5, 75, 2, 4], [38, 64, 0, 3], [24, 44, 0, 3], [11, 14, 2, 4],
+    [8, 38, 0, 3], [14, 58, 1, 3], [34, 20, 1, 4], [5, 75, 2, 4], [38, 64, 0, 3], [24, 44, 0, 3], [11, 14, 2, 4], [33, 88, 2, 8], [50, 38, 1, 5],
     [66, 78, 0, 2], [48, 82, 0, 2], [74, 48, 0, 2], [52, 40, 1, 2], [70, 22, 1, 5],
     [98, 50, 1, 5], [110, 62, 1, 5], [118, 80, 2, 6], [92, 86, 0, 4],
     [100, 30, 2, 6], [88, 40, 1, 5],
@@ -318,6 +365,7 @@ export function buildOverworld() {
   // spawn points
   const spawns = {
     start: { x: 58.5, z: 62.5 }, village: { x: 58.5, z: 62.5 }, dungeon: { x: 17.5, z: 31.2 }, grotto: { x: 29.5, z: 14.8 },
+    conservatory: { x: 45.5, z: 43.6 }, fen: { x: 22.5, z: 93 },
   };
   // Heights: cliffs and rocks get varied tiers so ridges read as landforms
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -334,6 +382,8 @@ export function buildOverworld() {
     music: 'field', sky: 0x8fc8e8, fog: 0xb8d8e8, sun: 0xfff0d0, amb: 0x9ab0d0, ground: 0x6a8a4a,
     regions: [
       { name: 'Thimblewick', x0: 45, y0: 47, x1: 72, y1: 72, music: 'village', level: 1 },
+      { name: 'Conservatory Grounds', x0: 35, y0: 33, x1: 54, y1: 47, level: 5 },
+      { name: 'Mirewhistle Fen', x0: 8, y0: 76, x1: 36, y1: 94, level: 8 },
       { name: 'Whisperwood', x0: 0, y0: 6, x1: 42, y1: 86, level: 3 },
       { name: 'Sunscald Reach', x0: 118, y0: 42, x1: 150, y1: 96, level: 7 },
       { name: 'Cinderpeak Foothills', x0: 104, y0: 0, x1: 150, y1: 42, level: 9 },

@@ -240,6 +240,11 @@ export const PROPS = {
   pot: () => [B(0.18, 0.16, 0.18, 0, 0, 0, 0xc0603a), B(0.2, 0.03, 0.2, 0, 0.15, 0, 0xa04a2a), B(0.16, 0.12, 0.16, 0, 0.17, 0, 0x4f9a3a), B(0.05, 0.05, 0.05, 0.03, 0.28, 0.02, 0xf05a8a)],
   sacks: () => [B(0.22, 0.24, 0.18, 0, 0, 0, 0xe0d0a8), B(0.2, 0.2, 0.16, 0.16, 0, 0.1, 0xd0c098), B(0.08, 0.04, 0.08, 0, 0.24, 0, 0xa89060)],
   lamppost: () => [B(0.24, 0.1, 0.24, 0, 0, 0, 0x5a5a62), B(0.07, 1.25, 0.07, 0, 0.1, 0, 0x3a2a24), B(0.4, 0.05, 0.05, 0.14, 1.28, 0, 0x3a2a24), B(0.22, 0.06, 0.22, 0.3, 1.18, 0, 0x2a2a32), B(0.04, 0.2, 0.04, 0.22, 0.98, 0.08, 0x2a2a32), B(0.04, 0.2, 0.04, 0.38, 0.98, -0.08, 0x2a2a32), B(0.2, 0.04, 0.2, 0.3, 0.95, 0, 0x2a2a32)],
+  // ---- Pass 5: the Conservatory, the fen
+  glassshard: () => [B(0.22, 0.015, 0.1, 0, 0, 0, 0xcfeee8, 0, 0.3), B(0.1, 0.016, 0.08, 0.12, 0, 0.06, 0xe8fff8, 0, -0.6), B(0.06, 0.017, 0.05, -0.1, 0, -0.05, 0x9ad8c8)],
+  porcelainbits: () => [B(0.14, 0.04, 0.1, 0, 0, 0, 0xf2eee6, 0, 0.5), B(0.05, 0.041, 0.04, 0.02, 0, 0.01, 0x4a6ab0), B(0.08, 0.035, 0.07, 0.14, 0, -0.06, 0xe8e2d8, 0, -0.4)],
+  petal: () => [B(0.1, 0.012, 0.06, 0, 0, 0, 0xf07aa0, 0, 0.4), B(0.08, 0.013, 0.05, 0.1, 0, 0.05, 0xf8a8c0, 0, -0.5)],
+  lilypad: () => [B(0.46, 0.02, 0.46, 0, 0, 0, 0x4a9a3a), B(0.14, 0.021, 0.14, 0.12, 0, 0.12, 0x5aa84a), B(0.08, 0.06, 0.08, -0.06, 0.02, -0.04, 0xf8c0d0)],
   crystal: () => [B(0.14, 0.4, 0.14, 0, 0, 0, 0x9a7aff, 0, 0, 0.2), B(0.1, 0.26, 0.1, 0.12, 0, 0.05, 0xb89aff, 0, 0, -0.3)],
 };
 
@@ -265,8 +270,8 @@ export function decoModel(d) {
       const r = d.roof;
       P.push(B(w - 0.2, 0.12, dd - 0.3, 0, 0, 0, 0x8a7a6a), B(w - 0.4, 1.1, dd - 0.6, 0, 0.1, -0.1, 0xf2e2c0));
       P.push(B(w - 0.1, 0.4, 0.6, 0, 0.1, dd / 2 - 0.3, 0x9a6a3a), B(w - 0.1, 0.06, 0.66, 0, 0.5, dd / 2 - 0.3, 0xc08a4a));
-      for (let i = 0; i < 6; i++) P.push(B((w) / 6, 0.08, 0.9, -w / 2 + (i + 0.5) * w / 6, 1.05, dd / 2 - 0.25, i % 2 ? 0xffffff : r, 0.35));
-      P.push(B(w, 0.25, dd, 0, 1.2, -0.2, r), B(w - 0.8, 0.25, dd - 0.6, 0, 1.45, -0.2, 0xffffff));
+      for (let i = 0; i < 6; i++) P.push(B((w) / 6, 0.08, 0.9, -w / 2 + (i + 0.5) * w / 6, 1.05, dd / 2 - 0.25, i % 2 ? 0xe8e0cc : r, 0.35));
+      P.push(B(w, 0.25, dd, 0, 1.2, -0.2, r), B(w - 0.8, 0.25, dd - 0.6, 0, 1.45, -0.2, 0xd8d0bc));
       P.push(B(0.2, 0.2, 0.2, -0.8, 0.52, dd / 2 - 0.3, 0xe8424f), B(0.16, 0.22, 0.16, -0.4, 0.52, dd / 2 - 0.3, 0xffd25e), B(0.2, 0.14, 0.2, 0.5, 0.52, dd / 2 - 0.3, 0x7fd36a), B(0.22, 0.3, 0.06, 1.0, 0.5, dd / 2 - 0.3, 0xc0c0d0));
       P.push(B(0.5, 0.3, 0.05, 0, 1.3, dd / 2 + 0.05, 0x3a2a1a), B(0.12, 0.12, 0.06, 0, 1.33, dd / 2 + 0.07, 0xffd25e));
       break;
@@ -308,6 +313,46 @@ export function decoModel(d) {
       for (const x of [-3.2, 3.2]) P.push(B(0.8, 4.2, 0.8, x, 0, 0.5, s), B(1.0, 0.3, 1.0, x, 4.2, 0.5, s2));
       break;
     }
+    case 'giantflower': { // a bloom taller than a Mossling, grown from a Bellwright seed
+      const hue = [[0xe05a8a, 0xf07aa0], [0xf0b040, 0xffd26a], [0x8a6ae0, 0xb08aff], [0xe86a4a, 0xff8a6a]][Math.floor((d.hue || 0) * 4)];
+      P.push(B(0.3, 0.12, 0.3, 0, 0, 0, 0x6a4a30), B(0.1, 1.6, 0.1, 0, 0.1, 0, 0x4a8a3a), B(0.5, 0.05, 0.2, 0.25, 0.6, 0, 0x5a9a44, 0, 0, -0.3), B(0.5, 0.05, 0.2, -0.25, 1.0, 0, 0x5a9a44, 0, 0, 0.3));
+      for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; P.push(B(0.34, 0.08, 0.2, Math.cos(a) * 0.26, 1.72, Math.sin(a) * 0.26, i % 2 ? hue[0] : hue[1], 0, -a, 0.35)); }
+      P.push(B(0.2, 0.14, 0.2, 0, 1.72, 0, 0xffe08a));
+      break;
+    }
+    case 'glasshouse': { // the Cracked Conservatory, seen from outside: a tall glass dome on a green iron frame
+      const IRON = 0x2e4a42, GL = 0xbfe6e0, GL2 = 0x9ad0c8, W = w - 0.4, D = dd - 0.4;
+      P.push(B(W, 0.3, D, 0, 0, 0, 0xc8bca8));
+      for (let i = 0; i < 4; i++) { const k = 1 - i * 0.2; P.push(B(W * k, 0.9, D * k, 0, 0.3 + i * 0.9, 0, i % 2 ? GL : GL2)); }
+      P.push(B(W * 0.3, 0.9, D * 0.3, 0, 3.9, 0, GL), B(0.4, 0.5, 0.4, 0, 4.8, 0, IRON), B(0.14, 0.6, 0.14, 0, 5.3, 0, 0xe0b860));
+      for (let i = -2; i <= 2; i++) P.push(B(0.08, 3.6, D + 0.05, i * W * 0.2, 0.3, 0, IRON));
+      for (let i = 0; i < 4; i++) P.push(B(W * (1 - i * 0.2) + 0.06, 0.08, D * (1 - i * 0.2) + 0.06, 0, 1.15 + i * 0.9, 0, IRON));
+      // the broken panes: dark holes, a creeping root, the door
+      P.push(B(0.7, 0.6, 0.02, -W * 0.25, 1.3, D / 2 + 0.01, 0x1a2a28), B(0.5, 0.5, 0.02, W * 0.3, 2.2, D / 2 * 0.8 + 0.01, 0x1a2a28), B(1.2, 1.3, 0.06, 0, 0.3, D / 2 + 0.03, 0x3a2a1a), B(1.0, 0.1, 0.1, 0, 1.6, D / 2 + 0.05, 0xe0b860));
+      P.push(B(0.3, 3.0, 0.3, W / 2 - 0.2, 0.3, D / 2 - 0.3, 0x5a4030, 0, 0, 0.2), B(1.2, 0.3, 0.3, W / 2 - 0.6, 3.1, D / 2 - 0.3, 0x5a4030, 0, 0, -0.4), B(0.6, 0.4, 0.6, -W / 2 + 0.4, 0.3, D / 2 - 0.4, 0x3f8f3a), B(0.5, 0.3, 0.5, W / 2 - 0.5, 3.4, 0, 0x4fa546));
+      break;
+    }
+    // ---- Pass 5 landmarks: the big folk's world, seen from Mossling height
+    case 'rootarch': { // a gnarled root arching over the village's north edge
+      const bark = 0x5a3e28, bark2 = 0x6a4a30, moss = 0x4f8a3a, n = 18, H = 4.2, half = w / 2;
+      for (let i = 0; i <= n; i++) { const u = i / n, x = -half + u * w, y = Math.sin(u * Math.PI) * H, th = 0.9 - Math.sin(u * Math.PI) * 0.35; P.push(B(w / n + 0.35, th, th, x, y, (Math.sin(u * 9) * 0.25), i % 3 ? bark : bark2, 0, 0, Math.cos(u * Math.PI) * 0.6)); if (i % 3 === 1) P.push(B(0.5, 0.18, 0.7, x, y + th, 0, moss)); if (i % 4 === 2 && u > 0.2 && u < 0.8) P.push(B(0.06, 1.2, 0.06, x + 0.1, y - 1.1, 0.2, 0x3a6a2a), B(0.05, 0.8, 0.05, x - 0.2, y - 0.7, -0.1, 0x4a7a32)); }
+      P.push(B(1.6, 0.6, 1.4, -half, 0, 0, bark2), B(1.8, 0.6, 1.5, half, 0, 0, bark2), B(0.7, 0.3, 0.7, -half + 0.7, 0, 0.9, bark, 0, 0.5), B(0.7, 0.3, 0.7, half - 0.6, 0, 0.9, bark, 0, -0.5));
+      break;
+    }
+    case 'trowelbridge': { // an abandoned garden trowel, laid across the river as a bridge
+      const L = w, S = 0x9aa0a8, S2 = 0x7a8088;
+      P.push(B(L * 0.62, 0.08, 1.3, L * 0.12, 0, 0, S), B(L * 0.6, 0.02, 1.1, L * 0.12, 0.08, 0, 0xb0b8c0), B(0.4, 0.14, 1.34, L * 0.43, 0, 0, S2), B(0.05, 0.1, 1.34, -L * 0.18, 0.02, 0, S2));
+      P.push(B(0.3, 0.22, 0.3, -L * 0.25, 0.02, 0, 0x7a7a80), B(L * 0.3, 0.34, 0.42, -L * 0.36, 0.02, 0, 0x3a7a3a), B(L * 0.3, 0.05, 0.44, -L * 0.36, 0.3, 0, 0x4a8a4a), B(0.2, 0.2, 0.2, -L * 0.5, 0.1, 0, 0x2a5a2a));
+      P.push(B(0.3, 0.02, 0.2, L * 0.2, 0.09, 0.3, 0x6a5040), B(0.2, 0.02, 0.3, L * 0.05, 0.09, -0.4, 0x6a5040)); // rust flecks
+      break;
+    }
+    case 'bigspool': P.push(B(w, 0.3, dd, 0, 0, 0, 0xa0784a), B(w * 0.7, 1.6, dd * 0.7, 0, 0.3, 0, 0xc8404a), B(w, 0.3, dd, 0, 1.9, 0, 0xa0784a), ...[0.6, 1.0, 1.4].map(y => B(w * 0.72, 0.05, dd * 0.72, 0, y, 0, 0xe05a60)), B(0.3, 0.3, 0.3, 0, 2.2, 0, 0x6a4a2a)); break;
+    case 'threadline': { const L = w; P.push(B(L, 0.05, 0.08, 0, 0.02, 0, 0xc8404a), B(L * 0.3, 0.05, 0.08, L * 0.2, 0.02, 0.4, 0xd84a5a, 0, 0.4)); break; }
+    case 'shard': { // a curved sliver of giant porcelain, blue willow glaze
+      const t = d.tilt || 0; P.push(B(w * 0.9, 1.6, 0.18, 0, 0, 0, 0xf2eee6, 0, 0, t), B(w * 0.8, 1.3, 0.2, 0.1, 0.1, 0.05, 0xe8e2d8, 0.2, 0, t), B(w * 0.5, 0.3, 0.21, -0.1, 0.9, 0.06, 0x4a6ab0, 0, 0, t), B(w * 0.3, 0.2, 0.21, 0.2, 0.5, 0.06, 0x4a6ab0, 0, 0, t), B(0.05, 0.9, 0.22, 0.1, 0.4, 0.07, 0x8a8a90, 0, 0, t + 0.5)); break;
+    }
+    case 'bigteacup': { const s = 2.6; for (const p of PROPS.teacup()) P.push([p[0] * s, p[1] * s, p[2] * s, p[3] * s, p[4] * s, p[5] * s, p[6]]); P.push(B(2.8, 0.1, 2.8, 0, 0, 0, 0xd8d4cc)); break; }
+    case 'toadmound': P.push(B(2.2, 0.35, 2.0, 0, 0, 0, 0x4a7a3a), B(1.6, 0.25, 1.4, 0, 0.35, 0, 0x5a8a44), B(0.3, 0.12, 0.3, 0.3, 0.6, -0.2, 0xe0b040), B(0.14, 0.14, 0.14, 0.3, 0.72, -0.2, 0xe0b040)); break;
     case 'shrine': P.push(B(1.6, 0.3, 1.6, 0, 0, 0, 0xc8d8e8), B(0.3, 1.4, 0.3, -0.6, 0.3, -0.6, 0xb8c8d8), B(0.3, 1.4, 0.3, 0.6, 0.3, -0.6, 0xb8c8d8), B(0.3, 1.4, 0.3, -0.6, 0.3, 0.6, 0xb8c8d8), B(0.3, 1.4, 0.3, 0.6, 0.3, 0.6, 0xb8c8d8), B(1.8, 0.3, 1.8, 0, 1.7, 0, 0x5a9ae0), B(0.6, 0.6, 0.6, 0, 0.5, 0, 0x7ad8ff)); break;
   }
   return P;

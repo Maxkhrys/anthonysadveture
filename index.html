@@ -14,20 +14,24 @@
 <div id="loading"><div class="ld-logo">MOSSLING</div><div class="ld-sub">The Silent Bell</div><div class="ld-bar"><div class="ld-fill"></div></div><div class="ld-step">Waking the world…</div><div class="ld-tip"></div></div>
 <div id="ui">
   <div id="hud" class="hidden">
-    <div id="vitals">
-      <div id="lvl">1</div>
-      <div class="bar" id="hpbar"><div class="fill"></div><span></span></div>
-      <div class="bar" id="resbar"><div class="fill"></div><span></span></div>
-      <div class="bar thin" id="xpbar"><div class="fill"></div></div>
+    <div id="chud">
+      <div class="ch-wing ch-left">
+        <div class="globe hp" id="hpbar"><div class="fill"></div><div class="gloss"></div><span></span><div id="lvl">1</div></div>
+        <div class="slot" id="slot-potion" title="Tonic (Q)"><b>Q</b><div class="icon potion"></div><div class="cap" id="potion-count"></div></div>
+      </div>
+      <div class="ch-center">
+        <div id="surge" title="Bell Surge (R)"><div id="surge-fill"></div><div class="bell"></div><span>R</span></div>
+        <div id="abilities"></div>
+        <div class="bar thin" id="xpbar"><div class="fill"></div></div>
+      </div>
+      <div class="ch-wing ch-right">
+        <div class="slot" id="slot-item" title="Tool (L)"><b>L</b><div class="icon"></div><div class="cap"></div></div>
+        <div class="globe res" id="resbar"><div class="fill"></div><div class="gloss"></div><span></span></div>
+        <div id="purse"><i class="pip"></i><span id="coins">0</span></div>
+      </div>
+      <div id="buffs"></div>
     </div>
     <div id="hearts" class="hidden"></div>
-    <div id="abilities"></div>
-    <div id="surge"><div id="surge-fill"></div><span>BELL SURGE</span></div>
-    <div id="purse"><i class="pip"></i><span id="coins">0</span></div>
-    <div id="slots">
-      <div class="slot" id="slot-item"><b>L</b><div class="icon"></div><div class="cap"></div></div>
-      <div class="slot" id="slot-potion"><b>Q</b><div class="icon potion"></div><div class="cap" id="potion-count"></div></div>
-    </div>
     <div id="keys"></div>
     <div id="chimes"></div>
     <div id="guide" class="hidden"><div class="gd-h">GUIDE <span>(toggle in Settings)</span></div><div class="gd-list"></div></div>
@@ -49,7 +53,7 @@
     <div class="logo"><div class="sub">a tiny adventure in a very big world</div><h1>MOSSLING</h1><h2>The Silent Bell</h2></div>
     <div class="menu" id="title-menu"></div>
     <div id="title-settings" class="panel hidden"></div>
-    <div class="foot">WASD move · Mouse aim · Click/J attack · K guard · Space roll · 1-3 abilities · I bag · L tool · E interact · R surge · Q tonic · Esc menu</div>
+    <div class="foot">WASD move · Mouse aim · Click/J attack · K guard · Space roll · 1-6 abilities · I bag &amp; skill tree · L tool · E interact · R surge · Q tonic · Esc menu</div>
   </div>
   <div id="pause" class="screen hidden">
     <div class="panel">
@@ -62,9 +66,10 @@
           <tr><td>Move</td><td>WASD / Arrows / Left stick</td></tr>
           <tr><td>Aim</td><td>Mouse / Right stick (J alone aims where you face)</td></tr>
           <tr><td>Attack (hold to charge)</td><td>Left click / J / Pad X</td></tr>
-          <tr><td>Abilities (hold to place Snare / Rain, release to cast)</td><td>1 / 2 / 3</td></tr>
+          <tr><td>Abilities (hold placed abilities to aim, release to cast)</td><td>1 – 6 / Pad: hold LT + X Y B A LB RB</td></tr>
           <tr><td>Bag, gear &amp; skills</td><td>I</td></tr>
           <tr><td>Guard (tap just before a hit to parry)</td><td>K / Right click / Pad LB</td></tr>
+          <tr><td>Skill tree &amp; hotbar</td><td>I, then K to switch tabs</td></tr>
           <tr><td>Roll (standing still: backstep)</td><td>Space / Shift / Pad A</td></tr>
           <tr><td>Tool (hold to charge)</td><td>L / Pad Y</td></tr>
           <tr><td>Interact / talk / advance</td><td>E / Enter / Pad B</td></tr>
@@ -81,10 +86,10 @@
   <div id="craft" class="screen hidden"><div class="panel craftpanel"><h3>Posy's Workbench</h3><div class="craft-body"><div id="craft-list"></div><div id="craft-detail"></div></div><div id="craft-mats"></div><div class="pause-foot">W/S recipe · A/D weapon · E craft · X remove sigil · Esc leave</div></div></div>
   <div id="shop" class="screen hidden"><div class="panel"><h3>Posy's Bramble &amp; Bolt</h3><div id="shop-list"></div><div class="pause-foot">W/S choose · E buy · Esc leave</div></div></div>
   <div id="inventory" class="screen hidden"><div class="panel inv-panel">
-    <div class="tabs"><span data-itab="bag" class="on">Bag</span><span data-itab="skills">Skills</span><span class="inv-hint">I / Esc close</span></div>
+    <div class="tabs"><span data-itab="bag" class="on">Bag</span><span data-itab="skills">Skill Tree</span><span class="inv-hint">I / Esc close</span></div>
     <div id="inv-bag" class="inv-body">
       <div class="inv-left"><div id="paperdoll"></div><div id="statsheet"></div></div>
-      <div class="inv-right"><div id="baggrid"></div><div id="tooltip"></div><div class="inv-keys">Arrows / click select · <b>E</b> / double-click equip · <b>X</b> / right-click salvage</div></div>
+      <div class="inv-right"><div id="baggrid"></div><div id="tooltip"></div><div class="inv-keys">Arrows / click select · <b>E</b> / double-click equip · <b>X</b> / right-click salvage · <b>F</b> lock · <b>T</b> sort · <b>G</b> filter</div></div>
     </div>
     <div id="inv-skills" class="inv-body hidden"></div>
   </div></div>

@@ -1,0 +1,77 @@
+{
+ "village_day": {
+  "update": 0.35,
+  "render": 7.1,
+  "calls": 300,
+  "tris": 211050
+ },
+ "village_night": {
+  "update": 0.38,
+  "render": 5.9,
+  "calls": 300,
+  "tris": 211974
+ },
+ "lake_rain": {
+  "update": 0.37,
+  "render": 3.8,
+  "calls": 154,
+  "tris": 161850
+ },
+ "forest": {
+  "update": 0.28,
+  "render": 459.8,
+  "calls": 244,
+  "tris": 271170
+ },
+ "combat_crowd": {
+  "update": 1.88,
+  "render": 10,
+  "calls": 385,
+  "tris": 216846
+ },
+ "particles_live": 291,
+ "crowd24_pass5": {
+  "update": 1.32,
+  "render": 462.2,
+  "calls": 495,
+  "tris": 221110
+ },
+ "six_abilities_vfx": {
+  "update": 7.35,
+  "render": 527.1,
+  "calls": 508,
+  "tris": 222410
+ },
+ "particles_peak": 329,
+ "loot_20_drops": {
+  "update": 2.56,
+  "render": 11.3,
+  "calls": 380,
+  "tris": 216254
+ },
+ "night_rain": {
+  "update": 0.67,
+  "render": 68.7,
+  "calls": 372,
+  "tris": 219030
+ },
+ "conservatory": {
+  "update": 0.41,
+  "render": 2.7,
+  "calls": 167,
+  "tris": 44348
+ },
+ "boss_seamkeeper": {
+  "update": 0.28,
+  "render": 2.9,
+  "calls": 128,
+  "tris": 35472
+ },
+ "boss_toad": {
+  "update": 1.24,
+  "render": 6.4,
+  "calls": 202,
+  "tris": 187226
+ },
+ "inventory_doll_ms": 9.82
+}

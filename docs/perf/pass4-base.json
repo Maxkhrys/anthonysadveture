@@ -1,0 +1,33 @@
+{
+ "village_day": {
+  "update": 0.51,
+  "render": 8.6,
+  "calls": 306,
+  "tris": 223882
+ },
+ "village_night": {
+  "update": 0.36,
+  "render": 8.6,
+  "calls": 306,
+  "tris": 224794
+ },
+ "lake_rain": {
+  "update": 0.72,
+  "render": 5.3,
+  "calls": 153,
+  "tris": 161794
+ },
+ "forest": {
+  "update": 0.26,
+  "render": 97.6,
+  "calls": 243,
+  "tris": 283198
+ },
+ "combat_crowd": {
+  "update": 2.15,
+  "render": 11.3,
+  "calls": 398,
+  "tris": 224382
+ },
+ "particles_live": 299
+}

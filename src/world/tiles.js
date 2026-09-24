@@ -2,6 +2,7 @@ export const T = {
   GRASS: 0, PATH: 1, SAND: 2, ASH: 3, WATER: 4, DEEP: 5, CLIFF: 6, TREE: 7, WALL: 8, FLOOR: 9, PIT: 10,
   BRIDGE: 11, LAVA: 12, PROP: 13, FILLED: 14, MOSS: 15, FLOWERS: 16, FOREST: 17, STONE: 18, CAVE: 19,
   ROCK: 20, DOCK: 21, SANDSTONE: 22, PILLAR: 23,
+  SHALLOW: 24, // Pass 5: ankle-deep water you can wade through (the fen). Soaks what stands in it.
 };
 // solid for normal walking
 const SOLID = new Set([T.CLIFF, T.TREE, T.WALL, T.PROP, T.ROCK, T.SANDSTONE, T.PILLAR, T.WATER, T.DEEP, T.LAVA]);
@@ -36,4 +37,5 @@ export const TILE_INFO = {
   [T.DOCK]: { h: 0.05, top: [0xa87a48, 0x9a6c3e], side: 0x6a4a2a },
   [T.STONE]: { h: 0, top: [0xbfb3a0, 0xb3a792, 0xc9bda8] },
   [T.CAVE]: { h: 0, top: [0x5e5566, 0x564d5e, 0x665d6e] },
+  [T.SHALLOW]: { h: -0.12, top: [0x4a8a7a, 0x468272, 0x4e907e], side: 0x3a6a5a },
 };

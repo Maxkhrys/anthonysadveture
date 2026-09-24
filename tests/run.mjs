@@ -15,7 +15,9 @@ const suites = readdirSync(dir).filter(f => f.endsWith('.test.mjs')).map(f => f.
 const port = 8000 + Math.floor(Math.random() * 900);
 const server = spawn(process.execPath, [fileURLToPath(new URL('../serve.mjs', import.meta.url))], { env: { ...process.env, PORT: port }, stdio: 'ignore' });
 await new Promise(r => setTimeout(r, 500));
-const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+import { existsSync } from 'node:fs';
+const exe = [process.env.CHROMIUM_PATH, '/opt/pw-browsers/chromium'].find(p => p && existsSync(p));
+const browser = await chromium.launch({ ...(exe && !existsSync(chromium.executablePath()) ? { executablePath: exe } : {}), args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 let fails = 0;
 for (const name of suites) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });

@@ -396,3 +396,7 @@ The runs also confirmed that puzzle rooms reset when you step out and back in.
 
 Two limits apply. The test player was given extra hearts, so the runs prove the route can be completed, not how hard
 it is. They were also too slow to judge feel at 60 fps.
+
+
+## Pass 5 — identity, skill trees and content
+Skill trees (3 paths per class, 24 actives, six-slot hotbar), off-class weapons, armour sets, named weapons, reinforcement, real affix-rarity loot, element combinations, five new creatures, two elite modifiers, the Cracked Conservatory, the Seamkeeper, the Crowned Toad, Bellstone fast travel and death drops. Details, migration notes and measurements: `docs/pass5.md`. Dev tooling hooks: `docs/pass5-dev-integration.md`.

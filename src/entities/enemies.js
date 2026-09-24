@@ -66,7 +66,7 @@ export class Enemy extends Entity {
     flashObj(this.obj, 0.08);
     g.fx.burst(this.x, 0.35, this.z, 6, INK, 3, { life: 0.4 });
     g.fx.sparks(this.x, 0.35, this.z, h.dir, 5);
-    const heavy = h.kind === 'spin' || h.kind === 'surge' || h.kind === 'spin3';
+    const heavy = h.heavy || h.kind === 'spin' || h.kind === 'surge' || h.kind === 'spin3';
     sfx(heavy ? 'heavyhit' : 'hit');
     g.hitstop(heavy ? 0.07 : 0.045);
     g.pr.addShake(heavy ? 0.35 : 0.15);
@@ -77,6 +77,8 @@ export class Enemy extends Entity {
     return 'hit';
   }
   onGust(dirAng, power) {
+    // wind fans flames: a gust through a burning foe spreads its fire (elements.js)
+    if (this.status && this.status.burn > 0 && !(this.fanT > this.g.time)) { this.fanT = this.g.time + 1; import('../rpg/elements.js').then(m => m.fanFlames(this.g, this, this.status)); }
     const kb = (power === 2 ? 9 : 6) * (this.gustMul ?? 1);
     this.kx = Math.sin(dirAng) * kb; this.kz = Math.cos(dirAng) * kb;
     this.stagger = Math.max(this.stagger, power === 2 ? 0.7 : 0.4);
@@ -127,12 +129,16 @@ export class Enemy extends Entity {
     if (S) {
       for (const k in S) if (typeof S[k] === 'number' && k !== 'burnDps') S[k] = Math.max(0, S[k] - dt);
       if (S.burn > 0) { S.burnTick = (S.burnTick || 0) - dt; if (S.burnTick <= 0) { S.burnTick = 0.5; this.dot(S.burnDps * 0.5, '#ff8a2a'); } if (Math.random() < 0.3) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.4, y: 0.5, z: this.z + (Math.random() - 0.5) * 0.4, vy: 1.2, g: -1, color: Math.random() < 0.5 ? 0xff8a2a : 0xffd25e, life: 0.4, size: 0.05 }); }
+      if (S.wet > 0 && Math.random() < 0.15) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.4, y: 0.5, z: this.z + (Math.random() - 0.5) * 0.4, vy: -0.5, g: 6, color: 0x6ab8ff, life: 0.4, size: 0.04 });
+      if (S.hex > 0 && Math.random() < 0.15) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.5, y: 0.9, z: this.z + (Math.random() - 0.5) * 0.5, vy: 0.4, g: 0, color: 0xb88aff, life: 0.5, size: 0.05 });
       if ((S.chill > 0 || S.freeze > 0) && Math.random() < 0.2) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.4, y: 0.4, z: this.z + (Math.random() - 0.5) * 0.4, vy: 0.3, g: 0, color: 0xaee8ff, life: 0.5, size: 0.05 });
       if (S.mark > 0 && Math.random() < 0.1) g.fx.add({ x: this.x, y: 1.1, z: this.z, vy: 0.3, g: 0, color: 0xff5a8a, life: 0.4, size: 0.06 });
       if (this.iceBlock) this.iceBlock.visible = S.freeze > 0;
       if (this.dead) return;
     }
     this.warn(dt);
+    // rain soaks everything outdoors; wet foes conduct lightning and flash-freeze
+    if (g.rainK > 0.5 && g.area && g.area.id === 'overworld' && !(this.status && this.status.wet > 1)) this.applyStatus('wet', 2);
     if (this.elite === 'Vampiric' && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.02 * dt);
     if (this.aura) this.aura.rotation.z += dt * 2;
     const frozen = S && (S.freeze > 0 || S.root > 0);
@@ -151,6 +157,7 @@ export class Enemy extends Entity {
       const t = g.tileAt(Math.floor(this.x), Math.floor(this.z));
       if (t === T.PIT) { const fx = this.x % 1, fz = this.z % 1; if (fx > 0.15 && fx < 0.85 && fz > 0.15 && fz < 0.85) return this.die(null, 'fall'); }
       if (isLiquid(t)) return this.die(null, 'splash');
+      if (t === T.SHALLOW && !(this.status && this.status.wet > 1)) this.applyStatus('wet', 2);
     }
     this.animate(dt, Math.hypot(vx, vz));
     this.sync();

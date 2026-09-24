@@ -95,6 +95,30 @@ const SFX = {
   low: () => { tone(N(81), 0.08, { vol: 0.1 }); tone(N(81), 0.08, { vol: 0.1, delay: 0.16 }); },
   potion: () => { [72, 76, 79, 84].forEach((n, i) => tone(N(n), 0.12, { type: 'triangle', vol: 0.12, delay: i * 0.06 })); },
   spawn: () => noise(0.4, { freq: 200, slide: 3, vol: 0.2 }),
+  // ---- Pass 5: skills, elements, new creatures and bosses
+  crit: () => { tone(N(88), 0.06, { type: 'triangle', vol: 0.16 }); noise(0.07, { freq: 5200, vol: 0.22, q: 3 }); },
+  quake: () => { tone(55, 0.5, { vol: 0.55, slide: 0.45 }); noise(0.45, { freq: 180, vol: 0.5, type: 'lowpass', slide: 0.5 }); bell(N(48), 1.2, 0.18, 0.02); },
+  shatter: () => { for (let i = 0; i < 5; i++) tone(2000 + Math.random() * 2600, 0.12 + i * 0.03, { type: 'triangle', vol: 0.09, delay: i * 0.025 }); noise(0.2, { freq: 6000, vol: 0.3, q: 0.8 }); },
+  glass: () => { bell(N(96), 0.5, 0.12); noise(0.12, { freq: 7000, vol: 0.18, q: 2 }); },
+  zap: () => { tone(900, 0.08, { type: 'sawtooth', vol: 0.1, slide: 0.3 }); noise(0.07, { freq: 4000, vol: 0.18, q: 1.5 }); },
+  thread: () => { tone(620 + Math.random() * 120, 0.12, { type: 'sawtooth', vol: 0.05, slide: 1.4 }); noise(0.1, { freq: 5000, vol: 0.1, q: 4 }); },
+  tether: () => { tone(N(62), 0.25, { type: 'triangle', vol: 0.14, slide: 1.3 }); noise(0.25, { freq: 900, vol: 0.12, q: 3 }); },
+  snap: () => { noise(0.12, { freq: 2600, vol: 0.35, q: 1 }); tone(180, 0.15, { slide: 0.4, vol: 0.2 }); },
+  moth: () => noise(0.5, { freq: 1600, vol: 0.12, q: 6, slide: 0.7 }),
+  hex: () => { tone(N(55), 0.4, { type: 'sawtooth', vol: 0.08, slide: 0.8 }); tone(N(61), 0.4, { type: 'square', vol: 0.05, slide: 0.8, delay: 0.05 }); },
+  draw: () => { noise(0.25, { freq: 5000, slide: 0.4, vol: 0.18, q: 5 }); tone(N(86), 0.2, { type: 'triangle', vol: 0.08, delay: 0.12 }); },
+  weakpoint: () => { tone(N(92), 0.08, { type: 'square', vol: 0.12 }); tone(N(99), 0.12, { type: 'square', vol: 0.1, delay: 0.05 }); noise(0.1, { freq: 3000, vol: 0.25 }); },
+  armorbreak: () => { tone(1500, 0.3, { type: 'triangle', vol: 0.2, slide: 0.5 }); noise(0.35, { freq: 2500, vol: 0.35, slide: 0.4 }); tone(90, 0.3, { vol: 0.3, slide: 0.5 }); },
+  bonk: () => { tone(420, 0.25, { type: 'triangle', vol: 0.35, slide: 0.55 }); tone(1260, 0.35, { type: 'sine', vol: 0.15 }); },
+  croak: () => { tone(70, 0.5, { type: 'sawtooth', vol: 0.35, slide: 1.3 }); tone(95, 0.35, { type: 'square', vol: 0.15, slide: 0.8, delay: 0.25 }); },
+  tongue: () => { noise(0.2, { freq: 900, vol: 0.3, slide: 2.5, q: 2 }); tone(300, 0.15, { slide: 2, vol: 0.1 }); },
+  stitch: () => { for (let i = 0; i < 3; i++) tone(1800 + i * 300, 0.05, { type: 'triangle', vol: 0.08, delay: i * 0.05 }); },
+  wax: () => noise(0.4, { freq: 500, vol: 0.18, slide: 0.6, type: 'lowpass' }),
+  lunge: () => { noise(0.14, { freq: 4200, slide: 0.3, vol: 0.3, q: 4 }); tone(700, 0.1, { type: 'sawtooth', vol: 0.08, slide: 0.4 }); },
+  resonate: () => { bell(N(69), 1.0, 0.16); bell(N(70), 1.0, 0.12, 0.03); },
+  oath: () => { bell(N(57), 1.4, 0.18); tone(N(45), 0.8, { type: 'triangle', vol: 0.12 }); },
+  forge: () => { bell(N(84), 1.2, 0.2); noise(0.3, { freq: 3000, vol: 0.2 }); [72, 79, 84].forEach((n, i) => tone(N(n), 0.12, { vol: 0.1, delay: 0.1 + i * 0.06 })); },
+  soulpick: () => { bell(N(88), 0.8, 0.15); tone(N(76), 0.3, { type: 'triangle', vol: 0.1 }); },
   windmill: () => { tone(60, 1.5, { type: 'sawtooth', vol: 0.1, slide: 1.5 }); noise(1.2, { freq: 400, vol: 0.2 }); },
 };
 
@@ -166,3 +190,5 @@ export function toggleMusic() {
   return musicOn;
 }
 export function duckMusic(on) { if (musBus && ctx) musBus.gain.setTargetAtTime(on ? VOL.music * 0.3 : VOL.music, ctx.currentTime, 0.2); }
+// a single pitched bell (puzzle bells ring their own note)
+export function playTone(midi) { if (ctx) bell(N(midi), 1.6, 0.28); }

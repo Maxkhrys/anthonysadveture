@@ -6,6 +6,12 @@ import { LocalSaveProvider } from './persistence/provider.js';
 import { SettingsPanel } from './settings.js';
 import * as ITEMS from './rpg/items.js';
 import * as CRAFT from './rpg/crafting.js';
+import * as SKILLS from './rpg/skills.js';
+import * as GEAR from './rpg/gear.js';
+import * as ELEMENTS from './rpg/elements.js';
+import * as M3 from './entities/monsters3.js';
+import * as SETTINGS from './settings.js';
+import { COMMAND_DEFINITIONS as DEVDEFS } from './dev/commands.js';
 import * as COMBAT from './rpg/combat.js';
 import { Boss } from './entities/boss.js';
 
@@ -108,7 +114,7 @@ async function boot() {
   try { provider = new LocalSaveProvider(localStorage); }
   catch { provider = { loadCharacters() { throw new Error('Browser storage unavailable. Enable storage to play with durable saves.'); } }; }
   game = new Game(pr, input, provider);
-  window.__game = game; window.__items = ITEMS; window.__craft = CRAFT; window.__combat = COMBAT; window.__Boss = Boss; // test hooks
+  window.__game = game; window.__items = ITEMS; window.__craft = CRAFT; window.__combat = COMBAT; window.__Boss = Boss; window.__skills = SKILLS; window.__gear = GEAR; window.__elements = ELEMENTS; window.__m3 = M3; window.__settings = SETTINGS; window.__devDefs = DEVDEFS; // test hooks
   progress(45, 'Growing Whisperwood…'); await tick();
   game.loadArea('overworld', 'start');
   game.cutscene = true;

@@ -6,6 +6,9 @@ import { hash2, vnoise } from '../engine/util.js';
 import { geo, MAT, PROPS, decoModel, B } from '../models.js';
 
 export const windUniform = { value: 0 };
+// local foliage reaction: the player (slot 0) and up to three recent impacts push grass aside
+// (x, z, radius, strength)
+export const bendUniform = { value: [0, 1, 2, 3].map(() => new THREE.Vector4(0, 0, 0, 0)) };
 // Geometry south of the current dungeon room is cut down to a stump so walls never hide the player.
 export const clipUniform = { value: 1e9 };
 // Shared, animated by Game.atmosphere(): water light level, rain amount, sky tint.
@@ -23,7 +26,7 @@ export function tileHeight(area, x, y) {
 }
 
 function tileColor(area, x, y, t, out) {
-  const info = TILE_INFO[t] || TILE_INFO[T.GRASS];
+  const info = (area.tileInfo && area.tileInfo[t]) || TILE_INFO[t] || TILE_INFO[T.GRASS];
   const pal = info.top;
   out.set(pal[Math.floor(hash2(x, y, 1) * pal.length)]);
   const n = vnoise(x * 0.35, y * 0.35, 3) - 0.5;
@@ -67,7 +70,7 @@ export function buildTerrain(area) {
     const cs = flat ? [cc, cc, cc, cc] : k;
     quad([x, hh, y], [x, hh, y + 1], [x + 1, hh, y + 1], [x + 1, hh, y], [0, 1, 0], cs[0], cs[3], cs[2], cs[1]);
     // sides
-    const info = TILE_INFO[t] || {};
+    const info = (area.tileInfo && area.tileInfo[t]) || TILE_INFO[t] || {};
     const sideA = new THREE.Color(info.side ?? 0x7a6a58), sideB = new THREE.Color(info.side2 ?? info.side ?? 0x6a5a48);
     const nbs = [[0, -1, [0, 0, -1]], [0, 1, [0, 0, 1]], [-1, 0, [-1, 0, 0]], [1, 0, [1, 0, 0]]];
     for (const [dx, dy, n] of nbs) {
@@ -195,6 +198,7 @@ export function buildLiquids(area, time) {
     group.add(m);
   };
   mk([T.WATER, T.DEEP], -0.14, 0x4aa8c8, 0x1f5a8a, 0xe8f8ff, false);
+  mk([T.SHALLOW], 0.05, 0x3a7a6a, 0x2a5a52, 0x7ab8a8, false); // wading depth: ankles under the surface
   mk([T.LAVA], -0.12, 0xff9a2a, 0xc0300a, 0xffe08a, true);
   return group;
 }
@@ -206,12 +210,17 @@ class Instancer {
     if (sway) {
       mat = MAT.clone();
       mat.onBeforeCompile = sh => {
-        sh.uniforms.wind = windUniform;
-        sh.vertexShader = 'uniform float wind;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        sh.uniforms.wind = windUniform; sh.uniforms.bend = bendUniform;
+        sh.vertexShader = 'uniform float wind; uniform vec4 bend[4];\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
           #ifdef USE_INSTANCING
           vec3 ip = vec3(instanceMatrix[3][0], 0., instanceMatrix[3][2]);
           float sw = sin(wind*1.8 + ip.x*0.7 + ip.z*0.5) * 0.35 + sin(wind*3.1 + ip.x*1.3)*0.1;
           transformed.x += sw * position.y * 0.6; transformed.z += sw * position.y * 0.3;
+          for (int i = 0; i < 4; i++) {
+            vec2 dv = ip.xz - bend[i].xy; float dd = length(dv) + 1e-3;
+            float k = bend[i].w * (1.0 - smoothstep(0.0, bend[i].z, dd));
+            transformed.xz += (dv / dd) * k * position.y * 1.6; transformed.y -= k * position.y * 0.35;
+          }
           #endif`);
       };
     }
@@ -243,7 +252,7 @@ export function buildScenery(area) {
   // Scenery is collected per prop type *and* per map chunk, then built into exactly-sized
   // instanced meshes with real bounds, so the camera only draws the chunks it can see.
   const CH = 16, bins = new Map(), geos = {};
-  const FLAT = new Set(['clover', 'leaf', 'leafG', 'twig', 'button', 'coin', 'rootlet', 'stones', 'flower', 'flowerR', 'flowerB', 'pebble', 'toadstools']);
+  const FLAT = new Set(['clover', 'leaf', 'leafG', 'twig', 'button', 'coin', 'rootlet', 'stones', 'flower', 'flowerR', 'flowerB', 'pebble', 'toadstools', 'glassshard', 'porcelainbits', 'petal', 'lilypad']);
   const I = (name, max, sway) => ({ add(x, y, z, ry = 0, sc = 1, sy = sc) {
     const key = name + '|' + Math.floor(x / CH) + ',' + Math.floor(z / CH);
     let b = bins.get(key);
@@ -252,6 +261,8 @@ export function buildScenery(area) {
   } });
   // deco footprint map
   const decoMask = new Uint8Array(w * h);
+  // visual-only landmarks (walkable, or standing on tiles that already block)
+  for (const d of area.defs) if (d.type === 'landmark') { const m = new THREE.Mesh(geo(decoModel(d)), MAT); m.position.set(d.x, d.y || 0, d.z); m.rotation.y = d.ry || 0; m.castShadow = true; m.receiveShadow = true; group.add(m); }
   for (const d of area.defs) if (d.type === 'deco') {
     const x0 = Math.round(d.x - d.w / 2), y0 = Math.round(d.z - d.d / 2);
     for (let j = 0; j < d.d; j++) for (let i = 0; i < d.w; i++) decoMask[(y0 + j) * w + x0 + i] = 1;
@@ -328,6 +339,20 @@ export function buildScenery(area) {
       else if (r > 0.97) I(y > 90 ? 'bone' : 'pebble', 500).add(cx, 0, cz, r2 * 6, 0.6);
     } else if (t === T.ASH) {
       if (r > 0.95) I('lavaRock', 500).add(cx, 0, cz, r2 * 6, 0.8 + r2);
+    } else if (area.glasshouse && (t === T.FLOOR || t === T.MOSS)) {
+      // the Conservatory floor: shattered panes, porcelain chips, fallen petals, creeping roots
+      const d3 = hash2(x, y, 81), px = x + hash2(x, y, 82) * 0.8 + 0.1, pz = y + hash2(x, y, 83) * 0.8 + 0.1;
+      let byWall = false;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (tiles[(y + dy) * w + x + dx] === T.WALL) byWall = true;
+      if (d3 < 0.1) I('glassshard', 2000).add(px, 0.01, pz, d3 * 60, 0.8 + d3 * 3);
+      else if (d3 < 0.15) I('porcelainbits', 1200).add(px, 0, pz, d3 * 40, 0.9);
+      else if (d3 < 0.22) I(d3 < 0.18 ? 'petal' : 'leafG', 3000).add(px, 0.01, pz, d3 * 50, 1);
+      else if (byWall && d3 > 0.8) I('fern', 1500, true).add(px, 0, pz, d3 * 20, 1.1 + d3);
+      if (byWall && d3 > 0.6 && d3 < 0.68) I('rootlet', 800).add(px, 0.005, pz, d3 * 30, 1.2);
+      if (t === T.MOSS && r > 0.6) I('tuft', 3000, true).add(cx, 0, cz, r2 * 6.28, 0.6 + r2 * 0.4);
+    } else if (t === T.SHALLOW) {
+      if (r > 0.95) I('reed', 3000, true).add(cx, 0, cz, r * 6, 1.1 + r);
+      else if (r > 0.82) I('lilypad', 1500).add(cx, 0.07, cz, r2 * 6.28, 0.8 + r2 * 0.6);
     } else if (t === T.CAVE || (t === T.FLOOR && area.dungeon)) {
       if (r > 0.96) I(area.id === 'grotto' ? 'crystal' : 'pebble', 400).add(cx, 0, cz, r2 * 6, 0.5 + r2 * 0.5);
     }

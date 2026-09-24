@@ -3,9 +3,12 @@ const KEYMAP = {
   up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'], left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'],
   attack: ['KeyJ'], shield: ['KeyK'], roll: ['Space', 'ShiftLeft', 'ShiftRight'], item: ['KeyL'],
   interact: ['KeyE', 'Enter'], surge: ['KeyR'], potion: ['KeyQ'], pause: ['Escape', 'Tab', 'KeyP'], music: ['KeyM'],
-  ab1: ['Digit1', 'Numpad1', 'KeyU'], ab2: ['Digit2', 'Numpad2', 'KeyO'], ab3: ['Digit3', 'Numpad3', 'KeyH'], inventory: ['KeyI', 'KeyB'], salvage: ['KeyX', 'Delete'],
+  ab1: ['Digit1', 'Numpad1', 'KeyU'], ab2: ['Digit2', 'Numpad2', 'KeyO'], ab3: ['Digit3', 'Numpad3', 'KeyH'], ab4: ['Digit4', 'Numpad4'], ab5: ['Digit5', 'Numpad5'], ab6: ['Digit6', 'Numpad6'], inventory: ['KeyI', 'KeyB'], salvage: ['KeyX', 'Delete'], lock: ['KeyF'], sort: ['KeyT'], filter: ['KeyG'],
 };
-const PAD = { attack: 2, roll: 0, interact: 1, item: 3, shield: [4, 6], surge: [5, 7], pause: 9, potion: 8 };
+const PAD = { attack: 2, roll: 0, interact: 1, item: 3, shield: [4], surge: [5, 7], pause: 9, potion: 8 };
+// Holding LT (button 6) switches the face and shoulder buttons to the six ability slots:
+// X/Y/B/A = slots 1-4, LB/RB = slots 5-6. Release LT for normal controls.
+const PAD_LAYER = { ab1: 2, ab2: 3, ab3: 1, ab4: 0, ab5: 4, ab6: 5 };
 
 export class Input {
   constructor() {
@@ -69,7 +72,10 @@ export class Input {
       if (b(12)) { mz = -1; s.up = true; } if (b(13)) { mz = 1; s.down = true; }
       if (b(14)) { mx = -1; s.left = true; } if (b(15)) { mx = 1; s.right = true; }
       if (az < -0.5) s.up = true; if (az > 0.5) s.down = true;
-      for (const k in PAD) {
+      const layer = b(6);
+      this.padLayer = layer;
+      if (layer) { for (const k in PAD_LAYER) if (b(PAD_LAYER[k])) { s[k] = true; this.usingPad = true; } if (b(9)) s.pause = true; if (b(8)) s.potion = true; }
+      else for (const k in PAD) {
         const v = PAD[k];
         if (Array.isArray(v) ? v.some(b) : b(v)) { s[k] = true; this.usingPad = true; }
       }

@@ -8,7 +8,16 @@ export const MATS = {
   echo: { name: 'Hollow Echo', icon: '◎', color: '#9ad8ff', desc: 'A sound that forgot to stop. Found where the old Bellwrights left their marks, and in Rift Champions.' },
   ember: { name: 'Ember Mote', icon: '✹', color: '#ffb347', desc: 'A spark that refuses to go out. Ember Imps and Volatile elites shed them.' },
   sailcloth: { name: 'Mill Sailcloth', icon: '⚑', color: '#f2e2c0', desc: 'Oswin\'s spare sail, stiff with flour and wind.' },
+  // Pass 5 materials (new creatures, the Conservatory, the Seamkeeper, the Crowned Toad)
+  mantis: { name: 'Needle Scythe', icon: '⟋', color: '#b8e070', desc: 'The honed foreleg of a Needle Mantis. Holds an edge forever.' },
+  wax: { name: 'Candle Wax', icon: '▮', color: '#f0e0b0', desc: 'Warm wax from a Candle Slug. Still smells of old chapels.' },
+  moth: { name: 'Moth Dust', icon: '✧', color: '#f0ecd8', desc: 'Pale dust from a Lantern Moth\'s wings. It glows when you breathe on it.' },
+  porcelain: { name: 'Porcelain Shard', icon: '◆', color: '#e8e0d0', desc: 'A curved sliver of glazed shell from a Porcelain Guard.' },
+  filament: { name: 'Resonant Filament', icon: '〰', color: '#e0b860', desc: 'A hair-thin bell-metal thread that hums when plucked. Bell Leeches grow them.' },
+  seamthread: { name: "Seamkeeper's Thread", icon: '⌇', color: '#d84a6a', desc: 'A red thread strong enough to stitch the air shut.' },
+  crownpearl: { name: 'Crown Pearl', icon: '●', color: '#bfe8d0', desc: 'A green-gold pearl from the Crowned Toad\'s crown.' },
 };
+const ALL_BASES = ['katana', 'bow', 'staff', 'wand', 'oversized'];
 
 // kind: 'weapon' (engraving on one weapon) or 'sigil' (modifies one class ability)
 export const RECIPES = [
@@ -21,7 +30,7 @@ export const RECIPES = [
   { id: 'emberseeds', kind: 'weapon', name: 'Ember Seeds', cls: 'witch', bases: ['staff', 'wand'], mats: { ember: 1, shard: 6 }, pips: 40,
     effect: 'Charged fireballs plant three ember seeds where they burst. Each swells visibly and detonates 1.2 s later (70% damage, burns). Seeds never plant seeds.',
     hint: 'Defeat what guards the Verdant Chime, or find an Ember Mote.' },
-  { id: 'millwind', kind: 'weapon', name: 'Millwind Edge', cls: null, bases: ['katana', 'bow', 'staff', 'wand'], mats: { sailcloth: 1, shard: 8 }, pips: 60,
+  { id: 'millwind', kind: 'weapon', name: 'Millwind Edge', cls: null, bases: ALL_BASES, mats: { sailcloth: 1, shard: 8 }, pips: 60,
     effect: 'Your charged attack (spin, power shot or fireball) also throws a gust along your aim: it knocks foes back, reflects spores, spins pinwheels and blows out flames.',
     hint: 'Help Miller Oswin get his mill turning again.' },
   { id: 'returningcut', kind: 'sigil', name: 'Returning Cut', cls: 'samurai', ability: 0, mats: { echo: 1, shard: 5 }, pips: 30,
@@ -33,6 +42,25 @@ export const RECIPES = [
   { id: 'rimebloom', kind: 'sigil', name: 'Rime Bloom', cls: 'witch', ability: 0, mats: { thornheart: 1, shard: 5 }, pips: 30,
     effect: 'Frost Nova leaves a ring of rime for 3 s that chills foes inside. Your next hit on a frozen foe shatters the ice for +60% damage.',
     hint: 'Ask the Root Hermit about the Hollow, once its guardian has fallen.' },
+  // ---- Pass 5: six engravings tied to the new content. Every one changes behaviour.
+  { id: 'seamstitch', kind: 'weapon', name: 'Seamstitch', cls: null, bases: ALL_BASES, mats: { seamthread: 1, shard: 8 }, pips: 80,
+    effect: 'One hit in five stitches the foe to its nearest neighbour for 3 s: they share 30% of the damage either takes, and snap apart if dragged too far.',
+    hint: 'Cut down the Seamkeeper in the Cracked Conservatory.' },
+  { id: 'waxseal', kind: 'weapon', name: 'Wax Seal', cls: null, bases: ALL_BASES, mats: { wax: 2, shard: 6 }, pips: 50,
+    effect: 'Striking a burning foe seals it in wax: it slows by 40% for 3 s. Your next fire hit on a sealed foe cracks the seal for +50% damage.',
+    hint: 'Candle Slugs leave the wax you need.' },
+  { id: 'mothwing', kind: 'weapon', name: 'Mothwing Draw', cls: null, bases: ALL_BASES, mats: { moth: 2, shard: 6 }, pips: 50,
+    effect: 'Every charged attack releases three pale moths that seek the nearest foes (40% damage each).',
+    hint: 'Catch the dust of a Lantern Moth.' },
+  { id: 'porcelainguard', kind: 'weapon', name: 'Porcelain Guard', cls: null, bases: ALL_BASES, mats: { porcelain: 3, shard: 8 }, pips: 60,
+    effect: 'A perfect parry or perfect dodge glazes you in porcelain: the next blow within 4 s is reduced by 60%, and the shell shatters into shards around you.',
+    hint: 'Something in the Conservatory keeps a glazed cabinet of secrets.' },
+  { id: 'tollring', kind: 'weapon', name: 'Tolling Edge', cls: null, bases: ALL_BASES, mats: { filament: 1, echo: 1, shard: 8 }, pips: 70,
+    effect: 'Every fifth basic hit rings a resonance toll around the target: a small shockwave that staggers foes nearby.',
+    hint: 'Elder Tamsin knows the old Bellwright\'s trick — once the Conservatory speaks again.' },
+  { id: 'crowntongue', kind: 'weapon', name: 'Crowned Tongue', cls: null, bases: ALL_BASES, mats: { crownpearl: 1, shard: 10 }, pips: 120,
+    effect: 'Every charged attack first lashes out a sticky tongue that yanks the foe you aim at to your feet and soaks it.',
+    hint: 'Only the Crowned Toad knows this trick.' },
 ];
 export const recipeById = id => RECIPES.find(r => r.id === id);
 // moving an engraving you already own onto a better weapon: no essence needed
