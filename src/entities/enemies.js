@@ -78,21 +78,50 @@ export class Enemy extends Entity {
     g.fx.burst(this.x, 0.4, this.z, 18, INK, 4.5, { life: 0.6 });
     g.fx.burst(this.x, 0.4, this.z, 6, 0xfff3b0, 3, { life: 0.4, size: 0.06 });
     g.fx.ring(this.x, this.z, 0.2, 1.2, 0x8b5cf6, 0.35);
-    if (!how) dropLoot(g, this.x, this.z, this.loot);
+    if (!how) dropLoot(g, this.x, this.z, { ...this.loot, pips: Math.round((this.loot.pips || 1) * (1 + 0.3 * ((this.level || 1) - 1)) * (this.elite ? 3 : 1)) });
     g.stats.kills = (g.stats.kills || 0) + 1;
     this.remove();
     g.onEnemyDeath(this);
+  }
+  applyStatus(k, t, v) {
+    if (this.dead) return;
+    const S = this.status || (this.status = {});
+    if (this.isBoss && k === 'freeze') { k = 'chill'; }
+    S[k] = Math.max(S[k] || 0, t);
+    if (k === 'burn') S.burnDps = Math.max(S.burnDps || 0, v || 1);
+    if (k === 'freeze' && !this.iceBlock) { this.iceBlock = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshBasicMaterial({ color: 0xaee8ff, transparent: true, opacity: 0.45, depthWrite: false })); this.iceBlock.position.y = 0.35; this.obj.add(this.iceBlock); }
+    if (k === 'freeze' || k === 'root') { this.dropToken(); if (this.state === 'windup' || this.state === 'attack') this.setState('recover'); }
+  }
+  dot(n, color) {
+    n = Math.max(1, Math.round(n)); this.hp -= n; this.hpShow = 3;
+    this.g.ui.float(this.x, 0.9, this.z, '' + n, color, false, true);
+    if (this.hp <= 0) this.die({ dir: 0 });
   }
   onParried() { this.stagger = 1.2; this.dropToken(); this.setState('recover'); this.parried = 1.4; flashObj(this.obj, 0.15, 0xfff3b0); }
 
   update(dt) {
     const g = this.g;
     this.st += dt;
-    if (this.spawnT > 0) { this.spawnT -= dt; this.obj.scale.setScalar(Math.max(0.01, 1 - this.spawnT / 0.35)); if (this.spawnT <= 0) this.obj.scale.setScalar(1); }
+    const es = this.eliteScale || 1;
+    if (this.spawnT > 0) { this.spawnT -= dt; this.obj.scale.setScalar(Math.max(0.01, (1 - this.spawnT / 0.35) * es)); if (this.spawnT <= 0) this.obj.scale.setScalar(es); }
+    // status effects
+    const S = this.status;
+    if (S) {
+      for (const k in S) if (typeof S[k] === 'number' && k !== 'burnDps') S[k] = Math.max(0, S[k] - dt);
+      if (S.burn > 0) { S.burnTick = (S.burnTick || 0) - dt; if (S.burnTick <= 0) { S.burnTick = 0.5; this.dot(S.burnDps * 0.5, '#ff8a2a'); } if (Math.random() < 0.3) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.4, y: 0.5, z: this.z + (Math.random() - 0.5) * 0.4, vy: 1.2, g: -1, color: Math.random() < 0.5 ? 0xff8a2a : 0xffd25e, life: 0.4, size: 0.05 }); }
+      if ((S.chill > 0 || S.freeze > 0) && Math.random() < 0.2) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.4, y: 0.4, z: this.z + (Math.random() - 0.5) * 0.4, vy: 0.3, g: 0, color: 0xaee8ff, life: 0.5, size: 0.05 });
+      if (S.mark > 0 && Math.random() < 0.1) g.fx.add({ x: this.x, y: 1.1, z: this.z, vy: 0.3, g: 0, color: 0xff5a8a, life: 0.4, size: 0.06 });
+      if (this.iceBlock) this.iceBlock.visible = S.freeze > 0;
+      if (this.dead) return;
+    }
+    if (this.elite === 'Vampiric' && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.02 * dt);
+    if (this.aura) this.aura.rotation.z += dt * 2;
+    const frozen = S && (S.freeze > 0 || S.root > 0);
     this.stagger = Math.max(0, this.stagger - dt);
     this.parried = Math.max(0, (this.parried || 0) - dt);
     let vx = 0, vz = 0;
-    if (this.stagger <= 0 && !g.cutscene) { const v = this.think(dt) || [0, 0]; vx = v[0]; vz = v[1]; }
+    if (this.stagger <= 0 && !g.cutscene && !frozen) { const v = this.think(dt) || [0, 0]; const sl = S && S.chill > 0 ? 0.5 : 1; vx = v[0] * sl; vz = v[1] * sl; }
+    if (frozen && this.token) this.dropToken();
     const knocked = Math.abs(this.kx) + Math.abs(this.kz) > 0.3;
     if (this.moveMode !== 'fly') this.moveMode = knocked ? 'knock' : 'walk';
     vx += this.kx; vz += this.kz;
@@ -303,7 +332,7 @@ export class Spore extends Entity {
       for (const e of g.entities) {
         if (!e.isEnemy || e.dead || e === this.from && this.life > 2.3) continue;
         if (Math.hypot(e.x - this.x, e.z - this.z) < (e.r ?? 0.3) + this.r + 0.1) {
-          e.onHit({ dmg: 3, dir: this.dir, kind: 'pod', kb: 6, src: this });
+          this.g.playerHit(e, { mult: 2.5, dir: this.dir, kind: 'pod', kb: 6, noProc: true });
           return this.pop();
         }
       }

@@ -3,6 +3,7 @@ const KEYMAP = {
   up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'], left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'],
   attack: ['KeyJ'], shield: ['KeyK'], roll: ['Space', 'ShiftLeft', 'ShiftRight'], item: ['KeyL'],
   interact: ['KeyE', 'Enter'], surge: ['KeyR'], potion: ['KeyQ'], pause: ['Escape', 'Tab', 'KeyP'], music: ['KeyM'],
+  ab1: ['Digit1', 'Numpad1', 'KeyU'], ab2: ['Digit2', 'Numpad2', 'KeyO'], ab3: ['Digit3', 'Numpad3', 'KeyH'], inventory: ['KeyI', 'KeyB'], salvage: ['KeyX', 'Delete'],
 };
 const PAD = { attack: 2, roll: 0, interact: 1, item: 3, shield: [4, 6], surge: [5, 7], pause: 9, potion: 8 };
 

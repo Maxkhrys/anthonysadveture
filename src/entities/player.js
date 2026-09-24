@@ -5,6 +5,9 @@ import { sfx } from '../engine/audio.js';
 import { angDiff, angleLerp, clamp } from '../engine/util.js';
 import { T } from '../world/tiles.js';
 import { flashObj } from './common.js';
+import { CLASSES, abilityRankMult } from '../rpg/classes.js';
+import { unitAt } from '../rpg/items.js';
+import { Projectile, Trap, RainZone, Familiar, frostNova, chainLightning } from '../rpg/combat.js';
 
 const SPEED = 5.0;
 
@@ -14,7 +17,10 @@ export class Player extends Entity {
     this.isPlayer = true;
     this.moveMode = 'player';
     this.r = 0.28;
-    this.m = makeHero();
+    this.cls = g.inv.cls || 'samurai';
+    this.m = makeHero(this.cls);
+    this.m.setWeapon(g.inv.equip && g.inv.equip.weapon);
+    this.cds = [0, 0, 0]; this.aimT = 0;
     this.obj.add(this.m.root);
     this.shadow = null;
     this.state = 'move'; this.st = 0;
@@ -40,7 +46,7 @@ export class Player extends Entity {
     if (this.state === 'roll' && this.st < 0.3) return false;
     const fromAng = Math.atan2(h.x - this.x, h.z - this.z);
     if (this.state === 'block' && !h.unblockable && Math.abs(angDiff(this.facing, fromAng)) < 1.4) {
-      const window = this.inv.shieldLv > 0 ? 0.28 : 0.2;
+      const window = 0.22;
       if (this.blockT < window) {
         sfx('parry'); g.hitstop(0.12); g.pr.addFlash(0.25, 0xfff3b0);
         g.fx.sparks(this.x + Math.sin(fromAng) * 0.4, 0.4, this.z + Math.cos(fromAng) * 0.4, fromAng, 16, 0xfff3b0);
@@ -52,12 +58,11 @@ export class Player extends Entity {
       }
       sfx('block');
       g.fx.sparks(this.x + Math.sin(fromAng) * 0.35, 0.35, this.z + Math.cos(fromAng) * 0.35, fromAng, 6);
-      const chip = this.inv.shieldLv > 0 ? 0 : (h.dmg >= 2 ? 1 : 0);
       this.knock(fromAng + Math.PI, 3.5);
-      if (chip) this.takeDamage(chip);
+      this.takeDamage(h.dmg * 0.25, h.src && h.src.level);
       return 'block';
     }
-    this.takeDamage(h.dmg);
+    this.takeDamage(h.dmg * ((h.src && h.src.dmgMul) || 1), h.src && h.src.level);
     this.knock(fromAng + Math.PI, h.kb ?? 6);
     this.setState('hurt');
     this.invuln = 1.0;
@@ -66,12 +71,17 @@ export class Player extends Entity {
     g.fx.burst(this.x, 0.5, this.z, 8, [0xff5a5a, 0xffffff], 2.5);
     return 'hit';
   }
-  takeDamage(n) {
-    const inv = this.inv;
+  // raw = damage in legacy "half-heart" units; scaled by the attacker's level and our armour
+  takeDamage(raw, lvl) {
+    const inv = this.inv, g = this.g;
+    const L = lvl || g.zoneLevel(this.x, this.z);
+    const n = Math.max(1, Math.round(raw * unitAt(L) * 1.05 * g.pstats.dr * g.diffMult()));
     inv.hp = Math.max(0, inv.hp - n);
-    this.g.ui.hearts(true);
-    if (inv.hp <= 0) { this.setState('dead'); this.g.onPlayerDeath(); }
-    else if (inv.hp <= 2) sfx('low');
+    this.combatT = 4;
+    g.ui.float(this.x, 1.1, this.z, '-' + n, '#ff6a6a', false);
+    g.ui.hearts(true);
+    if (inv.hp <= 0) { this.setState('dead'); g.onPlayerDeath(); }
+    else if (inv.hp <= inv.maxHp * 0.25) sfx('low');
   }
   knock(ang, s) { this.kx = Math.sin(ang) * s; this.kz = Math.cos(ang) * s; }
 
@@ -89,8 +99,62 @@ export class Player extends Entity {
     this.lunge = this.combo === 3 ? 4 : 2.5;
   }
 
-  doHits(range, halfAng, dmg, kind, kb) {
-    this.g.hitArc(this, this.x, this.z, this.facing, range, halfAng, { dmg, kind, kb, id: this.attackId });
+  doHits(range, halfAng, mult, kind, kb, ability) {
+    this.g.hitArc(this, this.x, this.z, this.facing, range, halfAng, { mult, kind, kb, id: this.attackId, ability });
+  }
+  get reach() { const w = this.inv.equip.weapon; return w && w.kind === 'katana' ? ({ nodachi: 0.35, onicleaver: 0.3 }[w.base] || 0) : 0; }
+  basicAttack() {
+    if (this.cls === 'samurai') return this.startAttack();
+    const g = this.g;
+    const t = g.nearestEnemy(this.x, this.z, 9, this.facing, 0.5);
+    if (t) this.facing = Math.atan2(t.x - this.x, t.z - this.z);
+    this.setState('shoot'); this.shot = false; this.aimT = 0;
+  }
+  fireBasic(power) {
+    const g = this.g, f = this.facing;
+    const ox = this.x + Math.sin(f) * 0.4, oz = this.z + Math.cos(f) * 0.4;
+    if (this.cls === 'archer') {
+      if (power) { g.spawn(new Projectile(g, { x: ox, z: oz, dir: f, speed: 22, range: 13, mult: 2.4, kind: 'power', pierce: 4, kb: 6, color: 0xffd25e })); sfx('spin'); g.pr.addShake(0.15); }
+      else { g.spawn(new Projectile(g, { x: ox, z: oz, dir: f, speed: 17, range: 10, mult: 1, kind: 'arrow', color: 0xf0e0c0 })); sfx('swing'); }
+    } else {
+      const orb = (this.inv.equip.weapon && { crookstaff: 0x7fd36a, candlestaff: 0xffb347, hexwand: 0x8b5cf6, frostrod: 0xdff4ff, shroomwand: 0xe05a48 }[this.inv.equip.weapon.base]) || 0xc89aff;
+      if (power) { g.spawn(new Projectile(g, { x: ox, z: oz, dir: f, speed: 10, range: 9, mult: 2.2, kind: 'fireball', aoe: 1.7, color: 0xff8a2a })); sfx('gale'); }
+      else { g.spawn(new Projectile(g, { x: ox, z: oz, dir: f, speed: 12, range: 9, mult: 0.95, kind: 'bolt', homing: 3.5, color: orb })); sfx('shoot'); }
+    }
+  }
+  tryAbility() {
+    const g = this.g, inp = g.input, inv = this.inv;
+    for (let i = 0; i < 3; i++) {
+      if (!inp.pressed('ab' + (i + 1))) continue;
+      const A = CLASSES[this.cls].abilities[i];
+      const rank = inv.skills[i] || 0;
+      if (!rank) { sfx('error'); g.ui.toast(A.name + ' is locked', 'Unlocks at level ' + A.lvl, 1.4); return false; }
+      if (this.cds[i] > 0) { sfx('error'); return false; }
+      if (g.res < A.cost) { sfx('error'); g.ui.toast('Not enough ' + CLASSES[this.cls].res, '', 0.8); return false; }
+      g.res -= A.cost;
+      this.cds[i] = A.cd * (1 - 0.06 * (rank - 1)) * (1 - g.pstats.cdr / 100);
+      this.useAbility(A.id, abilityRankMult(rank), rank);
+      g.stats.abilities = (g.stats.abilities || 0) + 1;
+      return true;
+    }
+    return false;
+  }
+  useAbility(id, rm, rank) {
+    const g = this.g, f = this.facing;
+    const t = g.nearestEnemy(this.x, this.z, 8, f, 0.9);
+    if (t && id !== 'iaido') this.facing = Math.atan2(t.x - this.x, t.z - this.z);
+    const F = this.facing;
+    switch (id) {
+      case 'iaido': this.setState('dash'); this.attackId++; this.hitSet.clear(); this.invuln = 0.35; this.abMult = 2.2 * rm; sfx('spin'); break;
+      case 'tempest': this.setState('tempest'); this.abMult = 0.7 * rm; this.tick = 0; sfx('spin'); break;
+      case 'oni': this.setState('oni'); this.abMult = 5 * rm; sfx('windup'); break;
+      case 'multishot': for (let k = -2; k <= 2; k++) g.spawn(new Projectile(g, { x: this.x, z: this.z, dir: F + k * 0.17, speed: 17, range: 9, mult: 0.9 * rm, kind: 'arrow', ability: true, color: 0xf0e0c0 })); sfx('swing2'); this.setState('cast'); break;
+      case 'snare': g.spawn(new Trap(g, this.x + Math.sin(F) * 1.2, this.z + Math.cos(F) * 1.2, 3 * rm, 2.2 + 0.3 * rank)); sfx('push'); this.setState('cast'); break;
+      case 'rain': g.spawn(new RainZone(g, this.x + Math.sin(F) * 4, this.z + Math.cos(F) * 4, 0.55 * rm)); sfx('gale'); this.setState('cast'); break;
+      case 'nova': frostNova(g, this.x, this.z, 1.2 * rm, 1.8 + 0.3 * rank); this.setState('cast'); break;
+      case 'chain': if (!chainLightning(g, this.x, this.z, 1.7 * rm, 4 + rank)) g.ui.toast('No target in range', '', 0.8); this.setState('cast'); break;
+      case 'familiar': { for (const e of g.entities) if (e.isFamiliar) e.remove(); const u = g.pstats.uniques.has('owlhollow'); g.spawn(new Familiar(g, 0.6 * rm, u ? 1e9 : 12 + 2 * rank, u)); sfx('spawn'); this.setState('cast'); break; }
+    }
   }
 
   update(dt) {
@@ -104,7 +168,14 @@ export class Player extends Entity {
     let speed = 0;
     let vx = 0, vz = 0;
     const s = this.state;
-    const swordMul = [1, 1.5, 2][inv.swordLv] || 1;
+    const ps = g.pstats;
+    this.cds = this.cds.map(c => Math.max(0, c - dt));
+    this.combatT = Math.max(0, (this.combatT || 0) - dt);
+    // resource & regen
+    g.res = Math.min(100, g.res + ps.resRegenRate * dt);
+    const regen = ps.regen + (ps.uniques.has('mossheart') ? inv.maxHp * (this.combatT > 0 ? 0.005 : 0.02) : 0) + (this.combatT > 0 ? 0 : inv.maxHp * 0.004);
+    if (inv.hp > 0 && inv.hp < inv.maxHp && regen > 0) { inv.hp = Math.min(inv.maxHp, inv.hp + regen * dt); this.regenAcc = (this.regenAcc || 0) + dt; if (this.regenAcc > 0.5) { this.regenAcc = 0; g.ui.hearts(); } }
+    const aspd = ps.wspd;
 
     if (s === 'dead') { this.animate(dt, 0); return; }
     if (s === 'fall') {
@@ -130,10 +201,11 @@ export class Player extends Entity {
 
     switch (s) {
       case 'move': {
-        speed = SPEED;
+        speed = ps.speed;
         if (mlen > 0.1) this.facing = angleLerp(this.facing, Math.atan2(mx, mz), Math.min(1, dt * 18));
         if (!locked) {
-          if (inp.pressed('attack')) { this.startAttack(); break; }
+          if (inp.pressed('attack')) { this.basicAttack(); break; }
+          if (this.tryAbility()) break;
           if (inp.pressed('roll') && this.rollCd <= 0) { this.rollDir = mlen > 0.1 ? Math.atan2(mx, mz) : this.facing; this.facing = this.rollDir; this.setState('roll'); sfx('roll'); break; }
           if (inp.down('shield')) { this.setState('block'); this.blockT = 0; break; }
           if (inp.pressed('item') && inv.bellows) { this.setState('item'); this.itemT = 0; break; }
@@ -142,12 +214,14 @@ export class Player extends Entity {
         break;
       }
       case 'attack': {
+        this.st += dt * (aspd - 1);
         const dur = this.combo === 3 ? 0.42 : 0.3;
         speed = 0;
         const lungeT = this.combo === 3 ? 0.18 : 0.1;
         if (this.st < lungeT) { vx = Math.sin(this.facing) * this.lunge; vz = Math.cos(this.facing) * this.lunge; }
-        if (this.combo < 3 && this.st > 0.04 && this.st < 0.16) this.doHits(1.25, 1.15, 1 * swordMul, 'sword', 4);
-        if (this.combo === 3 && this.st > 0.08 && this.st < 0.3) this.doHits(1.45, Math.PI, 1.5 * swordMul, 'spin3', 7);
+        if (this.combo < 3 && this.st > 0.04 && this.st < 0.16) this.doHits(1.25 + this.reach, 1.15, 1, 'sword', 4);
+        if (this.combo === 3 && this.st > 0.08 && this.st < 0.3) this.doHits(1.45 + this.reach, Math.PI, 1.5, 'spin3', 7);
+        if (this.combo === 3 && this.st > 0.1 && !this.cres && g.pstats.uniques.has('crescent')) { this.cres = true; g.spawn(new Projectile(g, { x: this.x, z: this.z, dir: this.facing, speed: 12, range: 7, mult: 1.6, kind: 'crescent', pierce: 99, kb: 5, color: 0xff6a6a })); }
         if (this.st > 0.03 && this.st < 0.05 && !this.arcDone) {
           this.arcDone = true;
           if (this.combo === 3) g.fx.arc(this.x, 0.35, this.z, this.facing, 1.45, Math.PI * 2, 0xffffff, 0.22, 0.4, true);
@@ -156,12 +230,61 @@ export class Player extends Entity {
         if (!locked && inp.pressed('attack')) this.buffer = 0.25;
         this.buffer -= dt;
         if (this.st > 0.14 && this.buffer > 0 && this.combo < 3) { this.arcDone = false; if (mlen > 0.1) this.facing = Math.atan2(mx, mz); this.startAttack(); break; }
+        if (this.st > 0.12 && !locked && this.tryAbility()) { this.arcDone = false; break; }
         if (this.st > 0.12 && !locked && inp.pressed('roll')) { this.arcDone = false; this.rollDir = mlen > 0.1 ? Math.atan2(mx, mz) : this.facing; this.facing = this.rollDir; this.setState('roll'); sfx('roll'); break; }
         if (this.st >= dur) {
-          this.arcDone = false;
+          this.arcDone = false; this.cres = false;
           if (inp.down('attack') && this.combo === 1 && !locked) { this.setState('charge'); this.chargeT = 0; }
           else this.setState('move');
         }
+        break;
+      }
+      case 'shoot': {
+        speed = 1.6;
+        this.st += dt * (aspd - 1);
+        const fireAt = 0.1;
+        if (!this.shot && this.st >= fireAt && !inp.down('attack')) { this.shot = true; this.fireBasic(false); }
+        if (!this.shot && this.st >= fireAt && inp.down('attack')) { this.setState('aim'); this.aimT = 0; break; }
+        if (this.shot && this.st > 0.32) this.setState('move');
+        if (this.shot && this.st > 0.2) { if (inp.pressed('attack')) { this.basicAttack(); break; } if (this.tryAbility()) break; if (inp.pressed('roll')) { this.rollDir = mlen > 0.1 ? Math.atan2(mx, mz) : this.facing; this.facing = this.rollDir; this.setState('roll'); sfx('roll'); } }
+        break;
+      }
+      case 'aim': {
+        speed = 2.0;
+        this.aimT += dt;
+        const t = g.nearestEnemy(this.x, this.z, 10, this.facing, 0.6);
+        if (mlen > 0.1) this.facing = angleLerp(this.facing, Math.atan2(mx, mz), Math.min(1, dt * 8)); else if (t) this.facing = angleLerp(this.facing, Math.atan2(t.x - this.x, t.z - this.z), Math.min(1, dt * 8));
+        if (this.aimT >= 0.6 && this.aimT - dt < 0.6) sfx('charged');
+        if (this.aimT >= 0.6 && Math.random() < 0.4) g.fx.add({ x: this.x + Math.sin(this.facing) * 0.5, y: 0.5, z: this.z + Math.cos(this.facing) * 0.5, vy: 0.5, g: 0, color: this.cls === 'archer' ? 0xffd25e : 0xff8a2a, life: 0.3, size: 0.05 });
+        if (!inp.down('attack') || locked) { this.fireBasic(this.aimT >= 0.6); this.setState('cast'); }
+        break;
+      }
+      case 'cast': speed = 1.5; if (this.st > 0.2) this.setState('move'); break;
+      case 'dash': {
+        const k = this.st / 0.26;
+        vx = Math.sin(this.facing) * 19; vz = Math.cos(this.facing) * 19;
+        this.doHits(1.1, Math.PI, this.abMult, 'dash', 6, true);
+        if (Math.random() < 0.8) g.fx.add({ x: this.x, y: 0.4, z: this.z, color: 0xffffff, life: 0.25, size: 0.08, g: 0 });
+        if (k >= 1) { this.setState('move'); g.fx.arc(this.x, 0.35, this.z, this.facing, 1.3, 2.4, 0xffffff, 0.18, 0.4); }
+        break;
+      }
+      case 'tempest': {
+        speed = 2.6;
+        this.tick -= dt;
+        if (this.tick <= 0) { this.tick = 0.18; this.attackId++; this.hitSet.clear(); this.doHits(2.2, Math.PI, this.abMult, 'spin', 3, true); g.fx.arc(this.x, 0.3, this.z, 0, 2.2, 0, 0xdff4ff, 0.15, 0.5, true); sfx('swing'); }
+        if (this.st > 1.3) this.setState('move');
+        break;
+      }
+      case 'oni': {
+        speed = 0;
+        if (this.st > 0.35 && !this.oniDone) {
+          this.oniDone = true; this.attackId++; this.hitSet.clear();
+          this.doHits(3.4 + this.reach, 1.1, this.abMult, 'spin', 12, true);
+          g.fx.arc(this.x, 0.4, this.z, this.facing, 3.4, 2.2, 0xff6a5a, 0.3, 1.4);
+          g.fx.ring(this.x + Math.sin(this.facing) * 2, this.z + Math.cos(this.facing) * 2, 0.3, 2.5, 0xff6a5a, 0.4);
+          g.pr.addShake(0.9); sfx('heavyhit'); sfx('thud'); g.hitstop(0.08);
+        }
+        if (this.st > 0.65) { this.oniDone = false; this.setState('move'); }
         break;
       }
       case 'charge': {
@@ -178,7 +301,7 @@ export class Player extends Entity {
       }
       case 'spin': {
         speed = 1.5;
-        if (this.st < 0.35) this.doHits(1.95, Math.PI, 2.5 * swordMul, 'spin', 9);
+        if (this.st < 0.35) this.doHits(1.95 + this.reach, Math.PI, 2.5, 'spin', 9);
         if (this.st >= 0.45) this.setState('move');
         break;
       }
@@ -282,7 +405,7 @@ export class Player extends Entity {
     m.body.rotation.set(0, 0, 0); m.body.position.set(0, 0, 0); m.body.scale.set(1, 1, 1);
     m.armR.rotation.set(0, 0, 0); m.armL.rotation.set(0, 0, 0); m.legL.rotation.set(0, 0, 0); m.legR.rotation.set(0, 0, 0);
     m.head.rotation.set(0, 0, 0);
-    m.sword.rotation.set(Math.PI / 2 * 0.9, 0, 0);
+    m.sword.rotation.set(this.cls === 'witch' ? 0.25 : Math.PI / 2 * 0.9, 0, 0);
     m.shield.rotation.set(0, 0, 0); m.shield.position.set(-0.06, -0.08, 0.02);
     const walk = clamp(speed / 5, 0, 1.2);
     this.walkT += dt * (4 + speed * 2.2);
@@ -326,8 +449,8 @@ export class Player extends Entity {
         break;
       }
       case 'block': {
-        m.armL.rotation.x = -1.4; m.armL.rotation.y = 0.5; m.shield.rotation.y = -1.2; m.shield.position.set(0.0, -0.08, 0.12);
-        m.armR.rotation.x = 0.3;
+        m.armL.rotation.x = -1.4; m.armL.rotation.y = 0.5;
+        if (this.cls === 'samurai') { m.armR.rotation.x = -1.4; m.armR.rotation.z = 0.9; m.sword.rotation.x = 1.4; m.sword.rotation.z = 1.2; } else { m.armR.rotation.x = -1.3; m.armR.rotation.z = 0.5; }
         m.body.rotation.x = 0.1;
         break;
       }
@@ -339,6 +462,15 @@ export class Player extends Entity {
         if (s === 'itemrecover') m.body.position.z = -0.08;
         break;
       }
+      case 'shoot': case 'aim': case 'cast': {
+        if (this.cls === 'archer') { m.armL.rotation.x = -1.55; m.armR.rotation.x = -1.4; m.armR.rotation.z = -0.5 - (s === 'aim' ? Math.min(0.5, this.aimT) : 0); m.body.rotation.y = 0.35; }
+        else { m.armR.rotation.x = s === 'aim' ? -2.6 : -1.7; m.armL.rotation.x = -0.6; m.body.rotation.x = s === 'cast' ? 0.12 : 0; }
+        if (s === 'aim' && this.aimT > 0.6) m.body.position.x = Math.sin(t * 60) * 0.008;
+        break;
+      }
+      case 'dash': m.body.rotation.x = 0.6; m.armR.rotation.x = -1.5; m.armR.rotation.z = 1.2; m.body.position.y = 0.05; break;
+      case 'tempest': m.body.rotation.y = -this.st * 30; m.armR.rotation.x = -1.5; m.armR.rotation.z = 1.4; m.armL.rotation.z = -1.2; break;
+      case 'oni': { const k = Math.min(1, this.st / 0.35); if (this.st < 0.35) { m.armR.rotation.x = -3.0 * k; m.armL.rotation.x = -3.0 * k; m.body.rotation.x = -0.25 * k; m.body.position.y = k * 0.25; } else { m.armR.rotation.x = -0.6; m.armL.rotation.x = -0.6; m.body.rotation.x = 0.5; } break; }
       case 'hurt': m.body.rotation.x = -0.4; m.head.rotation.x = -0.3; break;
       case 'dead': m.body.rotation.z = Math.min(1.5, this.st * 4); m.body.position.y = 0.1; break;
       case 'hold': m.armR.rotation.x = -3.0; m.armL.rotation.x = -3.0; m.armR.rotation.z = -0.2; m.armL.rotation.z = 0.2; m.head.rotation.x = -0.2; break;

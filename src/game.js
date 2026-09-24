@@ -14,12 +14,18 @@ import { Boss } from './entities/boss.js';
 import { Pickup } from './entities/common.js';
 import * as O from './entities/objects.js';
 import { Entity } from './entities/entity.js';
+import { CLASSES, computeStats, xpNeed, MAX_LEVEL } from './rpg/classes.js';
+import { genItem, starterWeapon, RARITY, itemPower } from './rpg/items.js';
+import { GearDrop, LootChest, thornBurst, blast, chainLightning } from './rpg/combat.js';
+import { flashObj } from './entities/common.js';
 
-const SAVE_KEY = 'mossling-save-v1';
+const SAVE_KEY = 'mossling-save-v2';
+export const BAG_SIZE = 30;
 const BUILDERS = { overworld: buildOverworld, dungeon: buildDungeon, grotto: buildGrotto };
 
 export function defaultInv() {
-  return { hp: 6, maxHp: 6, coins: 0, keys: 0, bigkey: false, bellows: false, galeValve: false, swordLv: 0, shieldLv: 0, potions: 1, maxPotions: 2, chimes: [] };
+  return { cls: 'samurai', level: 1, xp: 0, sp: 0, skills: [1, 0, 0], equip: { weapon: null, helm: null, armor: null, charm: null }, bag: [], vessels: 0,
+    hp: 60, maxHp: 60, coins: 0, keys: 0, bigkey: false, bellows: false, galeValve: false, potions: 2, maxPotions: 3, chimes: [] };
 }
 
 export class Game {
@@ -51,6 +57,145 @@ export class Game {
     for (let i = 0; i < 6; i++) { const l = new THREE.PointLight(0xffa24a, 0, 6, 1.6); this.scene.add(l); this.lamps.push(l); }
     this.playerLamp = new THREE.PointLight(0xffe0b0, 0, 5, 1.5); this.scene.add(this.playerLamp);
     this.liquidTime = { value: 0 };
+    this.res = 100;
+    this.settings = { difficulty: 'normal' };
+    this.recalc();
+  }
+
+  // ------------------------------------------------ RPG layer
+  setClass(cls) {
+    const inv = this.inv;
+    inv.cls = cls;
+    inv.equip.weapon = starterWeapon(cls);
+    this.recalc(); inv.hp = inv.maxHp;
+  }
+  recalc() {
+    const inv = this.inv;
+    this.pstats = computeStats(inv);
+    inv.maxHp = this.pstats.maxHp;
+    inv.hp = Math.min(inv.hp, inv.maxHp);
+    if (this.player && this.player.m.setWeapon) this.player.m.setWeapon(inv.equip.weapon);
+    this.hudDirty = true;
+  }
+  diffMult() { return { story: 0.6, normal: 1, hard: 1.45 }[this.settings.difficulty] || 1; }
+  zoneLevel(x, z) {
+    const a = this.area;
+    if (!a) return 1;
+    if (a.id === 'dungeon') { const r = this.roomAt(x, z); return r && (r.id === 'pre' || r.id === 'boss' || r.id === 'heart') ? 5 : 4; }
+    if (a.id === 'grotto') return 5;
+    const r = a.regions && a.regions.find(r => x >= r.x0 && x < r.x1 && z >= r.y0 && z < r.y1);
+    return (r && r.level) || 2;
+  }
+  scaleEnemy(e, opts = {}) {
+    const zl = this.zoneLevel(e.x, e.z);
+    const pl = this.inv.level;
+    e.level = Math.max(zl, Math.min(pl - 1, zl + 4));
+    const mult = 6 * (1 + 0.3 * (e.level - 1));
+    e.hp = e.hp * mult; e.maxHp = e.hp;
+    e.xpValue = ({ blot: 6, seedling: 2, beetle: 14, puffer: 10, wisp: 8, knight: 40 }[e.kind] || 6) * (1 + 0.15 * (e.level - 1));
+    if (!opts.noElite && Math.random() < (opts.eliteChance ?? 0.07)) this.makeElite(e);
+    return e;
+  }
+  makeElite(e) {
+    const mods = ['Swift', 'Brutal', 'Vampiric', 'Armoured', 'Volatile'];
+    e.elite = mods[Math.floor(Math.random() * mods.length)];
+    e.hp *= 3; e.maxHp = e.hp; e.xpValue *= 4;
+    e.obj.scale.setScalar(1.35); e.eliteScale = 1.35;
+    if (e.elite === 'Swift') e.speed *= 1.5;
+    if (e.elite === 'Brutal') e.dmgMul = 1.6;
+    if (e.elite === 'Armoured') e.dmgTaken = 0.6;
+    const col = { Swift: 0x7ad8ff, Brutal: 0xff5a4a, Vampiric: 0xc4386a, Armoured: 0xc0c0d0, Volatile: 0xffb347 }[e.elite];
+    e.auraColor = col;
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.55, 20), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; e.obj.add(ring); e.aura = ring;
+    e.displayName = e.elite + ' ' + ({ blot: 'Blotling', beetle: 'Thornback', puffer: 'Puffer', wisp: 'Hushwisp', knight: 'Hush Knight', seedling: 'Seedling' }[e.kind] || 'Hushling');
+  }
+  // one player hit on one target: rolls damage, crits, procs, numbers
+  playerHit(e, o) {
+    const ps = this.pstats, p = this.player, inv = this.inv;
+    if (!e.isEnemy) { e.onHit && e.onHit({ dmg: 1, kind: o.kind, kb: o.kb, dir: o.dir, src: p }); return; }
+    let dmg = (ps.wmin + Math.random() * (ps.wmax - ps.wmin)) * (o.mult ?? 1) * (1 + ps.dmgPct / 100);
+    if (o.ability) dmg *= 1 + ps.abilityDmg / 100;
+    if (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2) dmg *= 1.4;
+    if (e.status && e.status.mark > 0) dmg *= 1.25;
+    if (ps.uniques.has('candlewick') && e.status && e.status.burn > 0) dmg *= 1.2;
+    const crit = Math.random() * 100 < ps.crit;
+    if (crit) dmg *= 1 + ps.critDmg / 100;
+    dmg *= e.dmgTaken || 1;
+    dmg = Math.max(1, Math.round(dmg));
+    const r = e.onHit({ dmg, kind: o.kind, kb: o.kb, dir: o.dir, src: o.src || p, crit });
+    if (r !== 'hit') return r;
+    e.hpShow = 3;
+    if (!o.quiet || crit) this.ui.float(e.x, 1.0 + (e.eliteScale ? 0.3 : 0), e.z, (crit ? '' : '') + dmg + (crit ? '!' : ''), crit ? '#ffd25e' : '#ffffff', crit);
+    if (ps.lifesteal || (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2)) this.heal(dmg * ((ps.lifesteal || 0) + (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2 ? 6 : 0)) / 100, true);
+    if (inv.cls === 'samurai' && !o.ability) this.res = Math.min(100, this.res + 7);
+    p.combatT = 4;
+    if (!o.noProc && !e.dead) {
+      if (o.forceBurn || Math.random() * 100 < ps.burn || (ps.uniques.has('candlewick') && o.kind === 'bolt')) e.applyStatus && e.applyStatus('burn', 3, dmg * 0.15);
+      if (Math.random() * 100 < ps.chill) e.applyStatus && e.applyStatus('chill', 2.5);
+      if (!o.noShock && Math.random() * 100 < ps.shock) chainLightning(this, e.x, e.z, 0.5, 2, 4);
+      if (ps.uniques.has('rootcleaver') && Math.random() < 0.25) thornBurst(this, e.x, e.z, 0.7);
+      if (crit && ps.uniques.has('huntermoon')) e.applyStatus && e.applyStatus('mark', 4);
+      if (crit && ps.uniques.has('silentdawn')) p.cds[0] *= 0.6;
+    }
+    return r;
+  }
+  gainXp(n) {
+    const inv = this.inv;
+    if (inv.level >= MAX_LEVEL) return;
+    n = Math.max(1, Math.round(n * (1 + this.pstats.xpPct / 100)));
+    inv.xp += n;
+    this.hudDirty = true;
+    while (inv.level < MAX_LEVEL && inv.xp >= xpNeed(inv.level)) {
+      inv.xp -= xpNeed(inv.level); inv.level++; inv.sp++;
+      const C = CLASSES[inv.cls];
+      const unlocked = C.abilities.find(a => a.lvl === inv.level);
+      C.abilities.forEach((a, i) => { if (inv.level >= a.lvl && !inv.skills[i]) inv.skills[i] = 1; });
+      this.recalc(); inv.hp = inv.maxHp; this.res = 100;
+      const p = this.player;
+      this.fx.ring(p.x, p.z, 0.3, 3, 0xffd25e, 0.7); this.fx.burst(p.x, 0.5, p.z, 30, [0xffd25e, 0xffffff], 3, { g: -1 });
+      sfx('fanfare'); this.pr.addFlash(0.25, 0xffd25e);
+      this.ui.banner('LEVEL UP', 'Level ' + inv.level, 2.2);
+      this.ui.toast(unlocked ? 'New ability: ' + unlocked.name + ' [' + unlocked.key + ']' : '+1 Skill Point', unlocked ? unlocked.desc : 'Press I → Skills to spend it.', 3);
+      this.save();
+    }
+  }
+  pickupItem(it) {
+    const inv = this.inv;
+    if (inv.bag.length >= BAG_SIZE) return false;
+    inv.bag.push(it);
+    const R = RARITY[it.r];
+    sfx(it.r >= 2 ? 'pipbig' : 'pip');
+    const up = it.cls && it.cls !== inv.cls ? '' : (itemPower(it) > itemPower(inv.equip[it.slot]) ? ' ▲' : '');
+    this.ui.lootToast(it, up);
+    this.stats.items = (this.stats.items || 0) + 1;
+    if (!this.flags.tutLoot) { this.flags.tutLoot = true; setTimeout(() => this.ui.toast('You found gear!', 'Press I to open your bag and equip it.', 3.5), 600); }
+    this.hudDirty = true;
+    return true;
+  }
+  canEquip(it) { return !it.cls || it.cls === this.inv.cls; }
+  equipItem(i) {
+    const inv = this.inv, it = inv.bag[i];
+    if (!it) return;
+    if (!this.canEquip(it)) { sfx('error'); this.ui.toast('Only a ' + CLASSES[it.cls].name + ' can use that.', 'Salvage it for pips.', 1.6); return; }
+    const old = inv.equip[it.slot];
+    inv.equip[it.slot] = it;
+    inv.bag.splice(i, 1);
+    if (old) inv.bag.splice(i, 0, old);
+    sfx('unlock');
+    this.recalc();
+  }
+  salvageItem(i) {
+    const inv = this.inv, it = inv.bag[i];
+    if (!it) return;
+    inv.bag.splice(i, 1);
+    const v = Math.max(1, Math.round(it.value * 0.35));
+    this.addCoins(v); sfx('pip');
+    this.ui.toast('Salvaged ' + it.name, '+' + v + ' pips', 1.2);
+  }
+  dropGear(x, z, o = {}) {
+    const it = genItem({ level: o.level || this.inv.level, cls: Math.random() < 0.75 ? this.inv.cls : null, mf: this.pstats.mf, floor: o.floor || 0, bonus: o.bonus || 0 });
+    this.spawn(new GearDrop(this, x, z, it));
   }
 
   // ------------------------------------------------ state
@@ -60,11 +205,11 @@ export class Game {
   setTile(x, y, t) { this.area.tiles[y * this.area.w + x] = t; this.tilesDirty = true; }
   locked() { return this.cutscene || this.ui.talking || this.transitioning; }
   hitstop(t) { this.stopT = Math.max(this.stopT, t); }
-  addSurge(n) { const was = this.surge; this.surge = Math.min(100, this.surge + n); if (was < 100 && this.surge >= 100) { sfx('charged'); this.ui.toast('BELL SURGE ready!', 'Press R', 1.4); } this.hudDirty = true; }
+  addSurge(n) { if (this.pstats && this.pstats.uniques.has('firstchime')) n *= 2; const was = this.surge; this.surge = Math.min(100, this.surge + n); if (was < 100 && this.surge >= 100) { sfx('charged'); this.ui.toast('BELL SURGE ready!', 'Press R', 1.4); } this.hudDirty = true; }
   addCoins(n) { this.inv.coins = Math.min(9999, this.inv.coins + n); this.hudDirty = true; }
-  heal(n) { this.inv.hp = Math.min(this.inv.maxHp, this.inv.hp + n); this.ui.hearts(true); }
+  heal(n, quiet) { if (n <= 0) return; const before = this.inv.hp; this.inv.hp = Math.min(this.inv.maxHp, this.inv.hp + n); if (!quiet && this.player && this.inv.hp - before >= 1) this.ui.float(this.player.x, 1.1, this.player.z, '+' + Math.round(this.inv.hp - before), '#7fd36a'); this.ui.hearts(!quiet); }
   gainHeartContainer(silent) {
-    this.inv.maxHp += 2; this.inv.hp = this.inv.maxHp; this.ui.hearts(true);
+    this.inv.vessels = (this.inv.vessels || 0) + 1; this.recalc(); this.inv.hp = this.inv.maxHp; this.ui.hearts(true);
     if (!silent) { sfx('fanfare'); this.ui.toast('Heart Vessel!', 'Your life grows by one heart.', 2.4); }
     this.save();
   }
@@ -72,7 +217,7 @@ export class Game {
     const inv = this.inv;
     if (inv.potions <= 0) { sfx('error'); this.ui.toast('No tonics left.', 'Posy sells them in Thimblewick.', 1.4); return; }
     if (inv.hp >= inv.maxHp) { sfx('error'); this.ui.toast('Already at full health.', '', 1); return; }
-    inv.potions--; this.heal(6); sfx('potion');
+    inv.potions--; this.heal(inv.maxHp * 0.45); sfx('potion');
     this.fx.burst(this.player.x, 0.6, this.player.z, 16, [0xff6a7a, 0xffffff], 2, { g: -1 });
     this.hudDirty = true;
   }
@@ -86,7 +231,7 @@ export class Game {
       const s = JSON.parse(localStorage.getItem(SAVE_KEY));
       this.inv = Object.assign(defaultInv(), s.inv); this.flags = s.flags || {}; this.checkpoint = s.checkpoint || this.checkpoint;
       this.playTime = s.playTime || 0; this.stats = s.stats || {};
-      this.inv.hp = this.inv.maxHp;
+      this.recalc(); this.inv.hp = this.inv.maxHp;
       return true;
     } catch (e) { return false; }
   }
@@ -99,6 +244,7 @@ export class Game {
     this.world.traverse(o => { if (o.geometry) o.geometry.dispose(); });
     this.world = new THREE.Group(); this.scene.add(this.world);
     this.fx.clear();
+    this.ui.clearFloats && this.ui.clearFloats();
     this.entities = []; this.solids = []; this.sigs = {}; this.tokens = 0;
     this.bossActive = null; this.ui.bossBar(null);
     const area = BUILDERS[id]();
@@ -154,6 +300,7 @@ export class Game {
       case 'drift': e = new O.Drift(this, d); if (e.dead) return; break;
       case 'boulder': e = new O.Boulder(this, d); break;
       case 'sign': e = new O.Sign(this, d); break;
+      case 'lootchest': e = new LootChest(this, d); break;
       case 'npc': e = new O.NPC(this, d); break;
       case 'bell': e = new O.Bell(this, d); break;
       case 'gate': e = new O.Gate(this, d); break;
@@ -163,7 +310,7 @@ export class Game {
       case 'warp': e = new O.Warp(this, d); e.alwaysUpdate = true; break;
       case 'enemy': {
         if (this.area.id === 'overworld' && f.hushLifted && d.x < 44 && Math.random() < 0.5) return;
-        e = makeEnemy(this, d.kind, d.x, d.z); e.spawnT = 0; e.obj.scale.setScalar(1); e.room = d.room; break;
+        e = makeEnemy(this, d.kind, d.x, d.z); e.spawnT = 0; e.obj.scale.setScalar(1); e.room = d.room; this.scaleEnemy(e); if (e.eliteScale) e.obj.scale.setScalar(e.eliteScale); break;
       }
       case 'arena': e = new O.Arena(this, d, [
         [['blot', -3, -2], ['blot', 3, -2], ['blot', 0, -3], ['blot', -3, 2], ['blot', 3, 2]],
@@ -195,6 +342,7 @@ export class Game {
       px = x + (Math.random() - 0.5) * r * 2; pz = z + (Math.random() - 0.5) * r * 2;
     }
     const e = makeEnemy(this, kind, px, pz, opts);
+    this.scaleEnemy(e, { noElite: kind === 'seedling', eliteChance: opts.eliteChance });
     if (opts.aggro) { e.aggro = opts.aggro; e.state = e.kind === 'puffer' ? 'aim' : e.kind === 'wisp' ? 'hover' : 'chase'; }
     if (this.room && !opts.noRoom) e.room = this.room.id;
     this.spawn(e);
@@ -295,6 +443,8 @@ export class Game {
       sfx('fanfare');
       this.spawnChime();
       if (!this.flags.bossHeart) { this.flags.bossHeart = true; const h = new Pickup(this, b.x - 2, b.z + 2.5, 'heartfull'); this.spawn(h); }
+      this.gainXp(350);
+      this.dropGear(b.x - 1, b.z + 2, { level: 6, floor: 3, bonus: 1 }); this.dropGear(b.x + 1, b.z + 2, { level: 6, floor: 2, bonus: 0.6 }); this.dropGear(b.x, b.z + 2.5, { level: 5, floor: 2 });
       this.save();
     }, 1200);
   }
@@ -302,7 +452,15 @@ export class Game {
     const r = this.area.rooms.find(r => r.id === 'boss');
     this.spawn(new O.ChimePedestal(this, r.x0 + 8.5, r.z0 + 4.5));
   }
-  onEnemyDeath(e) {}
+  onEnemyDeath(e) {
+    const ps = this.pstats;
+    this.gainXp(e.xpValue || 5);
+    if (ps.uniques.has('hexbloom')) blast(this, e.x, e.z, 1.8, 0.9, 0x8b5cf6, { ability: true });
+    if (e.elite === 'Volatile') { this.fx.ring(e.x, e.z, 0.2, 2, 0xffb347, 0.4); const p = this.player; if (Math.hypot(p.x - e.x, p.z - e.z) < 2) p.hurt({ dmg: 2, x: e.x, z: e.z, src: e, kb: 6 }); }
+    const lvl = e.level || this.inv.level;
+    if (e.elite) { this.dropGear(e.x, e.z, { level: lvl, floor: 2, bonus: 0.6 }); if (Math.random() < 0.4) this.dropGear(e.x, e.z, { level: lvl, floor: 1 }); }
+    else if (Math.random() < ({ knight: 0.6, beetle: 0.14, puffer: 0.12 }[e.kind] ?? 0.08) * (1 + ps.mf / 200)) this.dropGear(e.x, e.z, { level: lvl, floor: e.kind === 'knight' ? 1 : 0 });
+  }
 
   startIntroFight() {
     const a = new O.Arena(this, { id: 'intro', x: 58.5, z: 70, radius: 99 }, [
@@ -325,7 +483,8 @@ export class Game {
       if (halfAng < Math.PI && Math.hypot(dx, dz) > 0.3 && Math.abs(angDiff(facing, a)) > halfAng) continue;
       if (e.isEnemy && !e.isBoss && e.moveMode === 'fly' && e.alt > 1.4) continue;
       src.hitSet.add(e);
-      e.onHit({ ...opts, dir: a, src });
+      if (src.isPlayer && opts.mult !== undefined) this.playerHit(e, { ...opts, dir: a });
+      else e.onHit({ ...opts, dir: a, src });
     }
   }
   nearestEnemy(x, z, range, facing, halfAng) {
@@ -377,9 +536,8 @@ export class Game {
     sfx('surge'); this.pr.addShake(1.2); this.pr.addFlash(0.5, 0xfff3b0); this.hitstop(0.1);
     this.fx.ring(p.x, p.z, 0.5, 6, 0xfff3b0, 0.6); this.fx.ring(p.x, p.z, 0.3, 4, 0xffd25e, 0.45, 0.4);
     this.fx.burst(p.x, 0.3, p.z, 40, [0xfff3b0, 0xffd25e, 0xffffff], 6);
-    const swordMul = [1, 1.5, 2][this.inv.swordLv];
     p.attackId++; p.hitSet.clear();
-    this.hitArc(p, p.x, p.z, 0, 5.5, Math.PI, { dmg: 4 * swordMul, kind: 'surge', kb: 13, id: p.attackId });
+    this.hitArc(p, p.x, p.z, 0, 5.5, Math.PI, { mult: 4, kind: 'surge', kb: 13, id: p.attackId, ability: true });
     for (const e of this.entities) if (e instanceof O.Crate || e instanceof O.Torch || e instanceof O.LeafPile || e instanceof O.Pinwheel) { /* the toll is sound, not wind */ }
   }
   blockAhead(p, dir) {
@@ -501,6 +659,8 @@ export class Game {
     this.ui.update(dt);
     if (this.dead) { if (input.pressed('interact')) this.revive(); this.render(dt); return; }
     if (this.ui.updateShop(input)) { this.render(dt); return; }
+    if (this.ui.updateInventory(input)) { this.render(dt); return; }
+    if (input.pressed('inventory') && !this.locked() && !this.dead) { this.ui.openInventory(); this.render(dt); return; }
     const talking = this.ui.updateDialog(dt, input);
     if (!talking) this.playTime += dt;
     if (this.stopT > 0) { this.stopT -= dt; this.fx.update(dt * 0.2, this.cam); this.render(dt); return; }
@@ -538,6 +698,8 @@ export class Game {
     this.ui.prompt(it ? it.prompt : null);
     if (this.hudDirty) { this.hudDirty = false; this.ui.updateHud(); }
     this.fx.update(dt, this.cam);
+    this.ui.updateVitals();
+    this.ui.updateFloats(dt);
     if (this.held) { this.held.rotation.y += dt * 2; this.held.position.y = 1.35 + Math.sin(this.time * 3) * 0.05; }
     this.render(dt);
   }

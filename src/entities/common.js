@@ -62,7 +62,7 @@ export class Pickup extends Entity {
   collect() {
     const g = this.g;
     if (this.kind === 'pip') { g.addCoins(this.value); sfx(this.value >= 20 ? 'pipbig' : 'pip'); g.fx.burst(this.x, 0.3, this.z, 4, 0xfff3b0, 1.5, { life: 0.3, size: 0.05 }); }
-    else if (this.kind === 'heart') { g.heal(this.value); sfx('heart'); }
+    else if (this.kind === 'heart') { g.heal(g.inv.maxHp * 0.15); sfx('heart'); }
     else if (this.kind === 'heartfull') { g.gainHeartContainer(); }
     this.remove();
   }
@@ -73,7 +73,7 @@ export function dropLoot(g, x, z, table) {
   const r = Math.random();
   const inv = g.inv;
   const hurt = inv.hp < inv.maxHp;
-  if (hurt && r < (table.heart ?? 0.15) * (inv.hp <= 2 ? 2.5 : 1)) { g.spawn(new Pickup(g, x, z, 'heart')); return; }
+  if (hurt && r < (table.heart ?? 0.15) * (inv.hp <= inv.maxHp * 0.3 ? 2.5 : 1)) { g.spawn(new Pickup(g, x, z, 'heart')); return; }
   let n = table.pips ?? 1;
   if (Math.random() < (table.chance ?? 0.7)) {
     while (n > 0) {

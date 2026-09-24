@@ -61,7 +61,7 @@ class Pod extends Entity {
       this.marker.visible = false;
       const b = this.boss;
       if (Math.hypot(b.x - this.x, b.z - this.z) < 1.5) { b.choke('pod'); return this.explode(false); }
-      for (const e of g.entities) if (e.isEnemy && !e.dead && e !== b && Math.hypot(e.x - this.x, e.z - this.z) < 0.5) { e.onHit({ dmg: 3, dir: this.dir, kind: 'pod', kb: 6 }); return this.explode(false); }
+      for (const e of g.entities) if (e.isEnemy && !e.dead && e !== b && Math.hypot(e.x - this.x, e.z - this.z) < 0.5) { g.playerHit(e, { mult: 2.5, dir: this.dir, kind: 'pod', kb: 6, noProc: true }); return this.explode(false); }
       if (hit || this.t > 1.5) return this.explode(false);
     }
     this.m.rotation.y += dt * 3;
@@ -101,7 +101,7 @@ export class Boss extends Entity {
     this.isEnemy = true; this.isBoss = true;
     this.m = makeBoss(); this.obj.add(this.m.root);
     this.r = 1.1; this.solid = true; this.hw = 1.0; this.hd = 0.9;
-    this.hp = 12; this.maxHp = 12;
+    this.level = 5; this.hp = this.maxHp = Math.round(12 * 6 * (1 + 0.3 * 4) * 0.75);
     this.state = 'intro'; this.st = 0;
     this.facing = 0;
     this.cycle = 0; this.stunHits = 0;
@@ -231,7 +231,7 @@ export class Boss extends Entity {
         m.bulb.rotation.x = 0.25 + Math.sin(t * 12) * 0.03;
         for (const pt of m.petals) pt.rotation.x = 0.4;
         if (Math.random() < 0.2) g.fx.add({ x: this.x + (Math.random() - 0.5), y: 1.8, z: this.z + 0.8, vy: 0.5, g: -0.5, color: 0xfff3b0, life: 0.6, size: 0.06 });
-        if (this.st > 4.2 || this.stunHits >= 4) {
+        if (this.st > 4.2 || this.stunHits >= 6) {
           this.setState('recover');
           sfx('roar'); g.fx.ring(this.x, this.z, 1, 5, 0x7fd36a, 0.5);
           if (Math.hypot(p.x - this.x, p.z - this.z) < 4) p.knock(Math.atan2(p.x - this.x, p.z - this.z), 9);

@@ -1,6 +1,7 @@
 // HTML overlay: HUD, dialogue, prompts, menus, maps.
 import { sfx, duckMusic } from './engine/audio.js';
 import { T } from './world/tiles.js';
+import { installRpgUI } from './ui_rpg.js';
 
 const $ = id => document.getElementById(id);
 
@@ -49,7 +50,7 @@ export class UI {
   }
   updateHud() {
     const g = this.g, inv = g.inv;
-    this.hearts();
+    this.updateVitals();
     $('coins').textContent = inv.coins;
     $('surge-fill').style.width = Math.min(100, g.surge) + '%';
     $('surge').classList.toggle('full', g.surge >= 100);
@@ -267,3 +268,4 @@ export class UI {
     if (this.areaT > 0) { this.areaT -= dt; if (this.areaT <= 0) $('area-name').classList.remove('show'); }
   }
 }
+installRpgUI(UI);

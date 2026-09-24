@@ -18,7 +18,7 @@ window.__sim = (frames, keys = [], dt = 1 / 30) => {
   }
   input.keys = new Set();
 };
-window.__start = fresh => start(fresh);
+window.__start = (fresh, cls) => start(fresh, fresh ? (cls || 'samurai') : undefined);
 game.loadArea('overworld', 'start');
 game.cutscene = true;
 game.player.obj.visible = false;
@@ -34,16 +34,25 @@ function renderMenu() {
 }
 renderMenu();
 
-function start(fresh) {
-  if (mode !== 'title') return;
+function start(fresh, cls) {
+  if (mode !== 'title' && mode !== 'classsel') return;
   initAudio();
+  if (fresh && !cls) {
+    // choose a class first
+    mode = 'classsel';
+    $('title').classList.add('hidden');
+    game.ui.classSelect(input, c => { mode = 'title'; start(true, c); });
+    return;
+  }
   mode = 'play';
   $('title').classList.add('hidden');
   $('hud').classList.remove('hidden');
   game.cutscene = false; game.camFocus = null;
   if (fresh) {
-    try { localStorage.removeItem('mossling-save-v1'); } catch (e) {}
+    try { localStorage.removeItem('mossling-save-v2'); } catch (e) {}
     game.inv = defaultInv(); game.flags = {}; game.stats = {}; game.playTime = 0;
+    game.setClass(cls || 'samurai');
+    game.res = 100;
     game.checkpoint = { area: 'overworld', spawn: 'village' };
     game.loadArea('overworld', 'start');
     game.ui.areaName('Thimblewick');
@@ -77,6 +86,13 @@ function frame(now) {
     game.render(dt);
     return;
   }
+  if (mode === 'classsel') {
+    game.ui.updateClassSelect(input);
+    game.time += dt; titleT += dt;
+    game.camFocus = { x: 40 + Math.sin(titleT * 0.05) * 18, z: 55 + Math.cos(titleT * 0.04) * 8 };
+    game.render(dt);
+    return;
+  }
   if (mode === 'pause') {
     game.ui.updatePause(input);
     if (input.pressed('pause')) { mode = 'play'; game.ui.show('pause', false); sfx('select'); }
@@ -85,7 +101,7 @@ function frame(now) {
   }
   if (mode === 'play') {
     const shopOpen = !$('shop').classList.contains('hidden');
-    if (input.pressed('pause') && !shopOpen && !game.dead && !game.ui.talking) { mode = 'pause'; game.ui.openPause(); sfx('select'); return; }
+    if (input.pressed('pause') && !shopOpen && !game.ui.invOpen && !game.dead && !game.ui.talking) { mode = 'pause'; game.ui.openPause(); sfx('select'); return; }
     game.update(dt);
   }
 }

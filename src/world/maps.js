@@ -244,6 +244,27 @@ export function buildOverworld() {
   E('beetle', 126, 58); E('beetle', 136, 80); E('puffer', 130, 52); E('puffer', 140, 70); E('blot', 125, 86); E('blot', 127, 88);
   E('wisp', 96, 82); E('wisp', 116, 84); E('knight', 44, 36);
 
+  // Loot chests: [x, y, tier, level]. Each snaps to the nearest open tile.
+  const CHESTS = [
+    [8, 38, 0, 3], [14, 58, 1, 3], [34, 20, 1, 4], [5, 75, 2, 4], [38, 64, 0, 3], [24, 44, 0, 3], [11, 14, 2, 4],
+    [66, 78, 0, 2], [48, 82, 0, 2], [74, 48, 0, 2], [52, 40, 1, 2], [70, 22, 1, 5],
+    [98, 50, 1, 5], [110, 62, 1, 5], [118, 80, 2, 6], [92, 86, 0, 4],
+    [100, 30, 2, 6], [88, 40, 1, 5],
+    [124, 50, 1, 7], [142, 58, 2, 7], [138, 84, 1, 7], [128, 92, 0, 6], [144, 76, 2, 8],
+    [20, 96, 0, 3], [40, 94, 1, 3], [86, 97, 1, 4], [110, 96, 0, 4], [132, 97, 2, 6],
+  ];
+  const openTile = t => t === T.GRASS || t === T.FLOWERS || t === T.FOREST || t === T.SAND || t === T.PATH || t === T.ASH || t === T.STONE;
+  CHESTS.forEach(([cx, cy, tier, level], i) => {
+    for (let r = 0; r < 6; r++) {
+      let found = null;
+      for (let dy = -r; dy <= r && !found; dy++) for (let dx = -r; dx <= r && !found; dx++) {
+        const x = cx + dx, y = cy + dy;
+        if (openTile(g.get(x, y)) && openTile(g.get(x, y + 1)) && openTile(g.get(x + 1, y)) && openTile(g.get(x - 1, y))) found = [x, y];
+      }
+      if (found) { g.def({ type: 'lootchest', id: 'ow-lc' + i, x: found[0] + 0.5, z: found[1] + 0.5, tier, level }); return; }
+    }
+  });
+
   // spawn points
   const spawns = {
     start: { x: 58.5, z: 62.5 }, village: { x: 58.5, z: 62.5 }, dungeon: { x: 17.5, z: 31.2 }, grotto: { x: 29.5, z: 14.8 },
@@ -262,15 +283,15 @@ export function buildOverworld() {
     id: 'overworld', name: 'Lanternreach', w: W, h: H, tiles: g.t, hv: g.hv, defs: g.defs, spawns, dungeon: false,
     music: 'field', sky: 0x8fc8e8, fog: 0xb8d8e8, sun: 0xfff0d0, amb: 0x9ab0d0, ground: 0x6a8a4a,
     regions: [
-      { name: 'Thimblewick', x0: 45, y0: 47, x1: 72, y1: 72, music: 'village' },
-      { name: 'Whisperwood', x0: 0, y0: 6, x1: 42, y1: 86 },
-      { name: 'Sunscald Reach', x0: 118, y0: 42, x1: 150, y1: 96 },
-      { name: 'Cinderpeak Foothills', x0: 104, y0: 0, x1: 150, y1: 42 },
-      { name: 'Hush Encampment', x0: 88, y0: 20, x1: 104, y1: 36, music: 'camp' },
-      { name: 'Lake Mirrow', x0: 90, y0: 60, x1: 122, y1: 84 },
-      { name: 'Chime Gate', x0: 64, y0: 6, x1: 84, y1: 20 },
-      { name: 'Saltwhistle Shore', x0: 0, y0: 88, x1: 150, y1: 110 },
-      { name: 'Lanternreach Meadows', x0: 0, y0: 0, x1: 150, y1: 110 },
+      { name: 'Thimblewick', x0: 45, y0: 47, x1: 72, y1: 72, music: 'village', level: 1 },
+      { name: 'Whisperwood', x0: 0, y0: 6, x1: 42, y1: 86, level: 3 },
+      { name: 'Sunscald Reach', x0: 118, y0: 42, x1: 150, y1: 96, level: 7 },
+      { name: 'Cinderpeak Foothills', x0: 104, y0: 0, x1: 150, y1: 42, level: 9 },
+      { name: 'Hush Encampment', x0: 88, y0: 20, x1: 104, y1: 36, music: 'camp', level: 6 },
+      { name: 'Lake Mirrow', x0: 90, y0: 60, x1: 122, y1: 84, level: 5 },
+      { name: 'Chime Gate', x0: 64, y0: 6, x1: 84, y1: 20, level: 6 },
+      { name: 'Saltwhistle Shore', x0: 0, y0: 88, x1: 150, y1: 110, level: 3 },
+      { name: 'Lanternreach Meadows', x0: 0, y0: 0, x1: 150, y1: 110, level: 2 },
     ],
   };
 }
@@ -471,6 +492,10 @@ export function buildDungeon() {
   g.set(ex, ez, T.FLOOR);
   g.def({ type: 'warp', x: ex + 0.5, z: ez + 0.7, r: 0.6, to: 'overworld', spawn: 'dungeon', label: 'Whisperwood' });
   g.def({ type: 'exitglow', x: ex + 0.5, z: ez + 0.5 });
+  g.def({ type: 'lootchest', id: 'dg-lc1', x: byId.ent.x0 + 14.5, z: byId.ent.z0 + 1.5, tier: 0, level: 4 });
+  g.def({ type: 'lootchest', id: 'dg-lc2', x: byId.west.x0 + 1.5, z: byId.west.z0 + 11.5, tier: 1, level: 4 });
+  g.def({ type: 'lootchest', id: 'dg-lc3', x: byId.torch.x0 + 14.5, z: byId.torch.z0 + 10.5, tier: 1, level: 5 });
+  g.def({ type: 'lootchest', id: 'dg-lc4', x: byId.heart.x0 + 1.5, z: byId.heart.z0 + 11.5, tier: 2, level: 5 });
   g.def({ type: 'sign', x: byId.hub.x0 + 11.5, z: byId.hub.z0 + 11.5, text: 'Scratched into the floor:\n"Stuck? Step out of a room and back in. The Hollow remembers its shape."' });
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const t = g.get(x, y);
@@ -510,6 +535,8 @@ export function buildGrotto() {
     g.set(x, y, t);
   }
   g.def({ type: 'pingroup', a: 'w3', b: 'w16', signal: 'grotto.both' });
+  g.def({ type: 'lootchest', id: 'gr-lc1', x: 4.5, z: 7.5, tier: 1, level: 5 });
+  g.def({ type: 'lootchest', id: 'gr-lc2', x: 15.5, z: 7.5, tier: 1, level: 5 });
   g.def({ type: 'sign', x: 9.5, z: 8.2, text: 'Two pinwheels, far apart. Faint letters: "Together, the winds remember."' });
   g.def({ type: 'warp', x: 9.9, z: 11.7, r: 0.7, to: 'overworld', spawn: 'grotto', label: 'Whisperwood' });
   g.def({ type: 'exitglow', x: 9.9, z: 11.5 });

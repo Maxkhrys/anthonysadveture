@@ -100,3 +100,87 @@ html,body{margin:0;height:100%;background:#0d0a14;overflow:hidden;font-family:va
 #gameover{background:#12040acc}
 #gameover h1{font-size:44px;color:#ffb0b0;text-shadow:3px 3px 0 #000}
 #gameover p{font-size:20px;animation:bob .6s infinite alternate}
+
+/* ---------- Pass 2: RPG HUD ---------- */
+#vitals{position:absolute;left:16px;top:12px;display:grid;grid-template-columns:44px 230px;grid-template-rows:auto auto auto;column-gap:8px;row-gap:4px;align-items:center}
+#lvl{grid-row:1/4;width:44px;height:44px;border:2px solid #000;box-shadow:0 0 0 2px #d9b36a;background:radial-gradient(#3a2c58,#1b1426);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:var(--gold);text-shadow:2px 2px 0 #000}
+#vitals .bar{position:relative;height:16px;background:#1b1426d9;border:2px solid #000;box-shadow:0 0 0 2px #d9b36a}
+#vitals .bar.thin{height:6px}
+#vitals .fill{height:100%;width:50%;transition:width .12s}
+#hpbar .fill{background:linear-gradient(#ff7a7a,#c0283a)}
+#resbar{height:11px!important}
+#resbar .fill{background:linear-gradient(#ff9a8a,#d8342c)}
+#xpbar .fill{background:linear-gradient(#fff3b0,#e0a030)}
+#vitals .bar span{position:absolute;inset:0;font-size:11px;line-height:14px;text-align:center;text-shadow:1px 1px 0 #000;color:#fff}
+#resbar span{line-height:10px!important;font-size:9px!important}
+#surge{top:76px}
+#purse{top:96px}
+#abilities{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;gap:8px}
+.ab{width:52px;height:52px;background:#1b1426e0;border:2px solid #000;box-shadow:0 0 0 2px #d9b36a;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:24px}
+.ab b{position:absolute;left:3px;top:0;font-size:11px;color:var(--paper2);z-index:2}
+.ab .rk{position:absolute;right:3px;bottom:0;font-size:10px;color:var(--gold);z-index:2}
+.ab .cd{position:absolute;left:0;right:0;bottom:0;background:#000b;z-index:1}
+.ab.locked{opacity:.35}
+.ab.nores{box-shadow:0 0 0 2px #6a4a4a}
+.ab .nm{position:absolute;bottom:-1px;left:0;right:0;font-size:8px;text-align:center;color:#fff;z-index:2;text-shadow:1px 1px 0 #000;white-space:nowrap;overflow:hidden}
+#objective{bottom:78px}
+#floaters{position:absolute;inset:0;overflow:hidden}
+.flt{position:absolute;font-weight:700;font-size:15px;text-shadow:2px 2px 0 #000,-1px -1px 0 #000;white-space:nowrap;transform:translate(-50%,-50%);pointer-events:none}
+.flt.crit{font-size:22px}
+.flt.small{font-size:11px;opacity:.9}
+.ehp{position:absolute;width:40px;height:5px;background:#000c;border:1px solid #000;transform:translate(-50%,-50%)}
+.ehp i{display:block;height:100%;background:#e8424f}
+.ehp.elite{width:60px;height:6px}
+.ehp.elite i{background:#ffb347}
+.ehp label{position:absolute;bottom:7px;left:50%;transform:translateX(-50%);font-size:11px;white-space:nowrap;text-shadow:1px 1px 0 #000;color:#ffd25e}
+.ehp small{position:absolute;right:-18px;top:-5px;font-size:9px;color:#ccc;text-shadow:1px 1px 0 #000}
+#loot-feed{position:absolute;right:18px;top:140px;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.lootmsg{background:#1b1426e6;border-left:4px solid;padding:3px 10px;font-size:14px;text-shadow:1px 1px 0 #000;animation:lootIn .25s}
+@keyframes lootIn{from{transform:translateX(40px);opacity:0}}
+/* inventory */
+.inv-panel{width:min(980px,96vw)}
+.inv-hint{margin-left:auto;font-size:13px;color:#a99;cursor:default}
+.inv-body{display:flex;gap:18px;min-height:430px}
+.inv-left{width:300px}
+.inv-right{flex:1;display:flex;flex-direction:column;gap:8px}
+#paperdoll{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}
+.slotbox,.cell{aspect-ratio:1;background:#120d1c;border:2px solid #3a3050;display:flex;align-items:center;justify-content:center;font-size:24px;position:relative;cursor:pointer}
+.slotbox small{position:absolute;bottom:1px;font-size:9px;color:#a99}
+.cell.sel,.slotbox.sel{outline:2px solid #fff}
+.cell .up{position:absolute;right:2px;top:0;font-size:11px;color:#6fdc5a}
+.cell .no{position:absolute;right:2px;top:0;font-size:11px;color:#e8424f}
+#baggrid{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}
+#statsheet{font-size:13px;line-height:1.5;columns:2}
+#statsheet b{color:var(--gold);font-weight:400}
+#tooltip{min-height:180px;background:#120d1c;border:2px solid #3a3050;padding:8px 12px;font-size:14px;display:flex;gap:14px}
+#tooltip .tt{flex:1}
+#tooltip .tt h4{margin:0;font-size:17px}
+#tooltip .tt .sub{font-size:12px;color:#a99;margin-bottom:4px}
+#tooltip .tt .aff{color:#9ad8ff}
+#tooltip .tt .uq{color:#ffb347;font-style:italic;margin-top:4px}
+#tooltip .tt .dmg{font-size:16px}
+#tooltip .cmp{font-size:12px;opacity:.75}
+.inv-keys{font-size:12px;color:var(--paper2)}
+#inv-skills{flex-direction:column;gap:10px}
+.skill{display:flex;gap:12px;align-items:center;background:#120d1c;border:2px solid #3a3050;padding:8px 12px}
+.skill .ic{font-size:30px;width:44px;text-align:center}
+.skill .inf{flex:1}
+.skill .inf b{color:var(--gold)}
+.skill .inf small{display:block;color:#a99}
+.skill button{font-family:var(--font);font-size:18px;background:#3a2c58;color:#fff;border:2px solid #d9b36a;cursor:pointer;padding:2px 12px}
+.skill button:disabled{opacity:.3;cursor:default}
+.skill.sel{border-color:#fff}
+/* class select */
+#classsel{background:radial-gradient(ellipse at 50% 40%,#2a1f3dcc,#0d0a14f2)}
+.cs-title{font-size:34px;color:var(--gold);text-shadow:3px 3px 0 #000;margin:0 0 20px;letter-spacing:3px}
+#classcards{display:flex;gap:18px;flex-wrap:wrap;justify-content:center}
+.ccard{width:260px;background:linear-gradient(#2a1f3d,#1b1426);border:3px solid #000;box-shadow:0 0 0 3px #5a4a70;padding:16px;cursor:pointer;transition:transform .15s}
+.ccard.on{box-shadow:0 0 0 3px var(--gold),0 0 30px #ffd25e55;transform:translateY(-6px)}
+.ccard .ico{font-size:54px;text-align:center}
+.ccard h3{margin:4px 0 0;font-size:26px;text-align:center}
+.ccard .role{text-align:center;color:var(--paper2);font-size:13px;margin-bottom:8px}
+.ccard p{font-size:13px;line-height:1.35;color:#e8dcc0;min-height:72px}
+.ccard .st{display:grid;grid-template-columns:80px 1fr;font-size:12px;gap:3px;align-items:center;margin:8px 0}
+.ccard .st i{display:block;height:8px;background:var(--gold);border:1px solid #000}
+.ccard ul{padding-left:16px;margin:6px 0 0;font-size:12px;color:#c9b8e8}
+.cs-foot{margin-top:18px;color:var(--paper2)}

@@ -1,6 +1,7 @@
 // Narrative, quests, NPC conversations, shop stock.
 import { sfx, playMusic } from './engine/audio.js';
 import { dropPips } from './entities/common.js';
+import { genItem, RARITY, itemIcon } from './rpg/items.js';
 
 export class Story {
   constructor(g) { this.g = g; }
@@ -91,7 +92,7 @@ export class Story {
           'Last night, all three Voices left the bell. Not stolen… it was as if they *walked away*.',
           'I can feel the *Verdant Chime* humming from the west — deep in Whisperwood, inside *Rootwell Hollow*.',
           'Take the west road. And Moss — the Hush drops pips like any honest creature. Spend them at Posy\'s stall by the plaza.',
-        ], () => { f.stage = 1; g.ui.updateHud(); g.save(); ui.toast('New objective', 'Rootwell Hollow — west through Whisperwood. (Esc: map)', 3); });
+        ], () => { f.stage = 1; g.gainXp(40); g.ui.updateHud(); g.save(); ui.toast('New objective', 'Rootwell Hollow — west through Whisperwood. (Esc: map)', 3); });
         if (s === 1) return L(['Rootwell Hollow lies west, where the road dives into Whisperwood. Follow the old path.', f.q_camp ? 'And be careful. The Hush has grown bolder since the bell fell quiet.' : 'Captain Brisk at the east gate could use a hand too, if you\'ve pips to earn.']);
         if (s === 2) return this.ringBell();
         return L(['One Voice returned. Can you hear it? The forest is breathing again.', 'The Ember Chime burns somewhere past *Cinderpeak Pass*, and the Tide Chime sleeps beneath *Lake Mirrow*.', 'When all three sing, the *Chime Gate* will open. And then… we will learn why they left.']);
@@ -100,18 +101,18 @@ export class Story {
         return this.shop();
       case 'oswin':
         if (!f.q_mill) return L(['My mill\'s gone still since the Hush came. Not a breath of wind in her sails.', 'If you ever find a way to make a proper *gale*, you come blow her back to life. I\'ll make it worth your while.'], () => { f.q_mill = 1; ui.updateHud(); ui.toast('Side quest: The Still Mill', '', 2); });
-        if (f.q_mill === 1 && f.windmill) return L(['She\'s TURNING! Listen to her creak! Here, take these — 80 pips, and my eternal gratitude.'], () => { f.q_mill = 2; g.addCoins(80); sfx('pipbig'); ui.toast('Side quest complete!', '+80 pips', 2); g.save(); });
+        if (f.q_mill === 1 && f.windmill) return L(['She\'s TURNING! Listen to her creak! Here, take these — 80 pips, and my eternal gratitude.'], () => { f.q_mill = 2; g.addCoins(80); g.gainXp(80); sfx('pipbig'); ui.toast('Side quest complete!', '+80 pips · +80 XP', 2); g.save(); });
         if (f.q_mill === 1) return L([g.inv.bellows ? 'That bellows of yours… could it puff hard enough? Try holding it longer, build up a real gale.' : 'A proper gale is what she needs. Not your huffing and puffing, little one.']);
         return L(['Flour\'s flowing again. The whole village smells like bread. Thank you, Moss.']);
       case 'brisk':
         if (s < 1) return L(['Ho, Moss. Hushlings at the south path, they say. Show \'em that sword!']);
         if (!f.q_camp) return L(['The Hush has dug a camp across the *north bridge*, east of the river. Tents, stakes, the lot.', 'I\'ve got two guards and one of them\'s asleep. Clear that camp and the guard purse is yours: *150 pips*.'], () => { f.q_camp = 1; ui.updateHud(); ui.toast('Side quest: Bounty — Hush Camp', 'Marked on your map.', 2.4); });
-        if (f.q_camp === 1 && g.signal('camp.clear')) return L(['You cleared the WHOLE camp? By yourself? …Don\'t tell the other guards. Here\'s your bounty.'], () => { f.q_camp = 2; dropPips(g, g.player.x, g.player.z + 0.6, 150); ui.toast('Bounty complete!', '+150 pips', 2); g.save(); });
+        if (f.q_camp === 1 && g.signal('camp.clear')) return L(['You cleared the WHOLE camp? By yourself? …Don\'t tell the other guards. Here\'s your bounty.'], () => { f.q_camp = 2; dropPips(g, g.player.x, g.player.z + 0.6, 150); g.gainXp(250); g.dropGear(g.player.x, g.player.z + 0.8, { level: g.inv.level + 1, floor: 3, bonus: 1 }); ui.toast('Bounty complete!', '+150 pips · +250 XP · a gift from the armoury', 2.5); g.save(); });
         if (f.q_camp === 1) return L(['The Hush camp is across the north bridge. Watch for the big armoured ones — a well-timed shield can knock them off balance.']);
         return L(['The roads are safer thanks to you. Mostly.']);
       case 'ada':
         if (!f.q_pier) return L(['A great stone came rolling down in last night\'s rumble. Right onto my pier path!', 'Too heavy for these old arms. You\'re small but stubborn — *walk into it* and push it out of the way?'], () => { f.q_pier = 1; ui.updateHud(); ui.toast('Side quest: Ada\'s Pier', 'Push the stone off the path.', 2.4); });
-        if (f.q_pier === 1 && this.pierDone()) return L(['Ha! Clear as a summer tide. Take this — an old tonic bottle of mine. You can carry one more tonic now.'], () => { f.q_pier = 2; g.inv.maxPotions++; g.inv.potions = g.inv.maxPotions; sfx('fanfare'); ui.toast('Tonic Bottle!', 'You can carry one more Red Tonic. All bottles filled.', 3); ui.updateHud(); g.save(); });
+        if (f.q_pier === 1 && this.pierDone()) return L(['Ha! Clear as a summer tide. Take this — an old tonic bottle of mine. You can carry one more tonic now.'], () => { f.q_pier = 2; g.inv.maxPotions++; g.inv.potions = g.inv.maxPotions; g.gainXp(60); sfx('fanfare'); ui.toast('Tonic Bottle!', 'You can carry one more Red Tonic. All bottles filled.', 3); ui.updateHud(); g.save(); });
         if (f.q_pier === 1) return L(['Push it off the path, dear. Walk right into it. Push it down, then shove it sideways.']);
         return L(['The fish have gone strange since the bell stopped. They swim in circles around the lake shrine.']);
       case 'fennel': {
@@ -137,14 +138,24 @@ export class Story {
   }
 
   shop() {
-    const g = this.g;
+    const g = this.g, inv = g.inv;
+    // rotating stock: refreshes whenever you level up or return later
+    const key = inv.level + ':' + Math.floor(g.playTime / 300);
+    if (!this.stock || this.stockKey !== key) {
+      this.stockKey = key;
+      this.stock = [0, 1, 2, 3, 4].map(i => genItem({ level: inv.level + (i === 4 ? 1 : 0), cls: i < 3 ? inv.cls : null, slot: i < 2 ? 'weapon' : null, floor: i >= 3 ? 2 : 1, bonus: 0.3 }));
+    }
+    const gear = this.stock.map(it => ({
+      name: `<span style="color:${RARITY[it.r].color}">${itemIcon(it)} ${it.name}</span>`, price: it.value * 3,
+      desc: it.slot === 'weapon' ? `${it.min}–${it.max} dmg · ${RARITY[it.r].name}${it.utext ? ' · ' + it.utext : ''}` : `${RARITY[it.r].name} ${it.slot} · ${Object.keys(it.stats).length} stats`,
+      state: g => it.sold ? 'Sold.' : g.inv.bag.length >= 30 ? 'Your bag is full.' : 'ok',
+      buy: g => { it.sold = true; g.pickupItem(it); },
+    }));
     g.ui.openShop([
-      { name: 'Red Tonic', price: 30, desc: 'Restores 3 hearts. Drink with Q.', state: g => g.inv.potions >= g.inv.maxPotions ? 'Your bottles are full.' : 'ok', buy: g => { g.inv.potions++; } },
-      { name: 'Heart Vessel', price: 150, desc: '+1 maximum heart.', state: g => g.flags.shopHeart ? 'Sold out.' : 'ok', buy: g => { g.flags.shopHeart = true; g.gainHeartContainer(true); } },
-      { name: 'Honed Edge', price: 120, desc: 'Sword damage +50%.', state: g => g.inv.swordLv >= 1 ? 'Owned.' : 'ok', buy: g => { g.inv.swordLv = 1; } },
-      { name: 'Bellsteel Edge', price: 260, desc: 'Sword damage x2. Forged with bell-bronze.', state: g => g.inv.swordLv < 1 ? 'Requires the Honed Edge.' : g.inv.swordLv >= 2 ? 'Owned.' : !g.inv.chimes.length ? 'Posy needs bell-bronze… (return a Chime first)' : 'ok', buy: g => { g.inv.swordLv = 2; } },
-      { name: 'Oak-Rim Shield', price: 80, desc: 'No chip damage when blocking; wider parry window.', state: g => g.inv.shieldLv >= 1 ? 'Owned.' : 'ok', buy: g => { g.inv.shieldLv = 1; } },
+      { name: 'Red Tonic', price: 25, desc: 'Restores 45% health. Drink with Q.', state: g => g.inv.potions >= g.inv.maxPotions ? 'Your bottles are full.' : 'ok', buy: g => { g.inv.potions++; } },
+      { name: 'Heart Vessel', price: 150, desc: '+15 maximum health.', state: g => g.flags.shopHeart ? 'Sold out.' : 'ok', buy: g => { g.flags.shopHeart = true; g.gainHeartContainer(true); } },
       { name: 'Gale Valve', price: 150, desc: 'Gustbellows reach +40%, and gales hit harder.', state: g => !g.inv.bellows ? 'Posy: "Valve for what, exactly?"' : g.inv.galeValve ? 'Owned.' : 'ok', buy: g => { g.inv.galeValve = true; } },
+      ...gear,
     ]);
   }
   shopBye() { this.g.ui.say('Posy', 'Come back with fuller pockets!'); }
@@ -198,7 +209,7 @@ export class Story {
           ['Elder Tamsin', 'And that vision you spoke of… the Bellwrights hid the Voices *on purpose*? Then who called them out again?'],
           ['Elder Tamsin', 'Rest a while, Moss. Help the village. When the paths open, the Chime Gate will be waiting.'],
         ], () => {
-          f.stage = 3; g.cutscene = false; g.camFocus = null; g.save();
+          f.stage = 3; g.cutscene = false; g.camFocus = null; g.gainXp(400); g.save();
           const st = g.stats;
           g.ui.banner('CHAPTER I COMPLETE', 'The Verdant Voice', 4);
           setTimeout(() => g.ui.lines([[null, `*Thank you for playing Chapter I of Mossling: The Silent Bell.*\n\nHushlings defeated: ${st.kills || 0}   ·   Perfect parries: ${st.parries || 0}   ·   Time: ${Math.floor(g.playTime / 60)}m`],
@@ -224,7 +235,7 @@ export class Story {
   gear() {
     const inv = this.g.inv;
     const row = (a, b) => `<tr><td>${a}</td><td>${b}</td></tr>`;
-    return `<table>${row('Sword', ['Grandfather\'s Sword', 'Honed Edge (x1.5)', 'Bellsteel Edge (x2)'][inv.swordLv])}${row('Shield', inv.shieldLv ? 'Oak-Rim Shield' : 'Pot-lid Shield')}${row('Tool', inv.bellows ? 'Gustbellows' + (inv.galeValve ? ' + Gale Valve' : '') : '—')}${row('Tonics', inv.potions + ' / ' + inv.maxPotions)}${row('Hearts', inv.maxHp / 2)}${row('Chimes', inv.chimes.length ? inv.chimes.map(c => c[0].toUpperCase() + c.slice(1)).join(', ') : '—')}</table>
-    <p style="font-size:14px;color:#e2c98f">Gustbellows: tap L for a puff, hold L for a gale. Wind pushes crates (they slide until they hit something, and fill pits), blows out flames, spins pinwheels, clears dust and leaves, reflects spores, flips beetles and grounds wisps.</p>`;
+    return `<table>${['weapon', 'helm', 'armor', 'charm'].map(k => row(k[0].toUpperCase() + k.slice(1), inv.equip[k] ? `<span style="color:${RARITY[inv.equip[k].r].color}">${inv.equip[k].name}</span>` : '—')).join('')}${row('Tool', inv.bellows ? 'Gustbellows' + (inv.galeValve ? ' + Gale Valve' : '') : '—')}${row('Tonics', inv.potions + ' / ' + inv.maxPotions)}${row('Chimes', inv.chimes.length ? inv.chimes.map(c => c[0].toUpperCase() + c.slice(1)).join(', ') : '—')}</table>
+    <p style="font-size:14px;color:#e2c98f">Press I for your bag, stats and skills. Gustbellows: tap L for a puff, hold for a gale.</p>`;
   }
 }

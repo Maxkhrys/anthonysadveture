@@ -49,51 +49,77 @@ function pivot(parts, px, py, pz, mat) {
 }
 
 // ------------------------------------------------------------- HERO: Moss
-export function makeHero() {
+const HERO_COLORS = {
+  samurai: { tunic: 0x2f3f5a, tunicD: 0x223048, scarf: 0xd8342c },
+  archer: { tunic: 0x4a7a3a, tunicD: 0x3a6a2e, scarf: 0xe0b83a },
+  witch: { tunic: 0x5a3a8a, tunicD: 0x44296e, scarf: 0x7fd36a },
+};
+const RAR_HEX = [0xe8e2d0, 0x6fdc5a, 0x4aa8ff, 0xc46bff, 0xff9a2a];
+export function weaponParts(item) {
+  const kind = item ? item.kind : 'katana';
+  const gem = item ? RAR_HEX[item.r] : 0xe8e2d0;
+  const big = item && ['nodachi', 'onicleaver', 'longbow', 'elmwarbow'].includes(item.base);
+  const bladeCol = item ? ({ onicleaver: 0xc84a4a, moonkatana: 0xb8d8ff, stormedge: 0x9ad8ff, dragontachi: 0xf0e0b0, shinai: 0xd8c070 }[item.base] || 0xdfe8f0) : 0xdfe8f0;
+  if (kind === 'katana') {
+    const L = big ? 0.72 : 0.54;
+    return [B(0.05, 0.14, 0.05, 0, -0.02, 0, 0x2a1a2a), B(0.12, 0.04, 0.1, 0, 0.1, 0, gem), B(0.05, L, 0.022, 0, 0.14, 0, bladeCol),
+      B(0.022, L - 0.04, 0.025, 0.016, 0.16, 0, 0xffffff), B(0.045, 0.1, 0.022, -0.008, 0.12 + L, 0, bladeCol, 0, 0, 0.25)];
+  }
+  if (kind === 'bow') {
+    const h = big ? 0.42 : 0.32, c = item ? ({ reedbow: 0x8ab04a, galebow: 0x7ad8ff, sunbow: 0xffd25e, recurve: 0x8a4a2a }[item.base] || 0x7a5a3a) : 0x7a5a3a;
+    return [B(0.05, 0.1, 0.05, 0, -0.05, 0, 0x3a2a1a), B(0.04, h, 0.04, 0, 0.0, 0.08, c, 0.35), B(0.04, h, 0.04, 0, -h, 0.08, c, -0.35), B(0.01, h * 1.8, 0.01, 0, -h * 0.9, -0.02, 0xf0f0f0), B(0.06, 0.06, 0.06, 0, -0.02, 0.04, gem)];
+  }
+  const orb = item ? ({ crookstaff: 0x7fd36a, candlestaff: 0xffb347, hexwand: 0x8b5cf6, frostrod: 0xdff4ff, shroomwand: 0xe05a48, owlstaff: 0xfff3b0, starstaff: 0xfff3b0 }[item.base] || 0xc89aff) : 0xc89aff;
+  const len = kind === 'staff' ? 0.8 : 0.4;
+  return [B(0.04, len, 0.04, 0, -len * 0.45, 0, item && item.base === 'hexwand' ? 0xe8e0d0 : 0x6a4a2a), B(0.12, 0.12, 0.12, 0, len * 0.55, 0, orb), B(0.08, 0.04, 0.08, 0, len * 0.5, 0, gem)];
+}
+export function makeHero(cls = 'samurai') {
   const root = new THREE.Group();
   const body = new THREE.Group(); root.add(body);
-  const skin = 0xf4c9a0, tunic = 0x3d9a4c, tunicD = 0x2e7a3a, boot = 0x5a3a24, cap = 0x9a5f2c, capD = 0x7a4a1e, scarf = 0xe0463c;
+  const C = HERO_COLORS[cls] || HERO_COLORS.samurai;
+  const skin = 0xf4c9a0, tunic = C.tunic, tunicD = C.tunicD, boot = 0x5a3a24, cap = 0x9a5f2c, capD = 0x7a4a1e, scarf = C.scarf;
   const legL = pivot([B(0.11, 0.17, 0.12, 0, -0.17, 0, boot)], -0.07, 0.17, 0);
   const legR = pivot([B(0.11, 0.17, 0.12, 0, -0.17, 0, boot)], 0.07, 0.17, 0);
   body.add(legL, legR);
-  const torso = mesh([B(0.3, 0.2, 0.22, 0, 0.16, 0, tunic), B(0.32, 0.06, 0.24, 0, 0.3, 0, tunicD), B(0.31, 0.04, 0.23, 0, 0.2, 0, 0x6a4a2a), B(0.05, 0.05, 0.02, 0.06, 0.2, 0.12, 0xffd25e)]);
+  const torsoParts = [B(0.3, 0.2, 0.22, 0, 0.16, 0, tunic), B(0.32, 0.06, 0.24, 0, 0.3, 0, tunicD), B(0.31, 0.04, 0.23, 0, 0.2, 0, 0x6a4a2a), B(0.05, 0.05, 0.02, 0.06, 0.2, 0.12, 0xffd25e)];
+  if (cls === 'samurai') torsoParts.push(B(0.06, 0.2, 0.02, -0.05, 0.18, 0.115, 0xe8e0d0, 0, 0, 0.5), B(0.06, 0.2, 0.02, 0.05, 0.18, 0.115, 0xe8e0d0, 0, 0, -0.5), B(0.07, 0.3, 0.06, -0.14, 0.12, -0.12, 0x1a1a2a, 0, 0, 0.9));
+  if (cls === 'archer') torsoParts.push(B(0.12, 0.34, 0.1, 0.08, 0.2, -0.16, 0x7a4a2a, 0, 0, -0.35), B(0.02, 0.12, 0.02, 0.02, 0.5, -0.16, 0xf0f0f0, 0, 0, -0.35), B(0.02, 0.12, 0.02, 0.07, 0.52, -0.16, 0xe8424f, 0, 0, -0.35), B(0.34, 0.26, 0.04, 0, 0.1, -0.14, 0x3a6a2e));
+  if (cls === 'witch') torsoParts.push(B(0.36, 0.14, 0.26, 0, 0.02, 0, tunicD), B(0.4, 0.06, 0.3, 0, -0.02, 0, 0x2e1a4a));
+  const torso = mesh(torsoParts);
   body.add(torso);
-  const head = pivot([
+  const headParts = [
     B(0.36, 0.3, 0.32, 0, 0, 0, skin),
     B(0.05, 0.08, 0.02, -0.08, 0.1, 0.16, 0x1b1426), B(0.05, 0.08, 0.02, 0.08, 0.1, 0.16, 0x1b1426),
     B(0.02, 0.03, 0.02, -0.07, 0.15, 0.17, 0xffffff), B(0.02, 0.03, 0.02, 0.09, 0.15, 0.17, 0xffffff),
     B(0.06, 0.03, 0.01, -0.13, 0.05, 0.165, 0xf08a8a), B(0.06, 0.03, 0.01, 0.13, 0.05, 0.165, 0xf08a8a),
-    // acorn cap
-    B(0.42, 0.1, 0.4, 0, 0.24, 0, cap), B(0.36, 0.08, 0.34, 0, 0.33, 0, capD), B(0.22, 0.05, 0.2, 0, 0.4, 0, cap),
-    B(0.04, 0.09, 0.04, 0, 0.44, 0, 0x5a3a1a), B(0.44, 0.03, 0.42, 0, 0.26, 0, 0xb87a3a),
-    // leaf sprout
-    B(0.03, 0.1, 0.03, 0.06, 0.44, -0.04, 0x4caa3a, 0, 0, -0.5), B(0.12, 0.03, 0.08, 0.13, 0.52, -0.04, 0x7fd36a, 0, 0, -0.3),
-    // hair tufts
     B(0.38, 0.06, 0.1, 0, 0.19, -0.13, 0x6a3a1a),
-  ], 0, 0.36, 0);
+  ];
+  const acorn = [B(0.42, 0.1, 0.4, 0, 0.24, 0, cap), B(0.36, 0.08, 0.34, 0, 0.33, 0, capD), B(0.22, 0.05, 0.2, 0, 0.4, 0, cap), B(0.04, 0.09, 0.04, 0, 0.44, 0, 0x5a3a1a), B(0.44, 0.03, 0.42, 0, 0.26, 0, 0xb87a3a)];
+  if (cls === 'samurai') headParts.push(...acorn, B(0.45, 0.05, 0.43, 0, 0.21, 0, 0xd8342c), B(0.06, 0.04, 0.16, 0.06, 0.21, -0.26, 0xd8342c, 0.4), B(0.1, 0.1, 0.1, 0, 0.47, -0.08, 0x2a1a1a));
+  if (cls === 'archer') headParts.push(B(0.44, 0.2, 0.2, 0, 0.18, -0.08, 0x3a6a2e), B(0.42, 0.08, 0.38, 0, 0.3, 0, 0x4a7a3a), B(0.06, 0.24, 0.3, -0.2, 0.06, -0.02, 0x3a6a2e), B(0.06, 0.24, 0.3, 0.2, 0.06, -0.02, 0x3a6a2e), B(0.16, 0.16, 0.1, 0, 0.26, -0.2, 0x3a6a2e, -0.6), B(0.1, 0.03, 0.06, 0.12, 0.36, 0.05, 0xe8424f, 0, 0.4, 0.3));
+  if (cls === 'witch') headParts.push(B(0.56, 0.04, 0.52, 0, 0.22, 0, 0x2e1a4a), B(0.36, 0.14, 0.34, 0, 0.3, 0, 0x44296e), B(0.26, 0.14, 0.24, 0.02, 0.43, -0.02, 0x44296e, -0.1), B(0.16, 0.14, 0.14, 0.05, 0.55, -0.06, 0x44296e, -0.25), B(0.08, 0.12, 0.08, 0.08, 0.66, -0.12, 0x44296e, -0.5), B(0.38, 0.04, 0.36, 0, 0.26, 0, 0xffd25e), B(0.06, 0.06, 0.02, 0.1, 0.3, 0.18, 0x7fd36a));
+  const head = pivot(headParts, 0, 0.36, 0);
   body.add(head);
   const scarfBase = mesh([B(0.34, 0.07, 0.26, 0, 0.3, 0, scarf)]);
   body.add(scarfBase);
   const tail1 = pivot([B(0.1, 0.05, 0.16, 0, -0.03, -0.08, scarf)], 0.06, 0.34, -0.12);
-  const tail2 = pivot([B(0.09, 0.04, 0.15, 0, -0.02, -0.07, 0xc8342c)], 0, 0, -0.16);
+  const tail2 = pivot([B(0.09, 0.04, 0.15, 0, -0.02, -0.07, scarf)], 0, 0, -0.16);
   tail1.add(tail2); body.add(tail1);
-  // arms
   const armR = pivot([B(0.09, 0.18, 0.09, 0, -0.18, 0, tunic), B(0.09, 0.05, 0.09, 0, -0.23, 0, skin)], 0.2, 0.34, 0);
   const armL = pivot([B(0.09, 0.18, 0.09, 0, -0.18, 0, tunic), B(0.09, 0.05, 0.09, 0, -0.23, 0, skin)], -0.2, 0.34, 0);
   body.add(armR, armL);
-  // sword: held pointing forward-ish from right hand
-  const sword = pivot([
-    B(0.05, 0.1, 0.05, 0, 0, 0, 0x5a3a1a), B(0.2, 0.04, 0.06, 0, 0.1, 0, 0xffc94a), B(0.07, 0.5, 0.025, 0, 0.14, 0, 0xdfe8f0),
-    B(0.03, 0.46, 0.028, 0.02, 0.16, 0, 0xffffff), B(0.05, 0.05, 0.03, 0, 0.64, 0, 0xdfe8f0),
-  ], 0, -0.22, 0.02);
-  armR.add(sword);
-  sword.rotation.x = Math.PI / 2 * 0.9;
-  const shield = pivot([
-    B(0.05, 0.3, 0.28, 0, -0.15, 0, 0x9a6a3a), B(0.06, 0.26, 0.24, 0, -0.13, 0, 0xc08a4a), B(0.07, 0.1, 0.08, 0, -0.08, 0, 0xffd25e), B(0.07, 0.04, 0.12, 0, -0.14, 0, 0xffd25e),
-  ], -0.06, -0.08, 0.02);
-  armL.add(shield);
+  const sword = new THREE.Group(); sword.position.set(0, -0.22, 0.02); armR.add(sword);
+  const offhand = new THREE.Group(); offhand.position.set(0, -0.22, 0.04); armL.add(offhand);
+  const shield = new THREE.Group(); shield.visible = false; armL.add(shield);
+  const setWeapon = item => {
+    for (const g of [sword, offhand]) while (g.children.length) g.remove(g.children[0]);
+    const parts = weaponParts(item || { kind: cls === 'archer' ? 'bow' : cls === 'witch' ? 'staff' : 'katana', r: 0 });
+    const m = mesh(parts); m.layers.enable(1);
+    if ((item && item.kind === 'bow') || (!item && cls === 'archer')) { offhand.add(m); m.rotation.x = Math.PI / 2 * 0.2; }
+    else sword.add(m);
+  };
   root.traverse(o => { if (o.isMesh) o.layers.enable(1); });
-  return { root, body, head, legL, legR, armL, armR, sword, shield, torso, tail1, tail2 };
+  return { root, body, head, legL, legR, armL, armR, sword, shield, torso, tail1, tail2, setWeapon, offhand };
 }
 
 // ------------------------------------------------------------- folk (NPCs)
