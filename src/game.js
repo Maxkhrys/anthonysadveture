@@ -83,7 +83,7 @@ export class Game {
     this.pstats = computeStats(inv);
     inv.maxHp = this.pstats.maxHp;
     inv.hp = Math.min(inv.hp, inv.maxHp);
-    if (this.player && this.player.m.setWeapon) this.player.m.setWeapon(inv.equip.weapon);
+    if (this.player && this.player.m.setGear) this.player.m.setGear(inv.equip);
     this.hudDirty = true;
   }
   // incoming damage multiplier and the largest share of max life one blow may take

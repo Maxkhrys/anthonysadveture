@@ -29,7 +29,7 @@ export class Player extends Entity {
     this.r = 0.28;
     this.cls = g.inv.cls || 'samurai';
     this.m = makeHero(this.cls);
-    this.m.setWeapon(g.inv.equip && g.inv.equip.weapon);
+    this.m.setGear(g.inv.equip || {});
     this.cds = [0, 0, 0]; this.aimT = 0;
     this.obj.add(this.m.root);
     this.shadow = null;
@@ -679,6 +679,19 @@ export class Player extends Entity {
         break;
       }
     }
+    // life: blinking, breathing when idle, glancing at the aim, squinting when hurt
+    this.blinkT = (this.blinkT ?? 2) - dt;
+    if (this.blinkT < 0) this.blinkT = 2.2 + Math.random() * 3;
+    if (m.eyes) { m.eyes.scale.y = s === 'hurt' || s === 'dead' ? 0.3 : this.blinkT < 0.1 ? 0.15 : 1; m.eyes.position.y = m.eyes.scale.y < 1 ? 0.06 * (1 - m.eyes.scale.y) : 0; }
+    if (s === 'move' && speed < 0.3) {
+      const br = Math.sin(t * 2.4);
+      m.body.scale.set(1 + br * 0.012, 1 - br * 0.015 + 0.015, 1);
+      m.armL.rotation.z = -0.1 - br * 0.04; m.armR.rotation.z = 0.1 + br * 0.04;
+      m.head.rotation.x = Math.sin(t * 0.7) * 0.04;
+    }
+    if (this.aiming && (s === 'move' || s === 'block')) m.head.rotation.y = clamp(angDiff(this.facing, this.aimDir), -0.7, 0.7) * 0.7;
+    if (s === 'roll') { const k = this.st / 0.34; m.body.scale.set(1 + Math.sin(k * Math.PI) * 0.1, 0.8, 1); }
+    if (s === 'attack' && this.st < 0.05) m.body.scale.set(1.08, 0.92, 1.08); // anticipation squash
     if (this.pushing) { m.armL.rotation.x = -1.4; m.armR.rotation.x = -1.4; m.body.rotation.x = 0.25; }
     // hurt flicker
     this.m.root.visible = !(this.invuln > 0 && this.state !== 'surge' && Math.floor(this.invuln * 20) % 2 === 0);

@@ -2,6 +2,7 @@
 import { sfx } from './engine/audio.js';
 import { CLASSES } from './rpg/classes.js';
 import { RARITY, itemIcon } from './rpg/items.js';
+import { itemIconURL } from './preview.js';
 import { RECIPES, MATS, check, craft, allWeapons, knows, removeSigil, ensureCraftState, TRANSFER, recipeById } from './rpg/crafting.js';
 
 const $ = id => document.getElementById(id);
@@ -42,7 +43,18 @@ export function installCraftUI(UI) {
     const base = bases[this.crW];
     const c = check(g, r, base ? base.it : null);
     const cost = c.cost || { mats: r.mats, pips: r.pips };
-    let h = `<h4>${known ? r.name : 'Undiscovered recipe'}</h4>`;
+    // the recipe as a sum: base + essence + material = result
+    const ess = Object.keys(r.mats).find(k => k !== 'shard');
+    const tile = (inner, label, cls = '') => `<div class="fx-tile ${cls}"><div class="fx-ico">${inner}</div><small>${label}</small></div>`;
+    const baseIt = base ? base.it : null;
+    const AB = { 0: '1', 1: '2', 2: '3' };
+    const baseTile = r.kind === 'weapon' ? tile(baseIt ? `<img src="${itemIconURL(baseIt, inv.cls)}">` : '?', baseIt ? baseIt.name : 'a ' + r.bases.join('/'), baseIt ? 'rar' + baseIt.r : 'empty')
+      : tile(`<b class="abk">${AB[r.ability]}</b>`, r.cls ? CLASSES[r.cls].abilities[r.ability].name : 'ability');
+    const essTile = ess ? tile(`<b style="color:${MATS[ess].color}">${MATS[ess].icon}</b>`, `${MATS[ess].name} ×${(c.cost || { mats: r.mats }).mats[ess] ?? 0}`, (inv.mats[ess] || 0) >= ((c.cost || { mats: r.mats }).mats[ess] ?? 0) ? 'have' : 'lack') : '';
+    const shTile = tile(`<b style="color:${MATS.shard.color}">${MATS.shard.icon}</b>`, `Shards ×${(c.cost || { mats: r.mats }).mats.shard || 0}`, (inv.mats.shard || 0) >= ((c.cost || { mats: r.mats }).mats.shard || 0) ? 'have' : 'lack');
+    const resTile = tile(r.kind === 'weapon' && baseIt ? `<img src="${itemIconURL({ ...baseIt, craft: r.id }, inv.cls)}"><i class="sparkle">✦</i>` : `<b class="abk res">✦</b>`, known ? r.name : '???', 'result' + (this.crForged ? ' forged' : ''));
+    let h = `<div class="formula">${baseTile}<span class="op">+</span>${essTile ? essTile + '<span class="op">+</span>' : ''}${shTile}<span class="op">=</span>${resTile}</div>`;
+    h += `<h4>${known ? r.name : 'Undiscovered recipe'}</h4>`;
     h += `<div class="sub">${r.kind === 'sigil' ? 'Ability sigil — ' + CLASSES[r.cls].abilities[r.ability].name : 'Weapon engraving — ' + r.bases.join(' / ')} · ${r.cls ? '<span style="color:' + (r.cls === inv.cls ? '#9f9' : '#f88') + '">' + CLASSES[r.cls].name + ' only</span>' : 'any class'}</div>`;
     if (known) h += `<div class="cr-effect">${r.effect}</div>`;
     else h += `<div class="cr-effect dim">Hint: ${r.hint}</div>`;
@@ -73,6 +85,7 @@ export function installCraftUI(UI) {
     const res = craft(g, r.id, base ? base.it : null);
     if (!res.ok) { sfx('error'); this.toast(res.reason, '', 1.6); this.renderCraft(); return; }
     sfx('fanfare'); g.pr.addFlash(0.25, 0xffd25e);
+    this.crForged = true; setTimeout(() => { this.crForged = false; if (this.craftOpen) this.renderCraft(); }, 1100);
     const p = g.player; g.fx.burst(p.x, 0.8, p.z, 26, [0xffd25e, 0xffffff, 0x9ad8ff], 3, { g: -1 });
     this.toast(r.kind === 'sigil' ? `${r.name} sigil set into ${CLASSES[r.cls].abilities[r.ability].name}` : `${base.it.name} now carries ${r.name}`, r.effect, 3.4);
     this.updateHud();
