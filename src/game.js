@@ -435,6 +435,7 @@ export class Game {
       case 'npc': e = new O.NPC(this, d); break;
       case 'bellstone': e = new O.Bellstone(this, d); break;
       case 'workbench': e = new O.Workbench(this, d); break;
+      case 'millyard': if (f.q_mill !== 2) return; e = new O.MillYard(this, d); break;
       case 'bell': e = new O.Bell(this, d); break;
       case 'gate': e = new O.Gate(this, d); break;
       case 'windmill': e = new O.Windmill(this, d); break;
@@ -698,7 +699,13 @@ export class Game {
     }
     return true;
   }
-  gust(p, power, fromWeapon) {
+  gust(p, power, fromWeapon, isEcho) {
+    // The Verdant Chime echoes the Gustbellows: 1.5 s later the same gust blows again from the
+    // same spot, in the same direction. One echo waits at a time and echoes never echo.
+    if (!fromWeapon && !isEcho && this.inv.chimes.includes('verdant') && !this.entities.some(e => e instanceof O.GustEcho && !e.dead)) {
+      this.spawn(new O.GustEcho(this, p.x, p.z, p.facing, power));
+      if (!this.flags.echoTip) { this.flags.echoTip = true; this.ui.toast('Your gust will echo…', 'The Verdant Chime repeats it from where you stood, 1.5 s later.', 3); }
+    }
     const valve = this.inv.galeValve ? 1.4 : 1;
     const range = (power === 2 ? 7 : 4.5) * valve;
     const half = power === 2 ? 0.5 : 0.36;
@@ -777,6 +784,7 @@ export class Game {
           case 'heart': this.gainHeartContainer(true); break;
           case 'pips': this.addCoins(n); break;
           case 'potion': inv.potions = Math.min(inv.maxPotions, inv.potions + 1); break;
+          case 'echo': gainMat(this, 'echo', 1); learn(this, { samurai: 'returningcut', archer: 'echosnare', witch: 'rimebloom' }[inv.cls]); break;
         }
         this.ui.updateHud(); this.save();
       });
