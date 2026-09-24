@@ -85,8 +85,10 @@ export class DevConsole {
     // Obscure activation keys:
     // 1. Backquote (`) / Tilde (~)
     // 2. Ctrl + Shift + D
+    // 3. Forward Slash (/)
     window.addEventListener('keydown', (e) => {
-      if (e.code === 'Backquote' || (e.ctrlKey && e.shiftKey && e.code === 'KeyD')) {
+      const isSlashTrigger = e.key === '/' && !this.isOpen && document.activeElement?.tagName !== 'INPUT';
+      if (e.code === 'Backquote' || (e.ctrlKey && e.shiftKey && e.code === 'KeyD') || isSlashTrigger) {
         e.preventDefault();
         e.stopPropagation();
         this.toggle();
