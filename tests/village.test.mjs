@@ -20,9 +20,22 @@ async function choose(page, label) {
   return true;
 }
 async function talkTo(page, id) {
-  const pos = await page.evaluate(id => { const n = window.__game.entities.find(e => e.id === id); n.wanderR = 0; return [n.x, n.z]; }, id);
-  await page.evaluate(([x, z]) => { const g = window.__game, p = g.player; p.x = x; p.z = z + 0.8; p.facing = Math.PI; g.snapCamera(); }, pos);
-  await sim(page, 1); await pressE(page, 1);
+  // The decorated village has nearby workbenches and props. Approach the NPC
+  // from a side where the real interaction selector actually targets them.
+  for (let side = 0; side < 8; side++) {
+    await page.evaluate(([id, side]) => {
+      const g = window.__game, p = g.player, n = g.entities.find(e => e.id === id);
+      n.wanderR = 0; n.tx = n.x; n.tz = n.z;
+      const angle = side * Math.PI / 4;
+      p.x = n.x + Math.sin(angle) * 0.8; p.z = n.z + Math.cos(angle) * 0.8;
+      p.facing = Math.atan2(n.x - p.x, n.z - p.z); g.snapCamera();
+    }, [id, side]);
+    await sim(page, 1);
+    if (await page.evaluate(id => window.__game.interactTarget()?.id === id, id)) {
+      await pressE(page, 1); return;
+    }
+  }
+  throw new Error(`No accessible interaction approach to ${id}`);
 }
 async function finish(page) { for (let i = 0; i < 30; i++) { const d = await toChoices(page); if (!d) return; if (d.choices.length) { await choose(page, 'Goodbye'); await sim(page, 2); } } }
 

@@ -20,6 +20,29 @@ import { simulateAffixRolls } from '../src/rpg/affix_simulation.js';
 import { buildDevRoom, DevTrainingDummy, DevElementalTarget, DevSpawnerTotem, DevLootChest } from '../src/world/devroom.js';
 import { defaultInventory } from '../src/persistence/model.js';
 import { MAX_LEVEL } from '../src/rpg/classes.js';
+import { genItem } from '../src/rpg/items.js';
+
+test('ordinary loot excludes inactive affixes while the dev registry retains them', () => {
+  const inactive = ['echoDmg', 'projSize', 'reach'];
+  const random = Math.random;
+  let seed = 42;
+  Math.random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
+  try {
+    for (const cls of ['samurai', 'archer', 'witch']) {
+      for (const slot of ['weapon', 'charm']) {
+        for (let i = 0; i < 500; i++) {
+          const item = genItem({ cls, slot, level: 15, rarity: 1 + i % 3 });
+          assert.ok(item.affixes.length > 0);
+          for (const key of inactive) {
+            assert.ok(!item.affixes.includes(key), `${key} leaked into ordinary loot`);
+            assert.equal(item.stats[key], undefined);
+          }
+        }
+      }
+    }
+    for (const key of inactive) assert.ok(AFFIX_DEFINITIONS[key]);
+  } finally { Math.random = random; }
+});
 
 // Mock game harness for unit testing
 function createMockGame() {

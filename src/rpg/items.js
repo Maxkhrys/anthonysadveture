@@ -87,9 +87,10 @@ export const AFFIXES = {
   burn: { name: 'Chance to Burn', pre: ['Blazing', 'Smouldering'], base: 8, per: 0.4, pct: true, slots: ['weapon'] },
   chill: { name: 'Chance to Chill', pre: ['Frosted', 'Rimed'], base: 8, per: 0.4, pct: true, slots: ['weapon'] },
   shock: { name: 'Chance to Shock', pre: ['Thundering', 'Crackling'], base: 7, per: 0.35, pct: true, slots: ['weapon'] },
-  echoDmg: { name: 'Echo Damage', pre: ['Resonant', 'Echoing'], base: 8, per: 0.8, pct: true, slots: ['weapon', 'charm'] },
-  projSize: { name: 'Projectile Size', pre: ['Grand', 'Vast'], base: 6, per: 0.6, pct: true, slots: ['weapon'] },
-  reach: { name: 'Strike Reach', pre: ['Long', 'Sweeping'], base: 6, per: 0.6, pct: true, slots: ['weapon'] },
+  // Display metadata for experimental dev-room rolls; combat does not apply these yet.
+  echoDmg: { devOnly: true, name: 'Echo Damage', pre: ['Resonant', 'Echoing'], base: 8, per: 0.8, pct: true, slots: ['weapon', 'charm'] },
+  projSize: { devOnly: true, name: 'Projectile Size', pre: ['Grand', 'Vast'], base: 6, per: 0.6, pct: true, slots: ['weapon'] },
+  reach: { devOnly: true, name: 'Strike Reach', pre: ['Long', 'Sweeping'], base: 6, per: 0.6, pct: true, slots: ['weapon'] },
 };
 const SUFFIX = ['of the Hush', 'of Embers', 'of the Hollow', 'of Tides', 'of the Bellwrights', 'of Thorns', 'of Dawn', 'of Whispers', 'of the Owl', 'of Mirrow', 'of Cinders', 'of the Gale'];
 
@@ -161,7 +162,7 @@ function makeItem(base, r, ilvl, legend = null) {
     if (base.mf) it.stats.mf = base.mf;
   }
   const slotKey = it.slot;
-  const pool = Object.keys(AFFIXES).filter(k => !AFFIXES[k].slots || AFFIXES[k].slots.includes(slotKey));
+  const pool = Object.keys(AFFIXES).filter(k => !AFFIXES[k].devOnly && (!AFFIXES[k].slots || AFFIXES[k].slots.includes(slotKey)));
   const n = R.affixes + (r >= 3 && Math.random() < 0.3 ? 1 : 0);
   const chosen = [];
   while (chosen.length < n && pool.length) {

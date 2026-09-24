@@ -522,19 +522,14 @@ export class DevCommands {
       }
 
       const val = args[0].toLowerCase();
-      if (val === 'day') {
-        game.flags.dayOffset = 0.5 - (game.time * 0.004 % 1);
-        log('Time set to: DAY', 'green');
-      } else if (val === 'night') {
-        game.flags.dayOffset = 0.05 - (game.time * 0.004 % 1);
-        log('Time set to: NIGHT', 'green');
-      } else {
-        const frac = parseFloat(val);
-        if (!isNaN(frac)) {
-          game.flags.dayOffset = frac - (game.time * 0.004 % 1);
-          log(`Time set to fraction: ${frac.toFixed(2)}`, 'green');
-        }
+      const fraction = val === 'day' ? 0.5 : val === 'night' ? 0.85 : Number(val);
+      if (!Number.isFinite(fraction) || fraction < 0 || fraction >= 1) {
+        log('Time must be day, night, or a fraction from 0 (inclusive) to 1 (exclusive).', 'error');
+        return;
       }
+      // The persisted world clock uses seconds, a 420-second cycle and a 0.32 phase offset.
+      game.flags.dayOffset = (fraction - 0.32) * 420 - game.time;
+      log(`Time set to: ${val.toUpperCase()}`, 'green');
       game.atmosphere(0.001);
     },
 
