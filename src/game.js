@@ -21,6 +21,8 @@ import { GearDrop, LootChest, thornBurst, blast, chainLightning } from './rpg/co
 import { flashObj } from './entities/common.js';
 import { loadSettings, applySettings } from './settings.js';
 import { Guide } from './guide.js';
+import { AimView } from './aim.js';
+import { tileBlocks } from './entities/entity.js';
 
 const SAVE_KEY = 'mossling-save-v2';
 export const BAG_SIZE = 30;
@@ -62,6 +64,7 @@ export class Game {
     this.liquidTime = { value: 0 };
     this.res = 100;
     this.guide = new Guide(this);
+    this.aimView = new AimView(this);
     applySettings(loadSettings(), this);
     this.recalc();
   }
@@ -592,6 +595,30 @@ export class Game {
     }
     return best;
   }
+  // how far a shot travels from (x,z) along dir before a wall or solid object stops it
+  shotLen(x, z, dir, max) {
+    const sx = Math.sin(dir), sz = Math.cos(dir), probe = { moveMode: 'fly' };
+    for (let k = 0.1; k < max; k += 0.1) {
+      const px = x + sx * k, pz = z + sz * k;
+      if (tileBlocks(this, Math.floor(px), Math.floor(pz), probe)) return Math.max(0, k - 0.1);
+      if (this.solidAt(px, pz, 0.05)) return Math.max(0, k - 0.1);
+    }
+    return max;
+  }
+  solidAt(x, z, r) {
+    for (const s of this.solids) {
+      if (s.dead || !s.solid || s.isEnemy || s.isPlayer || s.passShots) continue;
+      if (Math.abs(s.x - x) < s.hw + r && Math.abs(s.z - z) < s.hd + r) return s;
+    }
+    return null;
+  }
+  shotClear(x0, z0, x1, z1) { const d = Math.hypot(x1 - x0, z1 - z0); return this.shotLen(x0, z0, Math.atan2(x1 - x0, z1 - z0), d) >= d - 0.12; }
+  // is a world point inside the visible view (with a margin in world units)?
+  onScreen(x, z, margin = 0) {
+    const pr = this.pr, T = pr.target, u = pr.unitsPerPx;
+    const a = x - T.x, b = -(z - T.z) * Math.sin(PITCH);
+    return Math.abs(a) < pr.rw * u / 2 - margin && Math.abs(b) < pr.rh * u / 2 - margin;
+  }
   lineClear(x0, z0, x1, z1) {
     const d = Math.hypot(x1 - x0, z1 - z0), n = Math.ceil(d / 0.25);
     const ex = Math.floor(x1), ez = Math.floor(z1);
@@ -753,7 +780,7 @@ export class Game {
     this.liquidTime.value = this.time;
     const input = this.input;
     this.ui.update(dt);
-    if (this.dead) { if (input.pressed('interact')) this.revive(); this.render(dt); return; }
+    if (this.dead) { this.aimView.hide(); if (input.pressed('interact')) this.revive(); this.render(dt); return; }
     if (this.ui.updateShop(input)) { this.render(dt); return; }
     if (this.ui.updateInventory(input)) { this.render(dt); return; }
     if (input.pressed('inventory') && !this.locked() && !this.dead) { this.ui.openInventory(); this.render(dt); return; }
@@ -798,6 +825,7 @@ export class Game {
     this.ui.updateFloats(dt);
     this.guide.tick(dt);
     this.worldTick(dt);
+    this.aimView.update();
     if (this.held) { this.held.rotation.y += dt * 2; this.held.position.y = 1.35 + Math.sin(this.time * 3) * 0.05; }
     this.render(dt);
   }

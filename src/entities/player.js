@@ -8,6 +8,15 @@ import { flashObj } from './common.js';
 import { CLASSES, abilityRankMult } from '../rpg/classes.js';
 import { unitAt } from '../rpg/items.js';
 import { Projectile, Trap, RainZone, Familiar, frostNova, chainLightning } from '../rpg/combat.js';
+import { AIM_H } from '../aim.js';
+import { blocksObject, isLiquid } from '../world/tiles.js';
+
+const _v = new THREE.Vector3();
+// how far each basic shot flies (used by both the shot and its on-screen path preview)
+const SHOT_RANGE = { arrow: 10, power: 13, bolt: 9, fireball: 9 };
+// ground-placed abilities: max cast range, effect radius, keyboard default distance
+const GROUND = { snare: { range: 5.5, radius: 1.9, def: 1.4 }, rain: { range: 8.5, radius: 2.5, def: 4 } };
+const SELF_CAST = { tempest: 1, nova: 1, familiar: 1 };
 
 const SPEED = 5.0;
 
@@ -35,6 +44,92 @@ export class Player extends Entity {
     this.fallT = 0;
     this.holdItem = null;
     this.rollCd = 0;
+    // three separate directions: where we move (input), where we aim, where we dodge
+    this.aimDir = 0; this.aimPt = { x, z }; this.aimSrc = 'keys'; this.aimLock = null; this.dodgeDir = 0;
+    this.targeting = null; this.chargeTime = 0.6;
+  }
+  get aiming() { return this.aimSrc === 'mouse' || this.aimSrc === 'pad'; }
+  // Resolve the aim for this frame from the mouse (through the rendered camera), the right
+  // stick, or — as a deliberate keyboard fallback — the direction we are facing.
+  updateAim() {
+    const g = this.g, inp = g.input;
+    const src = inp.aimSrc === 'pad' ? (inp.padAim ? 'pad' : 'keys') : inp.mouseAim ? 'mouse' : 'keys';
+    this.aimSrc = src; this.aimLock = null;
+    if (src === 'mouse') {
+      const pr = g.pr;
+      let pt = pr.screenToWorld(inp.mouseX, inp.mouseY, AIM_H);
+      // a cursor resting on an enemy aims at that enemy's centre (and shows a lock marker)
+      const r = pr.renderer.domElement.getBoundingClientRect();
+      const ppu = r.width / (pr.rw * pr.unitsPerPx);
+      let best = null, bd = 1e9;
+      for (const e of g.entities) {
+        if (!e.isEnemy || e.dead || e.spawnT > 0) continue;
+        if (Math.abs(e.x - pt.x) > 3 || Math.abs(e.z - pt.z) > 3.5) continue;
+        const sp = pr.project(_v.set(e.x, 0.35 * (e.eliteScale || 1) + (e.alt || 0), e.z));
+        const d = Math.hypot(sp.x - inp.mouseX, sp.y - inp.mouseY) - (e.r || 0.3) * ppu;
+        if (d < 8 && d < bd) { bd = d; best = e; }
+      }
+      if (best) { pt = { x: best.x, z: best.z }; this.aimLock = best; }
+      this.aimPt = pt;
+      if (Math.hypot(pt.x - this.x, pt.z - this.z) > 0.25) this.aimDir = Math.atan2(pt.x - this.x, pt.z - this.z);
+    } else {
+      this.aimDir = src === 'pad' ? Math.atan2(inp.padAim.x, inp.padAim.z) : this.facing;
+      this.aimPt = { x: this.x + Math.sin(this.aimDir) * 4, z: this.z + Math.cos(this.aimDir) * 4 };
+    }
+  }
+  faceAim() { if (this.aiming) this.facing = this.aimDir; }
+  shotKind(power) { return this.cls === 'archer' ? (power ? 'power' : 'arrow') : (power ? 'fireball' : 'bolt'); }
+  // the path the next basic shot will take, for the on-screen preview
+  shotPreview() {
+    if (this.cls === 'samurai' || !this.aiming) return null;
+    const s = this.state;
+    const drawing = s === 'shoot' || s === 'aim';
+    if (!drawing && !(this.aimSrc === 'pad' && s === 'move')) return null;
+    const charged = s === 'aim' && this.aimT >= this.chargeTime;
+    const max = SHOT_RANGE[this.shotKind(charged)];
+    return { dir: this.aimDir, len: this.g.shotLen(this.x, this.z, this.aimDir, max), charged };
+  }
+  // where a ground ability would land right now, clamped to range; ok=false if obstructed
+  groundTarget(tg) {
+    const g = this.g;
+    let x, z;
+    if (this.aimSrc === 'mouse') { const q = g.pr.screenToWorld(g.input.mouseX, g.input.mouseY, 0); x = q.x; z = q.z; }
+    else {
+      const f = this.aimSrc === 'pad' ? this.aimDir : this.facing;
+      let d = tg.def;
+      if (this.aimSrc === 'keys' && tg.id === 'rain') { const t = g.nearestEnemy(this.x, this.z, tg.range, f, 0.6); if (t) d = Math.hypot(t.x - this.x, t.z - this.z); }
+      x = this.x + Math.sin(f) * d; z = this.z + Math.cos(f) * d;
+    }
+    const dx = x - this.x, dz = z - this.z, d = Math.hypot(dx, dz);
+    if (d > tg.range) { x = this.x + dx / d * tg.range; z = this.z + dz / d * tg.range; }
+    const valid = (x, z) => { const t = g.tileAt(Math.floor(x), Math.floor(z)); return !blocksObject(t) && t !== T.PIT && (tg.id !== 'snare' || !isLiquid(t)) && g.shotClear(this.x, this.z, x, z); };
+    let ok = valid(x, z);
+    // without a cursor, pull the spot back toward us until it is reachable
+    if (!ok && this.aimSrc !== 'mouse') {
+      for (let k = 0.9; k > 0.05 && !ok; k -= 0.1) { const nx = this.x + (x - this.x) * k, nz = this.z + (z - this.z) * k; if (valid(nx, nz)) { x = nx; z = nz; ok = true; } }
+    }
+    return { x, z, ok };
+  }
+  // first Chain Lightning target: the enemy you point at (not merely the closest one)
+  chainTarget(range = 7) {
+    const g = this.g;
+    const c = g.entities.filter(e => e.isEnemy && !e.dead && !(e.spawnT > 0) && Math.hypot(e.x - this.x, e.z - this.z) < range && g.shotClear(this.x, this.z, e.x, e.z));
+    if (!c.length) return null;
+    if (this.aimSrc === 'mouse') {
+      if (this.aimLock && c.includes(this.aimLock)) return this.aimLock;
+      let best = null, bd = 2.5;
+      for (const e of c) { const d = Math.hypot(e.x - this.aimPt.x, e.z - this.aimPt.z); if (d < bd) { bd = d; best = e; } }
+      return best;
+    }
+    let best = null, bd = 1e9;
+    for (const e of c) { const a = Math.abs(angDiff(this.aimDir, Math.atan2(e.x - this.x, e.z - this.z))); if (a > 0.7) continue; const d = Math.hypot(e.x - this.x, e.z - this.z) + a * 3; if (d < bd) { bd = d; best = e; } }
+    return best;
+  }
+  startRoll(mx, mz, mlen) {
+    // dodge follows the stick/keys; with no movement, a mouse/pad player backsteps away from the aim
+    this.dodgeDir = mlen > 0.1 ? Math.atan2(mx, mz) : this.aiming ? this.aimDir + Math.PI : this.facing;
+    this.rollDir = this.dodgeDir; this.facing = this.rollDir; this.targeting = null;
+    this.setState('roll'); sfx('roll'); this.g.guide.event('roll');
   }
   get inv() { return this.g.inv; }
 
@@ -92,9 +187,11 @@ export class Player extends Entity {
     this.attackId++;
     this.hitSet.clear();
     this.buffer = 0;
-    // soft aim toward nearest enemy in front
-    const t = g.nearestEnemy(this.x, this.z, 2.4, this.facing, 1.1);
-    if (t) this.facing = Math.atan2(t.x - this.x, t.z - this.z);
+    if (this.aiming) this.facing = this.aimDir;
+    else { // keyboard fallback: soft aim toward the nearest enemy in front
+      const t = g.nearestEnemy(this.x, this.z, 2.4, this.facing, 1.1);
+      if (t) this.facing = Math.atan2(t.x - this.x, t.z - this.z);
+    }
     sfx(this.combo === 3 ? 'spin' : this.combo === 2 ? 'swing2' : 'swing');
     this.lunge = this.combo === 3 ? 4 : 2.5;
   }
@@ -106,20 +203,23 @@ export class Player extends Entity {
   basicAttack() {
     if (this.cls === 'samurai') return this.startAttack();
     const g = this.g;
-    const t = g.nearestEnemy(this.x, this.z, 9, this.facing, 0.5);
-    if (t) this.facing = Math.atan2(t.x - this.x, t.z - this.z);
-    this.setState('shoot'); this.shot = false; this.aimT = 0;
+    if (this.aiming) this.facing = this.aimDir;
+    else { const t = g.nearestEnemy(this.x, this.z, 9, this.facing, 0.5); if (t) this.facing = Math.atan2(t.x - this.x, t.z - this.z); }
+    this.setState('shoot'); this.aimT = 0; this.buffer = 0;
   }
   fireBasic(power) {
     const g = this.g, f = this.facing;
-    const ox = this.x + Math.sin(f) * 0.4, oz = this.z + Math.cos(f) * 0.4;
+    let ox = this.x + Math.sin(f) * 0.4, oz = this.z + Math.cos(f) * 0.4;
+    if (!g.shotClear(this.x, this.z, ox, oz)) { ox = this.x; oz = this.z; } // hugging a wall: never spawn inside it
     if (this.cls === 'archer') {
-      if (power) { g.spawn(new Projectile(g, { x: ox, z: oz, dir: f, speed: 22, range: 13, mult: 2.4, kind: 'power', pierce: 4, kb: 6, color: 0xffd25e })); sfx('spin'); g.pr.addShake(0.15); }
-      else { g.spawn(new Projectile(g, { x: ox, z: oz, dir: f, speed: 17, range: 10, mult: 1, kind: 'arrow', color: 0xf0e0c0 })); sfx('swing'); }
+      if (power) { g.spawn(new Projectile(g, { x: ox, z: oz, dir: f, speed: 24, range: SHOT_RANGE.power, mult: 2.4, kind: 'power', pierce: 4, kb: 6, color: 0xffd25e })); sfx('spin'); g.pr.addShake(0.15); }
+      else { g.spawn(new Projectile(g, { x: ox, z: oz, dir: f, speed: 19, range: SHOT_RANGE.arrow, mult: 1, kind: 'arrow', color: 0xf0e0c0 })); sfx('swing'); }
     } else {
       const orb = (this.inv.equip.weapon && { crookstaff: 0x7fd36a, candlestaff: 0xffb347, hexwand: 0x8b5cf6, frostrod: 0xdff4ff, shroomwand: 0xe05a48 }[this.inv.equip.weapon.base]) || 0xc89aff;
-      if (power) { g.spawn(new Projectile(g, { x: ox, z: oz, dir: f, speed: 10, range: 9, mult: 2.2, kind: 'fireball', aoe: 1.7, color: 0xff8a2a })); sfx('gale'); }
-      else { g.spawn(new Projectile(g, { x: ox, z: oz, dir: f, speed: 12, range: 9, mult: 0.95, kind: 'bolt', homing: 3.5, color: orb })); sfx('shoot'); }
+      if (power) { g.spawn(new Projectile(g, { x: ox, z: oz, dir: f, speed: 11, range: SHOT_RANGE.fireball, mult: 2.2, kind: 'fireball', aoe: 1.7, color: 0xff8a2a })); sfx('gale'); }
+      // the bolt 'seeks' only as an explicit, limited property: it bends at most ~20 degrees
+      // toward a foe that is already close to the line you aimed
+      else { g.spawn(new Projectile(g, { x: ox, z: oz, dir: f, speed: 13, range: SHOT_RANGE.bolt, mult: 0.95, kind: 'bolt', seek: { cone: 0.35, rate: 3, range: 6 }, color: orb })); sfx('shoot'); }
     }
   }
   tryAbility() {
@@ -131,29 +231,43 @@ export class Player extends Entity {
       if (!rank) { sfx('error'); g.ui.toast(A.name + ' is locked', 'Unlocks at level ' + A.lvl, 1.4); return false; }
       if (this.cds[i] > 0) { sfx('error'); return false; }
       if (g.res < A.cost) { sfx('error'); g.ui.toast('Not enough ' + CLASSES[this.cls].res, '', 0.8); return false; }
-      g.res -= A.cost;
-      this.cds[i] = A.cd * (1 - 0.06 * (rank - 1)) * (1 - g.pstats.cdr / 100);
-      this.useAbility(A.id, abilityRankMult(rank), rank);
-      g.guide.event('ability');
-      g.stats.abilities = (g.stats.abilities || 0) + 1;
-      return true;
+      const G = GROUND[A.id];
+      // with a cursor or right stick, placed abilities show a preview while the key is held
+      if (G && this.aiming) { this.targeting = { i, id: A.id, key: 'ab' + (i + 1), ...G }; sfx('select'); return true; }
+      return this.castAbility(i, G ? this.groundTarget({ id: A.id, ...G }) : null);
     }
     return false;
   }
-  useAbility(id, rm, rank) {
+  // costs are only paid once the ability actually goes off
+  castAbility(i, at) {
+    const g = this.g, A = CLASSES[this.cls].abilities[i], rank = this.inv.skills[i] || 0;
+    if (!rank || this.cds[i] > 0 || g.res < A.cost) { sfx('error'); return false; }
+    if (at && !at.ok) { sfx('error'); g.ui.toast('No clear line to that spot', '', 0.9); return false; }
+    let first = null;
+    if (A.id === 'chain') { first = this.chainTarget(); if (!first) { sfx('error'); g.ui.toast('No target in sight', 'Point at an enemy within range.', 0.9); return false; } }
+    g.res -= A.cost;
+    this.cds[i] = A.cd * (1 - 0.06 * (rank - 1)) * (1 - g.pstats.cdr / 100);
+    this.useAbility(A.id, abilityRankMult(rank), rank, at, first);
+    g.guide.event('ability');
+    g.stats.abilities = (g.stats.abilities || 0) + 1;
+    return true;
+  }
+  useAbility(id, rm, rank, at, first) {
     const g = this.g, f = this.facing;
-    const t = g.nearestEnemy(this.x, this.z, 8, f, 0.9);
-    if (t && id !== 'iaido') this.facing = Math.atan2(t.x - this.x, t.z - this.z);
+    if (at) this.facing = Math.atan2(at.x - this.x, at.z - this.z);
+    else if (first) this.facing = Math.atan2(first.x - this.x, first.z - this.z);
+    else if (this.aiming) { if (!SELF_CAST[id]) this.facing = this.aimDir; }
+    else if (id !== 'iaido' && !SELF_CAST[id]) { const t = g.nearestEnemy(this.x, this.z, 8, f, 0.9); if (t) this.facing = Math.atan2(t.x - this.x, t.z - this.z); }
     const F = this.facing;
     switch (id) {
       case 'iaido': this.setState('dash'); this.attackId++; this.hitSet.clear(); this.invuln = 0.35; this.abMult = 2.2 * rm; sfx('spin'); break;
       case 'tempest': this.setState('tempest'); this.abMult = 0.7 * rm; this.tick = 0; sfx('spin'); break;
       case 'oni': this.setState('oni'); this.abMult = 5 * rm; sfx('windup'); break;
       case 'multishot': for (let k = -2; k <= 2; k++) g.spawn(new Projectile(g, { x: this.x, z: this.z, dir: F + k * 0.17, speed: 17, range: 9, mult: 0.9 * rm, kind: 'arrow', ability: true, color: 0xf0e0c0 })); sfx('swing2'); this.setState('cast'); break;
-      case 'snare': g.spawn(new Trap(g, this.x + Math.sin(F) * 1.2, this.z + Math.cos(F) * 1.2, 3 * rm, 2.2 + 0.3 * rank)); sfx('push'); this.setState('cast'); break;
-      case 'rain': g.spawn(new RainZone(g, this.x + Math.sin(F) * 4, this.z + Math.cos(F) * 4, 0.55 * rm)); sfx('gale'); this.setState('cast'); break;
+      case 'snare': g.spawn(new Trap(g, at.x, at.z, 3 * rm, 2.2 + 0.3 * rank)); sfx('push'); this.setState('cast'); break;
+      case 'rain': g.spawn(new RainZone(g, at.x, at.z, 0.55 * rm)); sfx('gale'); this.setState('cast'); break;
       case 'nova': frostNova(g, this.x, this.z, 1.2 * rm, 1.8 + 0.3 * rank); this.setState('cast'); break;
-      case 'chain': if (!chainLightning(g, this.x, this.z, 1.7 * rm, 4 + rank)) g.ui.toast('No target in range', '', 0.8); this.setState('cast'); break;
+      case 'chain': chainLightning(g, this.x, this.z, 1.7 * rm, 4 + rank, 7, first); this.setState('cast'); break;
       case 'familiar': { for (const e of g.entities) if (e.isFamiliar) e.remove(); const u = g.pstats.uniques.has('owlhollow'); g.spawn(new Familiar(g, 0.6 * rm, u ? 1e9 : 12 + 2 * rank, u)); sfx('spawn'); this.setState('cast'); break; }
     }
   }
@@ -177,6 +291,17 @@ export class Player extends Entity {
     const regen = ps.regen + (ps.uniques.has('mossheart') ? inv.maxHp * (this.combatT > 0 ? 0.005 : 0.02) : 0) + (this.combatT > 0 ? 0 : inv.maxHp * 0.004);
     if (inv.hp > 0 && inv.hp < inv.maxHp && regen > 0) { inv.hp = Math.min(inv.maxHp, inv.hp + regen * dt); this.regenAcc = (this.regenAcc || 0) + dt; if (this.regenAcc > 0.5) { this.regenAcc = 0; g.ui.hearts(); } }
     const aspd = ps.wspd;
+    this.updateAim();
+    // held ground-target preview: release (or click) to place it, roll/guard to cancel
+    if (this.targeting) {
+      const tg = this.targeting;
+      if (locked || s === 'dead' || s === 'hurt' || s === 'fall' || inp.pressed('roll') || inp.pressed('shield')) this.targeting = null;
+      else if (!inp.down(tg.key) || inp.pressed('attack')) {
+        if (inp.pressed('attack')) inp.consume('attack');
+        this.targeting = null;
+        if (s === 'move' || s === 'cast' || s === 'shoot') this.castAbility(tg.i, this.groundTarget(tg));
+      }
+    }
 
     if (s === 'dead') { this.animate(dt, 0); return; }
     if (s === 'fall') {
@@ -205,9 +330,9 @@ export class Player extends Entity {
         speed = ps.speed;
         if (mlen > 0.1) this.facing = angleLerp(this.facing, Math.atan2(mx, mz), Math.min(1, dt * 18));
         if (!locked) {
-          if (inp.pressed('attack')) { this.basicAttack(); break; }
+          if (inp.pressed('attack') && !this.targeting) { this.basicAttack(); break; }
           if (this.tryAbility()) break;
-          if (inp.pressed('roll') && this.rollCd <= 0) { g.guide.event('roll'); this.rollDir = mlen > 0.1 ? Math.atan2(mx, mz) : this.facing; this.facing = this.rollDir; this.setState('roll'); sfx('roll'); break; }
+          if (inp.pressed('roll') && this.rollCd <= 0) { this.startRoll(mx, mz, mlen); break; }
           if (inp.down('shield')) { this.setState('block'); this.blockT = 0; g.guide.event('guard'); break; }
           if (inp.pressed('item') && inv.bellows) { this.setState('item'); this.itemT = 0; break; }
           if (inp.pressed('interact')) g.interact();
@@ -230,9 +355,9 @@ export class Player extends Entity {
         }
         if (!locked && inp.pressed('attack')) this.buffer = 0.25;
         this.buffer -= dt;
-        if (this.st > 0.14 && this.buffer > 0 && this.combo < 3) { this.arcDone = false; if (mlen > 0.1) this.facing = Math.atan2(mx, mz); this.startAttack(); break; }
+        if (this.st > 0.14 && this.buffer > 0 && this.combo < 3) { this.arcDone = false; if (mlen > 0.1 && !this.aiming) this.facing = Math.atan2(mx, mz); this.startAttack(); break; }
         if (this.st > 0.12 && !locked && this.tryAbility()) { this.arcDone = false; break; }
-        if (this.st > 0.12 && !locked && inp.pressed('roll')) { this.arcDone = false; this.rollDir = mlen > 0.1 ? Math.atan2(mx, mz) : this.facing; this.facing = this.rollDir; this.setState('roll'); sfx('roll'); break; }
+        if (this.st > 0.12 && !locked && inp.pressed('roll')) { this.arcDone = false; this.startRoll(mx, mz, mlen); break; }
         if (this.st >= dur) {
           this.arcDone = false; this.cres = false;
           if (inp.down('attack') && this.combo === 1 && !locked) { this.setState('charge'); this.chargeT = 0; }
@@ -241,26 +366,44 @@ export class Player extends Entity {
         break;
       }
       case 'shoot': {
-        speed = 1.6;
-        this.st += dt * (aspd - 1);
-        const fireAt = 0.1;
-        if (!this.shot && this.st >= fireAt && !inp.down('attack')) { this.shot = true; this.fireBasic(false); }
-        if (!this.shot && this.st >= fireAt && inp.down('attack')) { this.setState('aim'); this.aimT = 0; break; }
-        if (this.shot && this.st > 0.32) this.setState('move');
-        if (this.shot && this.st > 0.2) { if (inp.pressed('attack')) { this.basicAttack(); break; } if (this.tryAbility()) break; if (inp.pressed('roll')) { this.rollDir = mlen > 0.1 ? Math.atan2(mx, mz) : this.facing; this.facing = this.rollDir; this.setState('roll'); sfx('roll'); } }
+        // bow drawn / staff raised. Let go early for a quick shot the moment you release;
+        // keep holding to start charging. Movement stays free in every direction.
+        speed = 2.6;
+        this.faceAim();
+        if (!inp.down('attack') || locked) { this.fireBasic(false); this.setState('cast'); this.castDur = 0.2 / aspd; break; }
+        if (this.st * aspd >= 0.16) { this.setState('aim'); this.aimT = 0; }
         break;
       }
       case 'aim': {
         speed = 2.0;
         this.aimT += dt;
-        const t = g.nearestEnemy(this.x, this.z, 10, this.facing, 0.6);
-        if (mlen > 0.1) this.facing = angleLerp(this.facing, Math.atan2(mx, mz), Math.min(1, dt * 8)); else if (t) this.facing = angleLerp(this.facing, Math.atan2(t.x - this.x, t.z - this.z), Math.min(1, dt * 8));
-        if (this.aimT >= 0.6 && this.aimT - dt < 0.6) sfx('charged');
-        if (this.aimT >= 0.6 && Math.random() < 0.4) g.fx.add({ x: this.x + Math.sin(this.facing) * 0.5, y: 0.5, z: this.z + Math.cos(this.facing) * 0.5, vy: 0.5, g: 0, color: this.cls === 'archer' ? 0xffd25e : 0xff8a2a, life: 0.3, size: 0.05 });
-        if (!inp.down('attack') || locked) { if (this.aimT >= 0.6) g.guide.event('charge'); this.fireBasic(this.aimT >= 0.6); this.setState('cast'); }
+        const ct = this.chargeTime;
+        if (this.aiming) this.facing = this.aimDir; // aim keeps tracking the cursor/stick while charging
+        else {
+          const t = g.nearestEnemy(this.x, this.z, 10, this.facing, 0.6);
+          if (mlen > 0.1) this.facing = angleLerp(this.facing, Math.atan2(mx, mz), Math.min(1, dt * 8)); else if (t) this.facing = angleLerp(this.facing, Math.atan2(t.x - this.x, t.z - this.z), Math.min(1, dt * 8));
+        }
+        if (this.aimT >= ct && this.aimT - dt < ct) { sfx('charged'); g.fx.ring(this.x, this.z, 0.2, 0.8, this.cls === 'archer' ? 0xffd25e : 0xff8a2a, 0.25); }
+        if (this.aimT >= ct && Math.random() < 0.4) g.fx.add({ x: this.x + Math.sin(this.facing) * 0.5, y: 0.5, z: this.z + Math.cos(this.facing) * 0.5, vy: 0.5, g: 0, color: this.cls === 'archer' ? 0xffd25e : 0xff8a2a, life: 0.3, size: 0.05 });
+        if (inp.pressed('roll')) { this.startRoll(mx, mz, mlen); break; } // roll out of a charge: the shot is simply not fired
+        if (!inp.down('attack') || locked) { const full = this.aimT >= ct; if (full) g.guide.event('charge'); this.fireBasic(full); this.setState('cast'); this.castDur = full ? 0.3 : 0.2 / aspd; }
         break;
       }
-      case 'cast': speed = 1.5; if (this.st > 0.2) this.setState('move'); break;
+      case 'cast': {
+        speed = 2.2;
+        if (!locked && inp.pressed('attack')) this.buffer = 0.3;
+        this.buffer -= dt;
+        if (!locked && this.st > 0.08) {
+          if (inp.pressed('roll')) { this.startRoll(mx, mz, mlen); break; }
+          if (this.tryAbility()) break;
+        }
+        if (this.st > (this.castDur || 0.2)) {
+          this.castDur = 0;
+          if (this.buffer > 0 && this.cls !== 'samurai' && !locked) { this.basicAttack(); break; }
+          this.setState('move');
+        }
+        break;
+      }
       case 'dash': {
         const k = this.st / 0.26;
         vx = Math.sin(this.facing) * 19; vz = Math.cos(this.facing) * 19;
@@ -317,15 +460,17 @@ export class Player extends Entity {
       case 'block': {
         speed = 2.2;
         this.blockT += dt;
+        if (this.aiming) this.facing = this.aimDir; // guard toward the cursor/stick
         if (!inp.down('shield') || locked) this.setState('move');
-        else if (inp.pressed('roll') && mlen > 0.1) { this.rollDir = Math.atan2(mx, mz); this.facing = this.rollDir; this.setState('roll'); sfx('roll'); }
-        else if (inp.pressed('attack')) this.startAttack();
+        else if (inp.pressed('roll')) this.startRoll(mx, mz, mlen);
+        else if (inp.pressed('attack')) this.basicAttack(); // each class attacks its own way out of a guard
         break;
       }
       case 'item': {
         speed = 1.8;
         this.itemT += dt;
-        if (mlen > 0.1) this.facing = angleLerp(this.facing, Math.atan2(mx, mz), Math.min(1, dt * 10));
+        if (this.aiming) this.facing = this.aimDir;
+        else if (mlen > 0.1) this.facing = angleLerp(this.facing, Math.atan2(mx, mz), Math.min(1, dt * 10));
         const full = 0.75;
         if (this.itemT > 0.18 && Math.random() < 0.5) g.fx.add({ x: this.x + Math.sin(this.facing) * 0.5 + (Math.random() - 0.5) * 1.5, y: 0.3 + Math.random() * 0.4, z: this.z + Math.cos(this.facing) * 0.5 + (Math.random() - 0.5) * 1.5, vx: -Math.sin(this.facing) * 2, vz: -Math.cos(this.facing) * 2, g: 0, color: 0xdff4ff, life: 0.35, size: 0.04 });
         if (this.itemT >= full && this.itemT - dt < full) { sfx('charged'); }

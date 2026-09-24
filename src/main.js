@@ -31,7 +31,7 @@ window.__sim = (frames, keys = [], dt = 1 / 30) => {
   }
   input.keys = new Set();
 };
-window.__start = (fresh, cls) => start(fresh, fresh ? (cls || 'samurai') : undefined);
+window.__start = (fresh, cls) => { if (mode === 'play') mode = 'title'; start(fresh, fresh ? (cls || 'samurai') : undefined); };
 
 const menu = [];
 let sel = 0, titleSettings = null;

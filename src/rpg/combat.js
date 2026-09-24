@@ -5,13 +5,20 @@ import { mesh, B, MAT_GLOW, MAT } from '../models.js';
 import { sfx } from '../engine/audio.js';
 import { RARITY, genItem } from './items.js';
 
+import { angDiff } from '../engine/util.js';
+// closest approach of point (px,pz) to segment a->b: {t in [0,1], d}
+export function segT(ax, az, bx, bz, px, pz) {
+  const vx = bx - ax, vz = bz - az, l2 = vx * vx + vz * vz;
+  const t = l2 > 1e-9 ? Math.max(0, Math.min(1, ((px - ax) * vx + (pz - az) * vz) / l2)) : 0;
+  return { t, d: Math.hypot(ax + vx * t - px, az + vz * t - pz) };
+}
 const enemiesNear = (g, x, z, r) => g.entities.filter(e => e.isEnemy && !e.dead && Math.hypot(e.x - x, e.z - z) < r + (e.r || 0.3));
 
 // ---------------------------------------------------------------- projectiles
 export class Projectile extends Entity {
   constructor(g, o) {
     super(g, o.x, o.z);
-    Object.assign(this, { dir: o.dir, speed: o.speed ?? 14, range: o.range ?? 9, mult: o.mult ?? 1, kind: o.kind, pierce: o.pierce ?? 0, homing: o.homing ?? 0, aoe: o.aoe ?? 0, ability: !!o.ability, kb: o.kb ?? 3, color: o.color ?? 0xffffff, noSplit: o.noSplit });
+    Object.assign(this, { dir: o.dir, speed: o.speed ?? 14, range: o.range ?? 9, mult: o.mult ?? 1, kind: o.kind, pierce: o.pierce ?? 0, homing: o.homing ?? 0, seek: o.seek || null, dir0: o.dir, aoe: o.aoe ?? 0, ability: !!o.ability, kb: o.kb ?? 3, color: o.color ?? 0xffffff, noSplit: o.noSplit });
     this.r = o.r ?? 0.18; this.moveMode = 'fly'; this.y = 0.45; this.hit = new Set(); this.dist = 0;
     const u = g.pstats.uniques;
     if (this.kind === 'arrow' || this.kind === 'power') {
@@ -28,6 +35,25 @@ export class Projectile extends Entity {
   }
   update(dt) {
     const g = this.g;
+    // 'seek': an explicit, bounded bend toward a foe near the aimed line. It can never turn
+    // the shot more than seek.cone away from where the player aimed.
+    if (this.seek) {
+      const S = this.seek;
+      let best = null, bd = S.range;
+      for (const e of g.entities) {
+        if (!e.isEnemy || e.dead || this.hit.has(e)) continue;
+        const d = Math.hypot(e.x - this.x, e.z - this.z);
+        if (d >= bd) continue;
+        if (Math.abs(angDiff(this.dir0, Math.atan2(e.x - this.x, e.z - this.z))) > S.cone) continue;
+        bd = d; best = e;
+      }
+      if (best) {
+        const d = angDiff(this.dir, Math.atan2(best.x - this.x, best.z - this.z));
+        this.dir += Math.max(-S.rate * dt, Math.min(S.rate * dt, d));
+        const off = angDiff(this.dir0, this.dir);
+        if (Math.abs(off) > S.cone) this.dir = this.dir0 + Math.sign(off) * S.cone;
+      }
+    }
     if (this.homing) {
       let best = null, bd = 6;
       for (const e of g.entities) if (e.isEnemy && !e.dead && !this.hit.has(e)) { const d = Math.hypot(e.x - this.x, e.z - this.z); if (d < bd) { bd = d; best = e; } }
@@ -38,23 +64,33 @@ export class Projectile extends Entity {
       }
     }
     const step = this.speed * dt;
-    const wall = move(g, this, Math.sin(this.dir) * step, Math.cos(this.dir) * step);
+    const x0 = this.x, z0 = this.z;
+    let wall = move(g, this, Math.sin(this.dir) * step, Math.cos(this.dir) * step);
+    // solid objects (doors, crates, pillars, villagers) stop shots too
+    if (!wall && g.solidAt(this.x, this.z, this.r * 0.5)) wall = true;
     this.dist += step;
     this.obj.rotation.y = this.dir;
     if (this.kind !== 'arrow' && this.kind !== 'power' && this.kind !== 'crescent') this.m.rotation.x += dt * 12;
     if (Math.random() < 0.6) g.fx.add({ x: this.x, y: this.y, z: this.z, color: this.color, life: 0.25, size: this.kind === 'fireball' ? 0.1 : 0.05, g: 0 });
+    // swept test along this frame's whole path, so fast shots never skip small targets
+    const hits = [];
     for (const e of g.entities) {
       if (!e.isEnemy || e.dead || this.hit.has(e)) continue;
       if (e.moveMode === 'fly' && e.alt > 1.6) continue;
-      if (Math.hypot(e.x - this.x, e.z - this.z) > (e.r || 0.3) + this.r) continue;
+      const t = segT(x0, z0, this.x, this.z, e.x, e.z);
+      if (t.d > (e.r || 0.3) + this.r) continue;
+      hits.push([t.t, e]);
+    }
+    hits.sort((a, b) => a[0] - b[0]);
+    for (const [, e] of hits) {
       this.hit.add(e);
-      if (this.aoe) return this.explode();
+      if (this.aoe) { this.x = e.x; this.z = e.z; return this.explode(); }
       g.playerHit(e, { mult: this.mult, kind: this.kind, kb: this.kb, dir: this.dir, ability: this.ability });
       this.onImpact(e);
-      if (this.pierce-- <= 0) return this.pop();
+      if (this.pierce-- <= 0) { this.x = e.x; this.z = e.z; return this.pop(); }
     }
     // spores and pods can be shot back
-    for (const e of g.entities) if ((e.isProjectile && !e.friendly && e.reflect) && Math.hypot(e.x - this.x, e.z - this.z) < 0.35) { e.reflect(this.dir); return this.pop(); }
+    for (const e of g.entities) if ((e.isProjectile && !e.friendly && e.reflect) && segT(x0, z0, this.x, this.z, e.x, e.z).d < 0.35) { e.reflect(this.dir); return this.pop(); }
     if (wall || this.dist > this.range) { if (this.aoe) return this.explode(); return this.pop(); }
     this.sync();
     this.obj.position.y = this.y;
@@ -153,10 +189,10 @@ export function frostNova(g, x, z, mult, freezeT) {
   sfx('extinguish'); sfx('parry');
   for (const e of enemiesNear(g, x, z, 3.2)) { g.playerHit(e, { mult, kind: 'frost', kb: 2, dir: Math.atan2(e.x - x, e.z - z), ability: true }); e.applyStatus && e.applyStatus('freeze', freezeT); }
 }
-export function chainLightning(g, x, z, mult, n, range = 7) {
+export function chainLightning(g, x, z, mult, n, range = 7, first = null) {
   let from = { x, z }, hit = new Set();
   for (let i = 0; i < n; i++) {
-    const t = g.entities.filter(e => e.isEnemy && !e.dead && !hit.has(e) && Math.hypot(e.x - from.x, e.z - from.z) < (i ? 4.5 : range)).sort((a, b) => Math.hypot(a.x - from.x, a.z - from.z) - Math.hypot(b.x - from.x, b.z - from.z))[0];
+    const t = i === 0 && first && !first.dead ? first : g.entities.filter(e => e.isEnemy && !e.dead && !hit.has(e) && Math.hypot(e.x - from.x, e.z - from.z) < (i ? 4.5 : range)).sort((a, b) => Math.hypot(a.x - from.x, a.z - from.z) - Math.hypot(b.x - from.x, b.z - from.z))[0];
     if (!t) break;
     hit.add(t);
     bolt(g, from.x, from.z, t.x, t.z);

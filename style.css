@@ -210,3 +210,4 @@ html,body{margin:0;height:100%;background:#0d0a14;overflow:hidden;font-family:va
 .gd-item kbd{background:#e8dcc0;color:#1b1426;padding:0 4px;font-family:var(--font);font-size:11px}
 #loot-feed{top:128px}
 #guide{left:18px;right:auto;top:122px}
+body.aiming #game{cursor:none}
