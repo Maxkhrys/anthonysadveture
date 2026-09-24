@@ -160,6 +160,60 @@ export class Story {
       ...gear,
     ]);
   }
+  // ------------------------------------------------ bounty board (repeatable)
+  newBounty(exclude = []) {
+    const g = this.g, L = g.inv.level;
+    const T = [
+      { kind: 'kill', target: 'blot', n: 12, name: 'Blotlings', where: 'anywhere' },
+      { kind: 'kill', target: 'sporeling', n: 10, name: 'Sporelings', where: 'Whisperwood' },
+      { kind: 'kill', target: 'beetle', n: 5, name: 'Thornback beetles', where: 'the east fields' },
+      { kind: 'kill', target: 'brigand', n: 5, name: 'Hushbound Brigands', where: 'the east road' },
+      { kind: 'kill', target: 'wraith', n: 5, name: 'Mirewraiths', where: 'Lake Mirrow', minL: 3 },
+      { kind: 'kill', target: 'scorpion', n: 6, name: 'Sand Scorpions', where: 'the Sunscald Reach', minL: 4 },
+      { kind: 'kill', target: 'imp', n: 5, name: 'Ember Imps', where: 'near Cinderpeak Pass', minL: 5 },
+      { kind: 'kill', target: 'treant', n: 1, name: 'a Barkhulk', where: 'deep Whisperwood' },
+      { kind: 'kill', target: 'golem', n: 1, name: 'a Stone Sentinel', where: 'the Chime Gate', minL: 5 },
+      { kind: 'kill', target: 'elite', n: 3, name: 'elite monsters', where: 'anywhere (glowing auras)' },
+      { kind: 'kill', target: 'thief', n: 1, name: 'a Pip Thief', where: 'wherever one appears', minL: 2 },
+      { kind: 'chest', target: 'chest', n: 3, name: 'loot chests', where: 'the gold ◆ on your map' },
+    ].filter(t => (t.minL || 1) <= L && !exclude.includes(t.target));
+    const t = T[Math.floor(Math.random() * T.length)];
+    return { ...t, have: 0, pips: 25 * L + t.n * 4, xp: 40 * L + t.n * 6, id: Math.random().toString(36).slice(2) };
+  }
+  bounties() {
+    const f = this.f;
+    if (!f.bounties) { f.bounties = []; }
+    while (f.bounties.length < 3) f.bounties.push(this.newBounty(f.bounties.map(b => b.target)));
+    return f.bounties;
+  }
+  bountyEvent(tags) {
+    const g = this.g, list = this.f.bounties;
+    if (!list) return;
+    for (const b of list) {
+      if (b.have >= b.n) continue;
+      const match = (b.kind === 'chest' && tags[0] === 'chest') || (b.kind === 'kill' && tags[0] === 'kill' && (tags.includes(b.target)));
+      if (!match) continue;
+      b.have++;
+      if (b.have >= b.n) { sfx('secret'); g.ui.toast('Bounty complete: ' + b.name, 'Claim your reward at the Bounty Board in Thimblewick.', 3); }
+      else if (b.n > 2) g.ui.lootToast({ r: 0, name: `Bounty: ${b.name} ${b.have}/${b.n}`, slot: 'charm', kind: null }, '');
+    }
+  }
+  board() {
+    const g = this.g, list = this.bounties();
+    let claimed = 0;
+    for (let i = 0; i < list.length; i++) {
+      const b = list[i];
+      if (b.have >= b.n) {
+        claimed++;
+        g.addCoins(b.pips); g.gainXp(b.xp);
+        g.dropGear(g.player.x, g.player.z + 0.8, { level: g.inv.level + 1, floor: 2, bonus: 0.5 });
+        this.f.bountiesDone = (this.f.bountiesDone || 0) + 1;
+        list[i] = this.newBounty(list.map(x => x.target));
+      }
+    }
+    if (claimed) { sfx('fanfare'); g.ui.toast(`Claimed ${claimed} bount${claimed > 1 ? 'ies' : 'y'}!`, 'Pips, experience and gear.', 2.5); g.save(); }
+    g.ui.lines([[ 'Bounty Board', 'Pinned notices, stamped with Captain Brisk\'s seal:\n\n' + list.map(b => `• Defeat ${b.n} ${b.name} — ${b.where}  (${Math.min(b.have, b.n)}/${b.n})\n   Reward: ${b.pips} pips, ${b.xp} XP + gear`).join('\n') ]]);
+  }
   shopBye() { this.g.ui.say('Posy', 'Come back with fuller pockets!'); }
 
   gate() {
@@ -227,6 +281,7 @@ export class Story {
     let h = q('The Silent Bell', f.stage >= 3, this.objective());
     if (f.q_mill) h += q('The Still Mill', f.q_mill === 2, f.windmill ? 'The mill turns! Tell Miller Oswin.' : 'Miller Oswin needs a gale to restart the windmill in Thimblewick.');
     if (f.q_camp) h += q('Bounty: Hush Camp', f.q_camp === 2, g.signal('camp.clear') ? 'Camp cleared. Collect the bounty from Captain Brisk.' : 'Clear the Hush camp across the north bridge.');
+    for (const b of (f.bounties || [])) h += q('Bounty: ' + b.name, b.have >= b.n, b.have >= b.n ? 'Complete! Claim it at the Bounty Board.' : `${b.have}/${b.n} — ${b.where}`);
     if (f.q_pier) h += q('Ada\'s Pier', f.q_pier === 2, this.pierDone() ? 'Path cleared. Tell Fisher Ada.' : 'Push the fallen stone off the pier path, south of the village.');
     const rum = [];
     if (!f['chest:grotto-chest']) rum.push('A stone door in the north of Whisperwood only opens for the wind.');

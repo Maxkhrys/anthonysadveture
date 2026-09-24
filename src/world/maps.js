@@ -165,6 +165,8 @@ export function buildOverworld() {
   g.deco('windmill', 46, 50, 2, 2);
   g.def({ type: 'windmill', x: 47, z: 51 });
   g.deco('well', 61, 60, 1, 1);
+  g.deco('board', 62, 63, 1, 1);
+  g.def({ type: 'board', x: 62.5, z: 64.3 });
   g.deco('house', 55, 90, 3, 2, { roof: 0x5a8ab0, small: true });
   for (const [x, y] of [[47, 55], [48, 55], [47, 60], [48, 60], [67, 55], [68, 55], [67, 61], [68, 61]]) g.deco('fence', x, y, 1, 1);
   g.def({ type: 'sign', x: 70.5, z: 59.5, text: 'THIMBLEWICK\n"Small folk, loud bell."' });
@@ -243,6 +245,15 @@ export function buildOverworld() {
   E('puffer', 78, 86); E('blot', 88, 60); E('blot', 90, 62);
   E('beetle', 126, 58); E('beetle', 136, 80); E('puffer', 130, 52); E('puffer', 140, 70); E('blot', 125, 86); E('blot', 127, 88);
   E('wisp', 96, 82); E('wisp', 116, 84); E('knight', 44, 36);
+  // Pass 2 zone monsters
+  [[128, 48], [134, 54], [140, 62], [124, 70], [138, 78], [130, 86], [143, 90], [122, 60]].forEach(p => E('scorpion', ...p));
+  [[118, 44], [122, 43], [126, 45], [108, 46], [114, 47]].forEach(p => E('imp', ...p));
+  [[92, 64], [96, 80], [110, 83], [118, 70], [100, 60], [114, 60]].forEach(p => E('wraith', ...p));
+  [[84, 54], [96, 53], [104, 51], [70, 30], [80, 29], [88, 72]].forEach(p => E('brigand', ...p));
+  [[16, 48], [17, 49], [15, 50], [8, 30], [9, 31], [30, 60], [31, 61], [29, 62], [36, 76], [12, 70]].forEach(p => E('sporeling', ...p));
+  E('treant', 10, 56); E('treant', 34, 12); E('treant', 22, 70);
+  E('golem', 68, 12); E('golem', 80, 13);
+  E('brigand', 60, 84); E('brigand', 64, 86);
 
   // Loot chests: [x, y, tier, level]. Each snaps to the nearest open tile.
   const CHESTS = [

@@ -245,6 +245,7 @@ export class LootChest extends Entity {
     }, 250);
     g.stats.chests = (g.stats.chests || 0) + 1;
     g.guide.event('chest');
+    g.story.bountyEvent(['chest']);
   }
   update(dt) {
     this.t += dt;

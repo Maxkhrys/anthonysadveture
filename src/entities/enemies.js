@@ -515,7 +515,9 @@ export class Knight extends Enemy {
   }
 }
 
+export const EXTRA_ENEMIES = {};
 export function makeEnemy(g, kind, x, z, opts) {
+  if (EXTRA_ENEMIES[kind]) return new EXTRA_ENEMIES[kind](g, x, z, opts);
   switch (kind) {
     case 'blot': return new Blot(g, x, z, opts);
     case 'seedling': return new Blot(g, x, z, { seedling: true, hp: 1, aggro: 20 });

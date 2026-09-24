@@ -94,6 +94,7 @@ function start(fresh, cls) {
     try { localStorage.removeItem('mossling-save-v2'); } catch (e) {}
     game.inv = defaultInv(); game.flags = {}; game.stats = {}; game.playTime = 0;
     game.setClass(cls || 'samurai');
+    game.story.bounties();
     game.res = 100;
     game.checkpoint = { area: 'overworld', spawn: 'village' };
     game.loadArea('overworld', 'start');

@@ -14,6 +14,7 @@ import { Boss } from './entities/boss.js';
 import { Pickup } from './entities/common.js';
 import * as O from './entities/objects.js';
 import { Entity } from './entities/entity.js';
+import { MONSTER_NAMES } from './entities/monsters2.js';
 import { CLASSES, computeStats, xpNeed, MAX_LEVEL } from './rpg/classes.js';
 import { genItem, starterWeapon, RARITY, itemPower } from './rpg/items.js';
 import { GearDrop, LootChest, thornBurst, blast, chainLightning } from './rpg/combat.js';
@@ -95,8 +96,8 @@ export class Game {
     e.level = Math.max(zl, Math.min(pl - 1, zl + 4));
     const mult = 6 * (1 + 0.3 * (e.level - 1));
     e.hp = e.hp * mult; e.maxHp = e.hp;
-    e.xpValue = ({ blot: 6, seedling: 2, beetle: 14, puffer: 10, wisp: 8, knight: 40 }[e.kind] || 6) * (1 + 0.15 * (e.level - 1));
-    if (!opts.noElite && Math.random() < (opts.eliteChance ?? 0.07)) this.makeElite(e);
+    e.xpValue = ({ blot: 6, seedling: 2, beetle: 14, puffer: 10, wisp: 8, knight: 40, scorpion: 14, imp: 12, wraith: 16, brigand: 20, sporeling: 4, treant: 60, golem: 80, thief: 50 }[e.kind] || 6) * (1 + 0.15 * (e.level - 1));
+    if (!opts.noElite && e.kind !== 'thief' && Math.random() < (opts.eliteChance ?? 0.07)) this.makeElite(e);
     return e;
   }
   makeElite(e) {
@@ -111,7 +112,31 @@ export class Game {
     e.auraColor = col;
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.55, 20), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false }));
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; e.obj.add(ring); e.aura = ring;
-    e.displayName = e.elite + ' ' + ({ blot: 'Blotling', beetle: 'Thornback', puffer: 'Puffer', wisp: 'Hushwisp', knight: 'Hush Knight', seedling: 'Seedling' }[e.kind] || 'Hushling');
+    e.displayName = e.elite + ' ' + ({ blot: 'Blotling', beetle: 'Thornback', puffer: 'Puffer', wisp: 'Hushwisp', knight: 'Hush Knight', seedling: 'Seedling', ...MONSTER_NAMES }[e.kind] || 'Hushling');
+  }
+  worldTick(dt) {
+    if (!this.area || this.area.id !== 'overworld' || this.locked()) return;
+    this.wtT = (this.wtT || 0) - dt;
+    if (this.wtT > 0) return;
+    this.wtT = 2;
+    const p = this.player;
+    // respawn cleared overworld monsters once you're far away
+    if (this.respawnQ) this.respawnQ = this.respawnQ.filter(r => {
+      if (this.time < r.t || Math.hypot(r.def.x - p.x, r.def.z - p.z) < 22) return true;
+      this.spawnDef(r.def); return false;
+    });
+    // roaming Pip Thief
+    this.thiefT = (this.thiefT ?? 60) - 2;
+    if (this.thiefT <= 0 && this.inv.level >= 2) {
+      this.thiefT = 90 + Math.random() * 90;
+      if (Math.random() < 0.55 && !this.entities.some(e => e.kind === 'thief' && !e.dead)) {
+        for (let i = 0; i < 12; i++) {
+          const a = Math.random() * 6.28, x = p.x + Math.cos(a) * 9, z = p.z + Math.sin(a) * 9;
+          const t = this.tileAt(Math.floor(x), Math.floor(z));
+          if (t === T.GRASS || t === T.FLOWERS || t === T.PATH || t === T.SAND || t === T.FOREST) { this.spawnEnemy('thief', x, z, { noRoom: true }); this.ui.toast('A Pip Thief appeared!', 'Catch it before it escapes!', 2.5); sfx('secret'); break; }
+        }
+      }
+    }
   }
   // one player hit on one target: rolls damage, crits, procs, numbers
   playerHit(e, o) {
@@ -308,6 +333,7 @@ export class Game {
       case 'boulder': e = new O.Boulder(this, d); break;
       case 'sign': e = new O.Sign(this, d); break;
       case 'lootchest': e = new LootChest(this, d); break;
+      case 'board': e = new O.Sign(this, { ...d, text: '' }); e.interact = () => this.story.board(); Object.defineProperty(e, 'prompt', { get: () => 'Bounties' }); e.obj.visible = false; e.solid = false; break;
       case 'npc': e = new O.NPC(this, d); break;
       case 'bell': e = new O.Bell(this, d); break;
       case 'gate': e = new O.Gate(this, d); break;
@@ -317,7 +343,7 @@ export class Game {
       case 'warp': e = new O.Warp(this, d); e.alwaysUpdate = true; break;
       case 'enemy': {
         if (this.area.id === 'overworld' && f.hushLifted && d.x < 44 && Math.random() < 0.5) return;
-        e = makeEnemy(this, d.kind, d.x, d.z); e.spawnT = 0; e.obj.scale.setScalar(1); e.room = d.room; this.scaleEnemy(e); if (e.eliteScale) e.obj.scale.setScalar(e.eliteScale); break;
+        e = makeEnemy(this, d.kind, d.x, d.z); e.spawnT = 0; e.obj.scale.setScalar(1); e.room = d.room; e.def = d; this.scaleEnemy(e); if (e.eliteScale) e.obj.scale.setScalar(e.eliteScale); break;
       }
       case 'arena': e = new O.Arena(this, d, [
         [['blot', -3, -2], ['blot', 3, -2], ['blot', 0, -3], ['blot', -3, 2], ['blot', 3, 2]],
@@ -461,6 +487,8 @@ export class Game {
   }
   onEnemyDeath(e) {
     const ps = this.pstats;
+    if (e.def && this.area.id === 'overworld') (this.respawnQ || (this.respawnQ = [])).push({ def: e.def, t: this.time + 70 + Math.random() * 40 });
+    this.story.bountyEvent(e.elite ? ['kill', e.kind, 'elite'] : ['kill', e.kind]);
     this.gainXp(e.xpValue || 5);
     if (ps.uniques.has('hexbloom')) blast(this, e.x, e.z, 1.8, 0.9, 0x8b5cf6, { ability: true });
     if (e.elite === 'Volatile') { this.fx.ring(e.x, e.z, 0.2, 2, 0xffb347, 0.4); const p = this.player; if (Math.hypot(p.x - e.x, p.z - e.z) < 2) p.hurt({ dmg: 2, x: e.x, z: e.z, src: e, kb: 6 }); }
@@ -708,6 +736,7 @@ export class Game {
     this.ui.updateVitals();
     this.ui.updateFloats(dt);
     this.guide.tick(dt);
+    this.worldTick(dt);
     if (this.held) { this.held.rotation.y += dt * 2; this.held.position.y = 1.35 + Math.sin(this.time * 3) * 0.05; }
     this.render(dt);
   }
