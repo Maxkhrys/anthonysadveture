@@ -8,6 +8,16 @@ import { T, isLiquid } from '../world/tiles.js';
 
 const INK = [0x2a1a3a, 0x3e2856, 0x8b5cf6, 0x1b1024];
 
+// death debris by creature (presentation only)
+const DEATH_FX = {
+  blot: { n: 6, c: [0x2a1a3a, 0x3e2856], s: 0.09 }, seedling: { n: 6, c: [0x7fd36a, 0x4a8a3a], s: 0.07 },
+  beetle: { n: 8, c: [0x8a3a2a, 0xb24a30, 0xe8d0a0], s: 0.1 }, puffer: { n: 12, c: [0xb88ae0, 0xe0c8ff], s: 0.1, soft: true, g: -0.5, wob: 1 },
+  wisp: { n: 7, c: [0x4a3068, 0x6a48a0], s: 0.08, g: 2, wob: 2 }, knight: { n: 10, c: [0x3a3450, 0x544a70, 0x8a8aa0], s: 0.11 },
+  scorpion: { n: 8, c: [0xd8a860, 0xa87a3a], s: 0.09 }, imp: { n: 10, c: [0xff8a2a, 0xffd25e, 0xc0381a], s: 0.07, g: -1 },
+  wraith: { n: 10, c: [0x9ad8ff, 0x3a4a6a], s: 0.1, soft: true, g: -1 }, brigand: { n: 8, c: [0x5a2a3a, 0x8a8a9a, 0xc8b8a0], s: 0.09 },
+  sporeling: { n: 12, c: [0xc8e08a, 0xe0f0b0], s: 0.1, soft: true, g: -0.4, wob: 1 }, treant: { n: 14, c: [0x6a4a30, 0x4f8a3a, 0x8ac05a], s: 0.12, wob: 1.5, g: 5 },
+  golem: { n: 14, c: [0x8a8a9a, 0x6a6a7a, 0x7ad8ff], s: 0.14, g: 12 }, thief: { n: 10, c: [0xffd25e, 0x7a5a3a], s: 0.08 },
+};
 export class Enemy extends Entity {
   constructor(g, x, z, kind) {
     super(g, x, z);
@@ -81,6 +91,10 @@ export class Enemy extends Entity {
     g.fx.burst(this.x, 0.4, this.z, 18, INK, 4.5, { life: 0.6 });
     g.fx.burst(this.x, 0.4, this.z, 6, 0xfff3b0, 3, { life: 0.4, size: 0.06 });
     g.fx.ring(this.x, this.z, 0.2, 1.2, 0x8b5cf6, 0.35);
+    // what each creature leaves behind: fragments of what it was made of, and a puff of shadow
+    const D = DEATH_FX[this.kind];
+    if (D) for (let i = 0; i < D.n; i++) { const a = Math.random() * 6.28, sp = 1.5 + Math.random() * 3; g.fx.add({ x: this.x, y: 0.35, z: this.z, vx: Math.cos(a) * sp, vz: Math.sin(a) * sp, vy: 2 + Math.random() * 3, color: D.c[i % D.c.length], life: 0.9 + Math.random() * 0.6, size: D.s * (0.7 + Math.random() * 0.6), g: D.g ?? 9, drag: 1, shrink: D.soft ? true : false, soft: !!D.soft, wob: D.wob || 0 }); }
+    for (let i = 0; i < 5; i++) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.4, y: 0.3, z: this.z + (Math.random() - 0.5) * 0.4, vy: 0.6 + Math.random() * 0.4, vx: (Math.random() - 0.5) * 0.6, g: 0, drag: 0.8, color: 0x2a1a3a, life: 1.0, size: 0.14, grow: 1.6, shrink: false, soft: true });
     if (!how) dropLoot(g, this.x, this.z, { ...this.loot, pips: Math.round((this.loot.pips || 1) * (1 + 0.3 * ((this.level || 1) - 1)) * (this.elite ? 3 : 1)) });
     g.stats.kills = (g.stats.kills || 0) + 1;
     this.remove();

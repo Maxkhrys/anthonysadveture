@@ -241,6 +241,22 @@ export function buildOverworld() {
   g.def({ type: 'npc', id: 'fennel', name: 'Fennel', x: 55.5, z: 59.5, look: 'kid', wander: 3 });
   g.def({ type: 'npc', id: 'hermit', name: 'Root Hermit', x: 22.5, z: 34.5, look: 'hermit' });
 
+  // Lantern posts along Thimblewick's lanes: grass tiles beside the plaza/paths, spaced out,
+  // clear of everything else. Each becomes a one-tile deco like the other village props.
+  {
+    const placed = [];
+    const busy = (x, y) => g.defs.some(d => d.x !== undefined && Math.abs(d.x - (x + 0.5)) < 1.6 && Math.abs(d.z - (y + 0.5)) < 1.6);
+    for (let y = 49; y < 71; y++) for (let x = 46; x < 72; x++) {
+      if (g.get(x, y) !== T.GRASS) continue;
+      let byPath = false, clear = true;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const t = g.get(x + dx, y + dy); if (t === T.PATH || t === T.STONE) byPath = true; }
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (g.get(x + dx, y + dy) === T.PROP || g.get(x + dx, y + dy) === T.WATER) clear = false;
+      if (!byPath || !clear || busy(x, y) || placed.some(([px, py]) => Math.hypot(px - x, py - y) < 6.5)) continue;
+      placed.push([x, y]); g.deco('lamppost', x, y, 1, 1);
+      if (placed.length >= 11) break;
+    }
+  }
+
   // Breakables & secrets
   const bushSpots = [];
   for (let y = 10; y < 95; y++) for (let x = 3; x < 146; x++) {

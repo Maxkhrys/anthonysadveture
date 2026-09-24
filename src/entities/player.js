@@ -227,6 +227,15 @@ export class Player extends Entity {
   doHits(range, halfAng, mult, kind, kb, ability) {
     this.g.hitArc(this, this.x, this.z, this.facing, range, halfAng, { mult, kind, kb, id: this.attackId, ability });
   }
+  // slash-trail tint: rarity of the blade, or its legendary/engraving identity
+  trailColor() {
+    const w = this.inv.equip.weapon;
+    if (!w) return 0xdfe8f0;
+    if (w.craft === 'thornrebuke' || w.unique === 'rootcleaver') return 0x7fd36a;
+    if (w.unique === 'crescent' || w.unique === 'onigrin') return 0xff4a5a;
+    if (w.base === 'moonkatana' || w.base === 'stormedge') return 0x9ad8ff;
+    return [0xdfe8f0, 0x9fe88a, 0x7ac0ff, 0xd08aff, 0xffb347][w.r] || 0xdfe8f0;
+  }
   get reach() { const w = this.inv.equip.weapon; return w && w.kind === 'katana' ? ({ nodachi: 0.35, onicleaver: 0.3 }[w.base] || 0) : 0; }
   basicAttack() {
     if (this.cls === 'samurai') return this.startAttack();
@@ -387,8 +396,12 @@ export class Player extends Entity {
         if (this.combo === 3 && this.st > 0.1 && !this.cres && g.pstats.uniques.has('crescent')) { this.cres = true; g.spawn(new Projectile(g, { x: this.x, z: this.z, dir: this.facing, speed: 12, range: 7, mult: 1.6, kind: 'crescent', pierce: 99, kb: 5, color: 0xff6a6a })); }
         if (this.st > 0.03 && this.st < 0.05 && !this.arcDone) {
           this.arcDone = true;
-          if (this.combo === 3) g.fx.arc(this.x, 0.35, this.z, this.facing, 1.45, Math.PI * 2, 0xffffff, 0.22, 0.4, true);
-          else g.fx.arc(this.x, 0.35, this.z, this.facing + (this.combo === 1 ? 0.2 : -0.2), 1.2, 2.2, 0xffffff, 0.14, 0.35);
+          const tc = this.trailColor();
+          if (this.combo === 3) { g.fx.arc(this.x, 0.35, this.z, this.facing, 1.45, Math.PI * 2, 0xffffff, 0.22, 0.4, true); g.fx.arc(this.x, 0.38, this.z, this.facing, 1.6, Math.PI * 2, tc, 0.3, 0.14, true); }
+          else { g.fx.arc(this.x, 0.35, this.z, this.facing + (this.combo === 1 ? 0.2 : -0.2), 1.2, 2.2, 0xffffff, 0.14, 0.35); g.fx.arc(this.x, 0.37, this.z, this.facing + (this.combo === 1 ? 0.2 : -0.2), 1.34, 2.0, tc, 0.2, 0.12); }
+          // grass clippings fly from a swing through the meadow
+          const tt = g.tileAt(Math.floor(this.x + Math.sin(this.facing)), Math.floor(this.z + Math.cos(this.facing)));
+          if (tt === T.GRASS || tt === T.FLOWERS || tt === T.FOREST) for (let i = 0; i < 6; i++) { const a = this.facing + (Math.random() - 0.5) * 2; g.fx.add({ x: this.x + Math.sin(a) * 0.9, y: 0.08, z: this.z + Math.cos(a) * 0.9, vx: Math.sin(a) * 2, vz: Math.cos(a) * 2, vy: 1.5 + Math.random() * 1.5, color: tt === T.FLOWERS && i % 3 === 0 ? 0xf06a8a : i % 2 ? 0x7ccb52 : 0x5aa83a, life: 0.6, size: 0.05, g: 7 }); }
         }
         if (!locked && inp.pressed('attack')) this.buffer = 0.25;
         this.buffer -= dt;
@@ -421,6 +434,8 @@ export class Player extends Entity {
           if (mlen > 0.1) this.facing = angleLerp(this.facing, Math.atan2(mx, mz), Math.min(1, dt * 8)); else if (t) this.facing = angleLerp(this.facing, Math.atan2(t.x - this.x, t.z - this.z), Math.min(1, dt * 8));
         }
         if (this.aimT >= ct && this.aimT - dt < ct) { sfx('charged'); g.fx.ring(this.x, this.z, 0.2, 0.8, this.cls === 'archer' ? 0xffd25e : 0xff8a2a, 0.25); }
+        // gathering power: motes spiral into the staff tip / bow string while charging
+        if (Math.random() < 0.6) { const k = Math.min(1, this.aimT / ct), a = this.aimT * 9 + Math.random(), R = 0.6 * (1 - k) + 0.12; const hx = this.x + Math.sin(this.facing) * 0.35, hz = this.z + Math.cos(this.facing) * 0.35; g.fx.add({ x: hx + Math.cos(a) * R, y: 0.55 + Math.sin(a * 1.3) * 0.15, z: hz + Math.sin(a) * R, vx: -Math.cos(a) * R * 2, vz: -Math.sin(a) * R * 2, g: 0, drag: 0, color: this.cls === 'archer' ? (k >= 1 ? 0xffd25e : 0xfff3b0) : (k >= 1 ? 0xff8a2a : 0xc89aff), life: 0.25, size: 0.045 }); }
         if (this.aimT >= ct && Math.random() < 0.4) g.fx.add({ x: this.x + Math.sin(this.facing) * 0.5, y: 0.5, z: this.z + Math.cos(this.facing) * 0.5, vy: 0.5, g: 0, color: this.cls === 'archer' ? 0xffd25e : 0xff8a2a, life: 0.3, size: 0.05 });
         if (inp.pressed('roll')) { this.startRoll(mx, mz, mlen); break; } // roll out of a charge: the shot is simply not fired
         if (!inp.down('attack') || locked) { const full = this.aimT >= ct; if (full) g.guide.event('charge'); this.fireBasic(full); this.setState('cast'); this.castDur = full ? 0.3 : 0.2 / aspd; }

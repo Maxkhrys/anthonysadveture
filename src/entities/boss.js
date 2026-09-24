@@ -149,6 +149,18 @@ export class Boss extends Entity {
     const g = this.g, p = this.p, m = this.m, t = g.time;
     this.st += dt;
     const phase2 = this.hp <= this.maxHp / 2;
+    // presentation only: the arena breathes spores, and phase two visibly enrages the bloom
+    if (Math.random() < 0.25 && g.room) g.fx.add({ x: g.room.x0 + 1 + Math.random() * (g.room.x1 - g.room.x0 - 2), y: 0.1, z: g.room.z0 + 1 + Math.random() * (g.room.z1 - g.room.z0 - 2), vy: 0.35, g: 0, drag: 0, color: phase2 ? 0xff6a8a : 0xb8e08a, life: 3, size: 0.06, wob: 1, soft: true, shrink: false });
+    if (phase2 && !this.enraged && this.state !== 'dying' && this.state !== 'dead') {
+      this.enraged = true;
+      sfx('roar'); g.pr.addShake(1.1); g.pr.addFlash(0.35, 0xff4a6a); g.hitstop(0.12);
+      g.fx.ring(this.x, this.z, 0.5, 6, 0xff4a6a, 0.8); g.fx.burst(this.x, 1.4, this.z + 0.6, 40, [0xff4a6a, 0xc04a7a, 0x2e6a2a], 6, { life: 0.9 });
+      g.ui.banner('BRAMBLEMAW', 'It blooms in fury!', 1.8);
+    }
+    if (this.enraged) {
+      m.eyes.scale.setScalar(1 + Math.sin(t * 14) * 0.15);
+      if (Math.random() < 0.4) g.fx.add({ x: this.x + (Math.random() - 0.5) * 1.8, y: 1.6 + Math.random(), z: this.z + (Math.random() - 0.5) * 1.4, vy: 0.8, g: 0, color: Math.random() < 0.5 ? 0xff4a6a : 0xffb347, life: 0.8, size: 0.06 });
+    }
     // idle anim
     m.bulb.scale.set(1, 1, 1);
     m.mouth.scale.set(1, 1, 1);

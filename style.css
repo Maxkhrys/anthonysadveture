@@ -68,10 +68,12 @@ html,body{margin:0;height:100%;background:#0d0a14;overflow:hidden;font-family:va
 @keyframes bannerIn{from{opacity:0;transform:scale(1.2)}}
 #fade{position:absolute;inset:0;background:#000;opacity:0;transition:opacity .35s}
 
-#title{background:radial-gradient(ellipse at 50% 60%,#0000 20%,#0d0a14cc 90%)}
-#title .logo{text-align:center;margin-bottom:40px;text-shadow:4px 4px 0 #1b1426}
-#title h1{font-size:88px;margin:0;letter-spacing:8px;color:#fff3cf;line-height:1;-webkit-text-stroke:2px #1b1426}
-#title h2{font-size:30px;margin:4px 0 0;color:var(--gold);letter-spacing:4px}
+#title{background:radial-gradient(ellipse at 50% 45%,#0000 25%,#0d0a1499 70%,#0d0a14e6 100%),linear-gradient(#0d0a1480,#0000 30%,#0000 70%,#0d0a14a0)}
+#title .logo{text-align:center;margin-bottom:40px;filter:drop-shadow(0 6px 0 #1b1426) drop-shadow(0 0 24px #ffd25e40);animation:logoin 1.4s ease-out}
+@keyframes logoin{from{opacity:0;transform:translateY(10px)}}
+#title h1{font-size:96px;margin:0;letter-spacing:10px;line-height:1;background:linear-gradient(#fffbe8 0%,#fff3cf 45%,#ffd25e 55%,#e8a040 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:2px #1b1426}
+#title h2{font-size:30px;margin:6px 0 0;color:#bfe89a;letter-spacing:6px;text-shadow:3px 3px 0 #1b1426}
+#title h2:before,#title h2:after{content:'❦';color:var(--gold);margin:0 14px;font-size:22px;vertical-align:middle}
 #title .sub{font-size:14px;color:var(--paper2);letter-spacing:3px;margin-bottom:8px}
 #title .menu div{font-size:24px;text-align:center;padding:4px 16px;cursor:pointer;color:#e9dcc0;text-shadow:2px 2px 0 #000}
 #title .menu div.on{color:var(--gold)}
@@ -273,3 +275,15 @@ body.aiming #game{cursor:none}
 .fx-tile.forged .fx-ico{animation:forge 1s ease-out}
 @keyframes forge{0%{transform:scale(1);box-shadow:0 0 0 #fff}25%{transform:scale(1.18);box-shadow:0 0 30px 8px #fff3b0}100%{transform:scale(1);box-shadow:0 0 12px #ffd25e66}}
 .abk{font-size:26px;color:#fff;background:#3a2c58;border:2px solid #d9b36a;padding:0 10px}.abk.res{color:#9ad8ff}
+
+/* boss intro: letterbox and name card */
+#letterbox{position:absolute;inset:0;pointer-events:none}
+#letterbox i{position:absolute;left:0;right:0;height:11vh;background:#07050c;animation:lbin .5s ease-out forwards}
+#letterbox i:first-child{top:0;transform-origin:top}#letterbox i:last-child{bottom:0;transform-origin:bottom}
+@keyframes lbin{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+#namecard{position:absolute;left:8%;bottom:16vh;text-shadow:3px 3px 0 #000;animation:ncin .9s cubic-bezier(.2,.8,.2,1)}
+#namecard .nc-sub{font-size:18px;letter-spacing:6px;color:#e8a0c0}
+#namecard .nc-name{font-size:64px;letter-spacing:6px;color:#fff3cf;-webkit-text-stroke:2px #1b1426}
+#namecard .nc-line{height:4px;width:0;background:linear-gradient(90deg,#e8424f,#ffd25e,#0000);animation:ncline 1.2s .3s forwards}
+@keyframes ncin{from{opacity:0;transform:translateX(-40px)}}
+@keyframes ncline{to{width:420px}}
