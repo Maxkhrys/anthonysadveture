@@ -110,7 +110,7 @@ export class Player extends Entity {
     else {
       const f = this.aimSrc === 'pad' ? this.aimDir : this.facing;
       let d = tg.def;
-      if (this.aimSrc === 'keys' && tg.id === 'rain') { const t = g.nearestEnemy(this.x, this.z, tg.range, f, 0.6); if (t) d = Math.hypot(t.x - this.x, t.z - this.z); }
+      if (this.aimSrc === 'keys' && tg.id !== 'snare') { const t = g.nearestEnemy(this.x, this.z, tg.range, f, 0.6); if (t) d = Math.hypot(t.x - this.x, t.z - this.z); }
       x = this.x + Math.sin(f) * d; z = this.z + Math.cos(f) * d;
     }
     const dx = x - this.x, dz = z - this.z, d = Math.hypot(dx, dz);

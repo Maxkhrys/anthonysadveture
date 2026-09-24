@@ -191,6 +191,7 @@ export function respecTree(inv) {
   const refund = spentPoints(inv);
   inv.sp = (inv.sp || 0) + refund;
   inv.tree = freeRanks(inv.cls, inv.level);
+  inv.skills = []; // the legacy mirror must not resurrect refunded ranks
   inv.loadout = null;
   ensureTree(inv);
   return refund;
