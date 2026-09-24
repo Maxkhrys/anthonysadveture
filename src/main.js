@@ -10,8 +10,12 @@ import { Boss } from './entities/boss.js';
 
 const $ = id => document.getElementById(id);
 const TIPS = [
-  'Tap <b>K</b> just before an enemy strikes to <b>parry</b> — heavy foes stagger and take double damage.',
-  'Elite monsters glow with a coloured aura. They hit harder, but always drop gear.',
+  'Tap <b>K</b> just before an enemy strikes to <b>parry</b> — the next blow is a guaranteed critical.',
+  'An <b style="color:#ffa02a">orange !</b> means a heavy blow: a held guard will break. Parry it or roll.',
+  'Elite monsters glow with a coloured aura. Light hits won\'t stop their attacks — but they always drop gear.',
+  'Bellstones refill your life and tonics, and you wake at the last one if you fall. Nothing is lost.',
+  'Salvage gear for <b>Hush Shards</b>, then take a rare essence to Posy\'s workbench.',
+  'Hold <b>2</b> (Snare) or <b>3</b> (Rain) to see where it will land. Release to cast.',
   'Gear with a <b style="color:#6fdc5a">▲</b> in your bag is an upgrade over what you are wearing.',
   'Gilded chests always hold Rare gear or better. Check your map for gold ◆ markers.',
   'Crates slide until they hit something — and fill any pit they fall into.',
@@ -44,7 +48,7 @@ function buildMenu() {
   if (Game.hasSave()) menu.push({ label: 'Continue', act: () => start(false) });
   menu.push({ label: 'New Adventure', act: () => start(true) });
   menu.push({ label: 'Settings', act: () => openTitleSettings() });
-  menu.push({ label: 'How to Play', act: () => { sfx('select'); game.ui.say(null, 'MOVE: WASD · ATTACK: J (hold to charge) · GUARD: K (tap to parry) · ROLL: Space\nABILITIES: 1, 2, 3 · TOOL: L · INTERACT: E · BAG: I · TONIC: Q · SURGE: R · MENU: Esc\n\nExplore Lanternreach, level up, collect gear from monsters and chests, and bring the Dawnbell\'s voices home.'); } });
+  menu.push({ label: 'How to Play', act: () => { sfx('select'); game.ui.say(null, 'MOVE: WASD · AIM: mouse · ATTACK: click or J (hold to charge) · GUARD: K / right click (tap to parry) · ROLL: Space\nABILITIES: 1, 2, 3 · TOOL: L · INTERACT: E · BAG: I · TONIC: Q · SURGE: R · MENU: Esc\n\nWatch for the *!* over an enemy: it is about to strike. Rest at Bellstones to refill tonics. Bring essences to Posy\'s workbench.'); } });
 }
 function renderMenu() {
   $('title-menu').innerHTML = menu.map((m, i) => `<div class="${i === sel ? 'on' : ''}" data-i="${i}">${m.label}</div>`).join('');

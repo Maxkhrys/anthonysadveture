@@ -525,6 +525,7 @@ export class Game {
     inv.hp = inv.maxHp; inv.potions = inv.maxPotions; this.res = 100;
     this.checkpoint = { area: this.area.id, spawn: stone.spawn };
     this.flags['rested:' + stone.spawn] = true;
+    this.guide.event('rest');
     this.ui.hearts(true); this.hudDirty = true;
     this.save();
   }

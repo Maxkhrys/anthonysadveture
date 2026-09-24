@@ -74,7 +74,7 @@ export class Story {
         ], () => {
           g.cutscene = false; g.camFocus = null;
           g.startIntroFight();
-          g.ui.toast('J / Click: Attack  ·  K: Guard  ·  Space: Roll', '1-3: Abilities  ·  Hold J: Charged attack  ·  Follow the GUIDE (top left)', 6);
+          g.ui.toast('Mouse: aim  ·  Click / J: attack  ·  K: guard  ·  Space: roll', '1-3: abilities  ·  Hold to charge  ·  A red ! means an attack is coming', 6);
         }), 900);
       });
     }, 700);

@@ -5,7 +5,7 @@ const CHARGE = { samurai: 'Hold <kbd>J</kbd>, release to spin-slash', archer: 'H
 export function guideSteps(cls) {
   return [
     { id: 'move', text: 'Move with <kbd>WASD</kbd>' },
-    { id: 'attack', text: 'Hit a Hushling with <kbd>J</kbd> / click' },
+    { id: 'attack', text: 'Aim with the mouse and click to attack (<kbd>J</kbd> attacks where you face)' },
     { id: 'charge', text: CHARGE[cls] || CHARGE.samurai },
     { id: 'roll', text: 'Roll through danger with <kbd>Space</kbd>' },
     { id: 'guard', text: 'Guard with <kbd>K</kbd> (tap it just before a hit to parry)' },
@@ -15,6 +15,7 @@ export function guideSteps(cls) {
     { id: 'talk', text: 'Talk to Elder Tamsin <kbd>E</kbd>' },
     { id: 'chest', text: 'Open a loot chest (◆ gold on your map <kbd>Esc</kbd>)' },
     { id: 'level', text: 'Reach level 3 and spend a skill point (<kbd>I</kbd> → Skills)' },
+    { id: 'rest', text: 'Rest at a Bellstone <kbd>E</kbd> — it refills tonics' },
     { id: 'dungeon', text: 'Find Rootwell Hollow in the west woods' },
   ];
 }
