@@ -14,7 +14,8 @@ export class Entity {
     this.room = null;
   }
   attach() { this.g.world.add(this.obj); this.sync(); }
-  sync() { this.obj.position.set(this.x, this.y, this.z); }
+  // gy: the ground's height under the entity (Pass 6 terraces and stairs; 0 on flat land)
+  sync() { this.gy = this.g.groundAt ? this.g.groundAt(this.x, this.z) : 0; this.obj.position.set(this.x, this.y + this.gy, this.z); }
   remove() { this.dead = true; if (this.obj.parent) this.obj.parent.remove(this.obj); }
   update() {}
   dist(o) { return Math.hypot(o.x - this.x, o.z - this.z); }
@@ -22,14 +23,21 @@ export class Entity {
 }
 
 // ---------------- movement & collision
+export const STEP = 0.55; // the highest ledge a walker steps up or down; stairs climb 0.3 a tile
+// raised ground: walking onto a tile whose surface differs by more than a step is a wall
+function ledge(g, tx, ty, e) {
+  if (!g.area || !g.area.elevated) return false;
+  const here = g.tileGround(Math.floor(e.x), Math.floor(e.z));
+  return Math.abs(g.tileGround(tx, ty) - here) > STEP;
+}
 export function tileBlocks(g, tx, ty, e) {
   const t = g.tileAt(tx, ty);
   const mode = e.moveMode;
   if (mode === 'fly') return t === T.WALL || t === T.CLIFF || t === T.ROCK || t === T.PILLAR || t === T.PROP || t === T.TREE || t === T.SANDSTONE;
-  if (mode === 'knock') return isSolid(t) && !isLiquid(t);
-  if (mode === 'player') return isSolid(t);
+  if (mode === 'knock') return (isSolid(t) && !isLiquid(t)) || ledge(g, tx, ty, e);
+  if (mode === 'player') return isSolid(t) || ledge(g, tx, ty, e);
   // walk (enemies): avoid pits and liquids
-  return isSolid(t) || t === T.PIT;
+  return isSolid(t) || t === T.PIT || ledge(g, tx, ty, e);
 }
 
 function resolveBox(e, x0, z0, x1, z1) {

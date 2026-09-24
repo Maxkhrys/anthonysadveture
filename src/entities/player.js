@@ -70,7 +70,7 @@ export class Player extends Entity {
     this.aimSrc = src; this.aimLock = null;
     if (src === 'mouse') {
       const pr = g.pr;
-      let pt = pr.screenToWorld(inp.mouseX, inp.mouseY, AIM_H);
+      let pt = pr.screenToWorld(inp.mouseX, inp.mouseY, AIM_H + (this.gy || 0));
       // a cursor resting on an enemy aims at that enemy's centre (and shows a lock marker)
       const r = pr.renderer.domElement.getBoundingClientRect();
       const ppu = r.width / (pr.rw * pr.unitsPerPx);
@@ -78,7 +78,7 @@ export class Player extends Entity {
       for (const e of g.entities) {
         if (!e.isEnemy || e.dead || e.spawnT > 0) continue;
         if (Math.abs(e.x - pt.x) > 3 || Math.abs(e.z - pt.z) > 3.5) continue;
-        const sp = pr.project(_v.set(e.x, 0.35 * (e.eliteScale || 1) + (e.alt || 0), e.z));
+        const sp = pr.project(_v.set(e.x, (e.gy || 0) + 0.35 * (e.eliteScale || 1) + (e.alt || 0), e.z));
         const d = Math.hypot(sp.x - inp.mouseX, sp.y - inp.mouseY) - (e.r || 0.3) * ppu;
         if (d < 8 && d < bd) { bd = d; best = e; }
       }
@@ -106,7 +106,7 @@ export class Player extends Entity {
   groundTarget(tg) {
     const g = this.g;
     let x, z;
-    if (this.aimSrc === 'mouse') { const q = g.pr.screenToWorld(g.input.mouseX, g.input.mouseY, 0); x = q.x; z = q.z; }
+    if (this.aimSrc === 'mouse') { const q = g.pr.screenToWorld(g.input.mouseX, g.input.mouseY, this.gy || 0); x = q.x; z = q.z; }
     else {
       const f = this.aimSrc === 'pad' ? this.aimDir : this.facing;
       let d = tg.def;

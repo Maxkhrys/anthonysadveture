@@ -8,7 +8,9 @@ export function snapshotCharacter(g) {
     discoveredBellstones: copy(g.discoveredBellstones),
     world: { ...g.profile.world, flags: copy(g.flags), stats: copy(g.stats), checkpoint: copy(g.checkpoint),
       time: { ...g.profile.world.time, elapsedSeconds: g.time },
-      dungeon: { ...g.profile.world.dungeon, riftFloor: g.riftFloor || 0, riftLevel: g.riftLevel || 0 } },
+      dungeon: { ...g.profile.world.dungeon, riftFloor: g.riftFloor || 0, riftLevel: g.riftLevel || 0 },
+      // Pass 6: what's been discovered and which world events left their mark
+      ...(g.world6 ? { discovery: copy(g.world6.discovery), events: copy(g.world6.events) } : {}) },
   });
 }
 
@@ -19,6 +21,8 @@ export function restoreCharacter(g, profile) {
   g.time = p.world.time.elapsedSeconds; g.playTime = p.playTime;
   g.riftFloor = p.world.dungeon.riftFloor; g.riftLevel = p.world.dungeon.riftLevel;
   g.discoveredBellstones = copy(p.discoveredBellstones);
+  // Pass 6: the character's world (seed and generated optional content are read-only)
+  g.world6 = { seed: p.world.seed, generationVersion: p.world.generationVersion, generated: copy(p.world.generated), discovery: copy(p.world.discovery), events: copy(p.world.events) };
   Object.assign(g.settings, p.settings);
 }
 

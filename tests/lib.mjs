@@ -1,3 +1,6 @@
+// Pass 6: the original map now sits at (90, 70) inside the larger world; tests written against
+// its coordinates add this offset.
+export const HX = 90, HZ = 70;
 // Shared helpers for the browser regression checks. They drive the real game through the
 // deterministic hook window.__sim(frames, heldKeys) exposed by src/main.js.
 export const sim = (page, frames, keys = []) => page.evaluate(([f, k]) => { window.__game.noRender = true; window.__sim(f, k); window.__game.noRender = false; }, [frames, keys]);

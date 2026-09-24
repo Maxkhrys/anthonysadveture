@@ -9,7 +9,7 @@ export default async function (page, R) {
   const death = await page.evaluate(() => {
     const g = window.__game, p = g.player, inv = g.inv;
     inv.coins = 200; const gear = inv.equip.weapon.itemInstanceId, mats = JSON.stringify(inv.mats);
-    p.x = 58.5; p.z = 66.5; p.lastSafe = { x: 58.5, z: 66.5 };
+    p.x = 58.5 + 90; p.z = 66.5 + 70; p.lastSafe = { x: 58.5 + 90, z: 66.5 + 70 };
     g.onPlayerDeath();
     return { coins: inv.coins, drop: g.flags.deathDrop, gear: inv.equip.weapon.itemInstanceId === gear, mats: JSON.stringify(inv.mats) === mats, recap: document.querySelector('#gameover .recap').innerHTML };
   });
@@ -72,7 +72,7 @@ export default async function (page, R) {
     const oswin = g.entities.find(e => e.id === 'oswin');
     return { before, rack: g.entities.some(e => e.constructor.name === 'TollRack'), hung: f.tollHung, recipe: g.inv.recipes.includes('tollring'), oswin: [oswin.x, oswin.z] };
   });
-  R.ok(!toll.before && toll.rack && toll.hung && toll.recipe && Math.abs(toll.oswin[0] - 54.5) < 0.5, 'bringing the Score home hangs a toll rack, moves Oswin to tend it and teaches Tolling Edge', JSON.stringify(toll));
+  R.ok(!toll.before && toll.rack && toll.hung && toll.recipe && Math.abs(toll.oswin[0] - 54.5 - 90) < 0.5, 'bringing the Score home hangs a toll rack, moves Oswin to tend it and teaches Tolling Edge', JSON.stringify(toll));
   await page.evaluate(() => window.__game.save());
   await page.reload(); await page.waitForFunction(() => window.__game && !document.getElementById('loading'), null, { timeout: 30000 });
   await page.evaluate(() => window.__start(false)); await sim(page, 3);

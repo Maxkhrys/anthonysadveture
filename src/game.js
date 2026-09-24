@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { buildOverworld, buildDungeon, buildGrotto, buildRift } from './world/maps.js';
-import { buildTerrain, buildLiquids, buildScenery, windUniform, clipUniform, waterU, windowMat, lampMat, bendUniform } from './world/build.js';
+import { windUniform, clipUniform, waterU, windowMat, lampMat, bendUniform, groundY } from './world/build.js';
+import { WorldStreamer } from './world/stream.js';
+import { HEART, hx, hz } from './world/layout.js';
 import { T, blocksObject } from './world/tiles.js';
 import { FX } from './fx.js';
 import { PITCH } from './engine/pixel.js';
@@ -40,6 +42,8 @@ import './dev/pass5.js'; // Pass 5 dev commands plug into the console's tables
 import { defaultInventory, identifyItem, BELLSTONES, BELLSTONE_NAMES, worldPhase, respecInventory } from './persistence/model.js';
 import { snapshotCharacter, restoreCharacter, CharacterSession } from './persistence/session.js';
 export const BAG_SIZE = 30;
+// what the overworld streams in and out around the player (everything else lives all the time)
+const STREAMED = new Set(['tuft', 'bush', 'enemy', 'lootchest', 'sign', 'leafpile', 'drift', 'clue', 'vista', 'boulder']);
 const BUILDERS = { overworld: buildOverworld, dungeon: buildDungeon, grotto: buildGrotto, devroom: buildDevRoom, conservatory: buildConservatory };
 
 export const defaultInv = defaultInventory;
@@ -55,6 +59,7 @@ export class Game {
     this.scene = new THREE.Scene();
     this.world = new THREE.Group(); this.scene.add(this.world);
     this.fx = new FX(this.scene);
+    this.fx.groundAt = (x, z) => this.groundAt(x, z);
     this.ui = new UI(this);
     this.story = new Story(this);
     if (typeof document !== 'undefined') {
@@ -81,6 +86,7 @@ export class Game {
     for (let i = 0; i < 6; i++) { const l = new THREE.PointLight(0xffa24a, 0, 6, 1.6); this.scene.add(l); this.lamps.push(l); }
     this.playerLamp = new THREE.PointLight(0xffe0b0, 0, 5, 1.5); this.scene.add(this.playerLamp);
     this.liquidTime = { value: 0 };
+    this.streamer = new WorldStreamer();
     this.res = 100;
     this.guide = new Guide(this);
     this.aimView = new AimView(this);
@@ -126,6 +132,8 @@ export class Game {
     if (a.id === 'grotto') return 5;
     if (a.id === 'conservatory') { const r = this.roomAt(x, z); return r && (r.id === 'loom' || r.id === 'canopy' || r.id === 'reliquary') ? 8 : 7; }
     if (a.rift) return a.level;
+    if (a.level) return a.level; // mini-dungeons carry their own
+    if (a.placeAt) return a.placeAt(x, z).level || 2;
     const r = a.regions && a.regions.find(r => x >= r.x0 && x < r.x1 && z >= r.y0 && z < r.y1);
     return (r && r.level) || 2;
   }
@@ -232,7 +240,7 @@ export class Game {
     // once the Silent Toll is hung, Thimblewick rings the old toll at every dusk and dawn
     if (this.flags.tollHung && reg === 'Thimblewick') {
       this.tollT = (this.tollT ?? 6) - dt;
-      if (this.tollT <= 0) { this.tollT = warm > 0.3 ? 9 : 26; playTone(57); setTimeout(() => playTone(64), 500); setTimeout(() => playTone(69), 1000); this.fx.ring(53.5, 56.5, 0.3, 3, 0xffd25e, 1.2, 1.3); }
+      if (this.tollT <= 0) { this.tollT = warm > 0.3 ? 9 : 26; playTone(57); setTimeout(() => playTone(64), 500); setTimeout(() => playTone(69), 1000); this.fx.ring(hx(53.5), hz(56.5), 0.3, 3, 0xffd25e, 1.2, 1.3); }
     }
     // chimney smoke (only near the camera)
     this.smokeT = (this.smokeT || 0) - dt;
@@ -264,7 +272,7 @@ export class Game {
     // respawn cleared overworld monsters once you're far away
     if (this.respawnQ) this.respawnQ = this.respawnQ.filter(r => {
       if (this.time < r.t || Math.hypot(r.def.x - p.x, r.def.z - p.z) < 22) return true;
-      this.spawnDef(r.def); return false;
+      r.def._killed = false; if (!this.streamDefs || this.defActive(r.def)) this.spawnDef(r.def); return false;
     });
     // the fen: three rung lilies wake the Crowned Toad
     if (this.fenToad && this.fenToad.state === 'sleep' && this.signal('fen.rung') && Math.hypot(this.fenToad.x - p.x, this.fenToad.z - p.z) < 14) { this.setSignal('fen.rung', false, false); this.wakeToad(this.fenToad); }
@@ -579,9 +587,8 @@ export class Game {
     this.bossActive = null; this.ui.bossBar(null);
     const area = id === 'rift' ? buildRift(this.riftFloor || 1, this.riftLevel || 3, Math.floor(Math.random() * 1e9)) : BUILDERS[id]();
     this.area = area;
-    this.world.add(buildTerrain(area));
-    this.world.add(buildLiquids(area, this.liquidTime));
-    this.world.add(buildScenery(area));
+    // the ground is streamed in chunks around the camera (see world/stream.js)
+    this.streamer.reset(area, this.world, this.liquidTime);
     // lights & mood
     this.scene.background = new THREE.Color(area.sky);
     this.sun.color.set(area.sun); this.sun.intensity = area.dark ? 1.0 : 2.3;
@@ -598,14 +605,27 @@ export class Game {
     this.player = new Player(this, sp.x, sp.z);
     this.player.facing = area.dungeon ? Math.PI : 0;
     this.spawn(this.player);
-    // entities
-    for (const d of area.defs) this.spawnDef(d);
+    // entities: small areas spawn everything; the overworld streams its scenery-level defs
+    this.streamDefs = null;
+    if (area.w * area.h > 20000) {
+      const C = 16, cells = new Map();
+      for (const d of area.defs) {
+        if (d.x === undefined || !STREAMED.has(d.type)) { this.spawnDef(d); continue; }
+        d._ent = null;
+        const k = Math.floor(d.x / C) + ',' + Math.floor(d.z / C);
+        (cells.get(k) || cells.set(k, []).get(k)).push(d);
+      }
+      this.streamDefs = { C, cells, active: new Set(), t: 0 };
+      this.streamTick(0, true);
+    } else for (const d of area.defs) this.spawnDef(d);
     for (const e of this.entities) if (e instanceof O.Torch && e.puzzle && !this._tg?.[e.group]) { (this._tg = this._tg || {})[e.group] = true; const tg = new O.TorchGroup(this, e.group); tg.alwaysUpdate = true; this.spawn(tg); }
     this._tg = null;
     this.room = null;
     this.updateRoom(true);
     clipUniform.value = this.room ? this.room.z1 - 1 : 1e9;
     this.snapCamera();
+    this.cam.y = this.player.gy || 0;
+    { const v = this.viewExtent(); this.streamer.update(this.cam.x, this.cam.z, v.hw, v.hd, Infinity); }
     this.music = null; this.musicOvr = null;
     this.region = null;
     this.updateRegion(true);
@@ -639,7 +659,7 @@ export class Game {
       case 'riftportal': e = new RiftPortal(this, d); break;
       case 'riftstone': e = new O.Sign(this, { ...d, text: '' }); e.obj.visible = false; e.solid = false; e.interact = () => this.story.riftStone(); Object.defineProperty(e, 'prompt', { get: () => 'Touch the Rift Stone' }); break;
       case 'board': e = new O.Sign(this, { ...d, text: '' }); e.interact = () => this.story.board(); Object.defineProperty(e, 'prompt', { get: () => 'Bounties' }); e.obj.visible = false; e.solid = false; break;
-      case 'npc': e = new O.NPC(this, d.id === 'oswin' && f.tollHung ? { ...d, x: 54.5, z: 58.4 } : d); break;
+      case 'npc': e = new O.NPC(this, d.id === 'oswin' && f.tollHung ? { ...d, x: hx(54.5), z: hz(58.4) } : d); break;
       case 'bellstone': e = new O.Bellstone(this, d); break;
       case 'workbench': e = new O.Workbench(this, d); break;
       case 'millyard': if (f.q_mill !== 2) return; e = new O.MillYard(this, d); break;
@@ -650,7 +670,8 @@ export class Game {
       case 'exitglow': e = new O.ExitGlow(this, d); break;
       case 'warp': e = new O.Warp(this, d); e.alwaysUpdate = true; break;
       case 'enemy': {
-        if (this.area.id === 'overworld' && f.hushLifted && d.x < 44 && Math.random() < 0.5) return;
+        if (this.area.id === 'overworld' && f.hushLifted && d.x < hx(44) && d.x > HEART.x && Math.random() < 0.5) return;
+        if (d._killed) return;
         e = makeEnemy(this, d.kind, d.x, d.z); e.spawnT = 0; e.obj.scale.setScalar(1); e.room = d.room; e.def = d; this.scaleEnemy(e); if (e.eliteScale) e.obj.scale.setScalar(e.eliteScale); break;
       }
       case 'arena': e = new O.Arena(this, d, [
@@ -685,7 +706,8 @@ export class Game {
       }
       default: return;
     }
-    if (e) { if (d.room) e.room = d.room; this.spawn(e); }
+    if (e) { if (d.room) e.room = d.room; e.sdef = d; d._ent = e; this.spawn(e); }
+    return e;
   }
   spawn(e) {
     if (!e.obj.parent) e.attach();
@@ -761,7 +783,7 @@ export class Game {
     this.checkpoint = { area: this.area.id, spawn: stone.spawn };
     this.flags['rested:' + stone.spawn] = true;
     // resting wakes the world: every standard foe you cleared outside comes back now (bosses never do)
-    if (this.area.id === 'overworld' && this.respawnQ && this.respawnQ.length) { for (const r of this.respawnQ) this.spawnDef(r.def); this.respawnQ = []; }
+    if (this.area.id === 'overworld' && this.respawnQ && this.respawnQ.length) { for (const r of this.respawnQ) { r.def._killed = false; if (!this.streamDefs || this.defActive(r.def)) this.spawnDef(r.def); } this.respawnQ = []; }
     const id = this.area.id + ':' + stone.spawn;
     if (!this.discoveredBellstones.includes(id)) this.discoveredBellstones.push(id);
     this.guide.event('rest');
@@ -923,7 +945,7 @@ export class Game {
   }
   onEnemyDeath(e) {
     const ps = this.pstats;
-    if (e.def && this.area.id === 'overworld') (this.respawnQ || (this.respawnQ = [])).push({ def: e.def, t: this.time + 70 + Math.random() * 40 });
+    if (e.def && this.area.id === 'overworld') { e.def._killed = true; (this.respawnQ || (this.respawnQ = [])).push({ def: e.def, t: this.time + 70 + Math.random() * 40 }); }
     this.story.bountyEvent(e.elite ? ['kill', e.kind, 'elite'] : ['kill', e.kind]);
     this.gainXp(e.xpValue || 5);
     // death-triggered effects can chain, but only two links deep (no runaway proc loops)
@@ -949,7 +971,7 @@ export class Game {
   }
 
   startIntroFight() {
-    const a = new O.Arena(this, { id: 'intro', x: 58.5, z: 70, radius: 99 }, [
+    const a = new O.Arena(this, { id: 'intro', x: hx(58.5), z: hz(70), radius: 99 }, [
       [['blot', -2, 1], ['blot', 2, 1], ['blot', 0, 3]],
       [['blot', -3, 0], ['blot', 3, 0], ['blot', -1, 3], ['blot', 1, 3]],
       // the lesson at the end: a shell that shrugs off taps. Charge, or strike after a parry.
@@ -964,9 +986,9 @@ export class Game {
     if (this.flags.revealed) return;
     this.flags.revealed = true;
     const shots = [
-      [{ x: 45.5, z: 42 }, 'THE CRACKED CONSERVATORY', 'Something inside keeps mending the glass'],
-      [{ x: 22, z: 34 }, 'WHISPERWOOD', 'Rootwell Hollow breathes beneath the roots'],
-      [{ x: 74.5, z: 15 }, 'THE CHIME GATE', 'Three Voices sealed it'],
+      [{ x: hx(45.5), z: hz(42) }, 'THE CRACKED CONSERVATORY', 'Something inside keeps mending the glass'],
+      [{ x: hx(22), z: hz(34) }, 'WHISPERWOOD', 'Rootwell Hollow breathes beneath the roots'],
+      [{ x: hx(74.5), z: hz(15) }, 'THE CHIME GATE', 'Three Voices sealed it'],
     ];
     setTimeout(() => {
       this.cutscene = true; this.ui.show('letterbox', true); this.camZoom = 1.35;
@@ -1171,12 +1193,70 @@ export class Game {
   updateRegion(force) {
     if (!this.area.regions) { if (force) this.applyMusic(); return; }
     const p = this.player;
-    const r = this.area.regions.find(r => p.x >= r.x0 && p.x < r.x1 && p.z >= r.y0 && p.z < r.y1);
+    const r = this.area.placeAt ? this.area.placeAt(p.x, p.z) : this.area.regions.find(r => p.x >= r.x0 && p.x < r.x1 && p.z >= r.y0 && p.z < r.y1);
     if (r !== this.region || force) {
       const prev = this.region;
       this.region = r;
       if (prev && r && prev.name !== r.name) this.ui.areaName(r.name);
       this.applyMusic();
+    }
+  }
+
+  // ------------------------------------------------ Pass 6: ground height & streaming
+  // Height of walkable ground at a point (0 everywhere the map is flat). Smooth across stairs,
+  // sharp at terrace edges, so feet follow steps and never slide down a cliff face.
+  groundAt(x, z) {
+    const a = this.area;
+    if (!a || !a.elevated) return 0;
+    const fx = x - 0.5, fz = z - 0.5, x0 = Math.floor(fx), z0 = Math.floor(fz), tx = fx - x0, tz = fz - z0;
+    const own = groundY(a, Math.floor(x), Math.floor(z));
+    const h = (xx, zz) => { const v = groundY(a, xx, zz); return Math.abs(v - own) > 0.55 ? own : v; };
+    const a0 = h(x0, z0), a1 = h(x0 + 1, z0), b0 = h(x0, z0 + 1), b1 = h(x0 + 1, z0 + 1);
+    return (a0 * (1 - tx) + a1 * tx) * (1 - tz) + (b0 * (1 - tx) + b1 * tx) * tz;
+  }
+  tileGround(tx, tz) { return this.area && this.area.elevated ? groundY(this.area, tx, tz) : 0; }
+  viewExtent() {
+    const vh = this.pr.viewHeight || 12;
+    return { hw: this.pr.rw * this.pr.unitsPerPx / 2, hd: vh / Math.sin(PITCH) / 2 };
+  }
+  defActive(d) {
+    const S = this.streamDefs; if (!S) return true;
+    return S.active.has(Math.floor(d.x / S.C) + ',' + Math.floor(d.z / S.C));
+  }
+  // Streams scenery-level things (grass, bushes, monsters, chests, signs...) in and out by
+  // 16-tile cell around the player, a few per frame, so a big world keeps a small entity list.
+  streamTick(dt, all) {
+    const S = this.streamDefs; if (!S) return;
+    S.t -= dt; if (S.t > 0 && !all) return; S.t = 0.25;
+    const p = this.player, C = S.C, pcx = Math.floor(p.x / C), pcz = Math.floor(p.z / C), R = 3;
+    const want = new Set();
+    for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) want.add((pcx + dx) + ',' + (pcz + dz));
+    let budget = all ? Infinity : 24;
+    for (const k of want) {
+      const list = S.cells.get(k); if (!list) { S.active.add(k); continue; }
+      let done = true;
+      for (const d of list) {
+        if (d._ent && !d._ent.dead) continue;
+        if (d._ent && d._ent.dead && d.type !== 'enemy') continue; // cut grass stays cut while you're near
+        if (d._killed || (d._ent && d._ent.dead)) continue;
+        if (budget-- <= 0) { done = false; break; }
+        this.spawnDef(d);
+      }
+      if (done) S.active.add(k);
+    }
+    // far cells go back to sleep: their things are dropped (state that matters lives in flags)
+    for (const k of [...S.active]) {
+      if (want.has(k)) continue;
+      const [cx, cz] = k.split(',').map(Number);
+      if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) <= R + 1) continue;
+      S.active.delete(k);
+      for (const d of S.cells.get(k) || []) {
+        const e = d._ent;
+        if (!e) continue;
+        if (e.dead) { if (d.type !== 'enemy') d._ent = null; continue; }
+        if (e.arena || e.aggro || this.bossActive === e) continue;
+        e.remove(); d._ent = null;
+      }
     }
   }
 
@@ -1246,6 +1326,7 @@ export class Game {
       if (d < m && d > 1e-4 && a.moveMode !== 'fly') { const k = (m - d); a.x -= dx / d * k; a.z -= dz / d * k; }
     }
     this.entities = this.entities.filter(e => !e.dead);
+    this.streamTick(dt);
     // solids cache for next frame
     this.solids = this.entities.filter(e => e.solid && Math.abs(e.x - p.x) < 24 && Math.abs(e.z - p.z) < 20);
     const lsCap = this.inv.maxHp * 0.05;
@@ -1274,7 +1355,11 @@ export class Game {
     const t = this.camTarget();
     const k = 1 - Math.exp(-dt * (this.room ? 7 : 6));
     this.cam.x += (t.x - this.cam.x) * k; this.cam.z += (t.z - this.cam.z) * k;
+    // on raised ground the camera rises with you (smoothly, so stairs don't bob the view)
+    const ty = this.camFocus ? (this.camFocus.y ?? this.groundAt(this.camFocus.x, this.camFocus.z)) : (this.player ? this.player.gy || 0 : 0);
+    this.cam.y += (ty - this.cam.y) * (1 - Math.exp(-dt * 4));
     this.pr.target.copy(this.cam);
+    { const v = this.viewExtent(); this.streamer.update(this.cam.x, this.cam.z, v.hw, v.hd, dt === 0 ? Infinity : 1); }
     // sun & shadows follow the camera
     this.sun.position.set(this.cam.x - 7, 16, this.cam.z + 5);
     this.sun.target.position.set(this.cam.x, 0, this.cam.z);

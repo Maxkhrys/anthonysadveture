@@ -1,4 +1,6 @@
 // Portable character data. No renderer, browser storage, or world-instance ownership.
+import { HEART, LAYOUT_VERSION, FOG_W, FOG_H, REGION_IDS } from '../world/layout.js';
+import { GENERATION_VERSION, generateManifest, seedForId, randomSeed, validSeed } from '../world/worldseed.js';
 export const SCHEMA_VERSION = 3;
 export const EQUIPMENT_SLOTS = ['head', 'chest', 'arms', 'legs', 'boots', 'necklace', 'ring1', 'ring2', 'weapon'];
 export const SLOT_ALIASES = { helm: 'head', armor: 'chest', charm: 'necklace' };
@@ -67,8 +69,73 @@ export const BELLSTONES = [
   // Pass 5 (additive)
   { id: 'conservatory:atrium', area: 'conservatory', spawn: 'atrium' },
   { id: 'conservatory:canopy', area: 'conservatory', spawn: 'canopy' },
+  // Pass 6: the wider world (additive)
+  { id: 'overworld:glassmere', area: 'overworld', spawn: 'glassmere' },
+  { id: 'overworld:pier', area: 'overworld', spawn: 'pier' },
+  { id: 'overworld:deepwood', area: 'overworld', spawn: 'deepwood' },
+  { id: 'overworld:fernhollow', area: 'overworld', spawn: 'fernhollow' },
+  { id: 'overworld:moonfen', area: 'overworld', spawn: 'moonfen' },
+  { id: 'overworld:heronisle', area: 'overworld', spawn: 'heronisle' },
+  { id: 'overworld:landing', area: 'overworld', spawn: 'landing' },
+  { id: 'overworld:wells', area: 'overworld', spawn: 'wells' },
+  { id: 'overworld:cinderrest', area: 'overworld', spawn: 'cinderrest' },
+  { id: 'overworld:windstair', area: 'overworld', spawn: 'windstair' },
+  { id: 'overworld:belfry', area: 'overworld', spawn: 'belfry' },
 ];
-export const BELLSTONE_NAMES = { 'overworld:village': 'Thimblewick', 'dungeon:entrance': 'Hollow Mouth', 'dungeon:pre': 'Root Gate', 'conservatory:atrium': 'Glass Atrium', 'conservatory:canopy': 'Bellfruit Canopy' };
+export const BELLSTONE_NAMES = { 'overworld:village': 'Thimblewick', 'dungeon:entrance': 'Hollow Mouth', 'dungeon:pre': 'Root Gate', 'conservatory:atrium': 'Glass Atrium', 'conservatory:canopy': 'Bellfruit Canopy',
+  'overworld:glassmere': 'Conservatory Steps', 'overworld:pier': 'Saltwhistle Pier', 'overworld:deepwood': 'Deepwood Shrine', 'overworld:fernhollow': 'Fernhollow', 'overworld:moonfen': 'Moonfen Lantern',
+  'overworld:heronisle': 'Heron Isle', 'overworld:landing': 'Mirrow Landing', 'overworld:wells': 'Sunscald Wells', 'overworld:cinderrest': 'Cinder Rest', 'overworld:windstair': 'Windstair Top', 'overworld:belfry': 'Belfry Cradle' };
+
+// ---------------------------------------------------------------- Pass 6: the world record
+// world.seed / generationVersion / generated: the character's world seed and the optional
+// content it picked (camps, rare elites, merchants, event sites, cave mouths, caches).
+// world.discovery: regions and landmarks found, and the map's fog (one bit per 8x8 tiles).
+// world.events: persistent states of world events (a star's crater, a closed tear...).
+// world.layout: 2 once overworld coordinates have been moved into the bigger map.
+export const emptyFog = () => '0'.repeat(Math.ceil(FOG_W * FOG_H / 4));
+function shiftKey(key, prefix) {
+  const [xs, zs] = key.slice(prefix.length).split(',');
+  const x = Number(xs), z = Number(zs);
+  if (!Number.isFinite(x) || !Number.isFinite(z)) return key;
+  return prefix + (x + HEART.x) + ',' + (z + HEART.z);
+}
+// Moves everything a save remembers by overworld position from the old 150x110 map into the
+// new world, where that map now sits at HEART. Runs once; the layout marker makes it idempotent.
+export function migrateWorldLayout(world) {
+  if (world.layout === LAYOUT_VERSION) return world;
+  const f = world.flags || {}, out = {};
+  for (const [k, v] of Object.entries(f)) {
+    if (k.startsWith('pile:overworld:')) out[shiftKey(k, 'pile:overworld:')] = v;
+    else if (k.startsWith('drift:')) out[shiftKey(k, 'drift:')] = v;
+    else if (k === 'moved:pier-block' && Array.isArray(v) && v.length === 2) out[k] = [v[0] + HEART.x, v[1] + HEART.z];
+    else out[k] = v;
+  }
+  if (out.deathDrop && out.deathDrop.area === 'overworld' && Number.isFinite(out.deathDrop.x)) out.deathDrop = { ...out.deathDrop, x: out.deathDrop.x + HEART.x, z: out.deathDrop.z + HEART.z };
+  world.flags = out;
+  world.layout = LAYOUT_VERSION;
+  return world;
+}
+function validManifest(m) {
+  return record(m) && Number.isInteger(m.version) && ['camps', 'rare', 'merchants', 'pockets'].every(k => Array.isArray(m[k])) && record(m.events) && record(m.caves)
+    && [...m.camps, ...m.rare, ...m.pockets].every(a => record(a) && typeof a.id === 'string' && Number.isFinite(a.x) && Number.isFinite(a.z));
+}
+export function normalizeWorld(world, id) {
+  migrateWorldLayout(world);
+  // a seed is forever; a missing or corrupt one is derived from the character, never random,
+  // so reloading an old save twice gives the same world
+  if (!validSeed(world.seed)) world.seed = seedForId(id);
+  if (!Number.isInteger(world.generationVersion) || world.generationVersion < 1) world.generationVersion = GENERATION_VERSION;
+  if (!validManifest(world.generated)) world.generated = generateManifest(world.seed, world.generationVersion);
+  const d = record(world.discovery) ? world.discovery : {};
+  world.discovery = {
+    regions: Array.isArray(d.regions) ? [...new Set(d.regions.filter(r => REGION_IDS.includes(r)))] : [],
+    landmarks: Array.isArray(d.landmarks) ? [...new Set(d.landmarks.filter(x => typeof x === 'string'))] : [],
+    fog: typeof d.fog === 'string' && /^[0-9a-f]*$/.test(d.fog) && d.fog.length === emptyFog().length ? d.fog : emptyFog(),
+    marked: Array.isArray(d.marked) ? [...new Set(d.marked.filter(x => typeof x === 'string'))] : [],
+  };
+  if (!record(world.events)) world.events = {};
+  return world;
+}
 
 export function normalizeCharacter(input) {
   requireRecord(input, 'character');
@@ -112,13 +179,15 @@ export function normalizeCharacter(input) {
   requireRecord(p.world, 'world');
   p.world = { flags: {}, stats: {}, checkpoint: { area: 'overworld', spawn: 'village' }, time: { elapsedSeconds: 0 }, dungeon: {}, ...p.world };
   for (const k of ['flags', 'stats', 'checkpoint', 'time', 'dungeon']) requireRecord(p.world[k], k);
+  normalizeWorld(p.world, p.id);
   nonnegative(p.world.time.elapsedSeconds, 'world time');
   if (typeof p.world.checkpoint.area !== 'string' || typeof p.world.checkpoint.spawn !== 'string') throw new Error('Invalid checkpoint');
   return p;
 }
 
-export function createProfile({ name, classId, inventory = defaultInventory(classId) }) {
-  return normalizeCharacter({ id: newId(), name: name.trim(), classId, inventory, world: {}, createdAt: new Date().toISOString() });
+export function createProfile({ name, classId, inventory = defaultInventory(classId), seed = randomSeed() }) {
+  // a new character gets a world of its own (the seed decides optional content only)
+  return normalizeCharacter({ id: newId(), name: name.trim(), classId, inventory, world: { seed, layout: LAYOUT_VERSION }, createdAt: new Date().toISOString() });
 }
 
 export function migrateSave(raw) {

@@ -27,8 +27,9 @@ export class FX {
     // Effects density setting: thins decorative particles (rings and telegraphs are separate)
     if (this.density < 1 && Math.random() > this.density) return;
     if (this.p.length >= MAX) this.p.shift();
-    this.p.push({ x: o.x, y: o.y ?? 0.3, z: o.z, vx: o.vx ?? 0, vy: o.vy ?? 0, vz: o.vz ?? 0, life: o.life ?? 0.6, max: o.life ?? 0.6,
-      size: o.size ?? 0.08, color: new THREE.Color(o.color ?? 0xffffff), g: o.g ?? 6, drag: o.drag ?? 1.5, shrink: o.shrink ?? true, floor: o.floor ?? 0, stretch: o.stretch ?? 0, grow: o.grow ?? 0, wob: o.wob ?? 0, ph: Math.random() * 6, soft: !!o.soft });
+    const gy = this.groundAt && !o.abs ? this.groundAt(o.x, o.z) : 0;
+    this.p.push({ x: o.x, y: (o.y ?? 0.3) + gy, z: o.z, vx: o.vx ?? 0, vy: o.vy ?? 0, vz: o.vz ?? 0, life: o.life ?? 0.6, max: o.life ?? 0.6,
+      size: o.size ?? 0.08, color: new THREE.Color(o.color ?? 0xffffff), g: o.g ?? 6, drag: o.drag ?? 1.5, shrink: o.shrink ?? true, floor: (o.floor ?? 0) + gy, stretch: o.stretch ?? 0, grow: o.grow ?? 0, wob: o.wob ?? 0, ph: Math.random() * 6, soft: !!o.soft });
   }
   burst(x, y, z, n, color, speed = 3, opts = {}) {
     for (let i = 0; i < n; i++) {
@@ -59,14 +60,14 @@ export class FX {
     m.rotation.z = full ? 0 : facing - Math.PI / 2 - sweep / 2 + Math.PI;
     // RingGeometry lies in XY; after rotating -90deg about X, angle theta maps to (cos, -sin) in XZ
     m.rotation.z = full ? 0 : -(Math.PI / 2 - facing) - sweep / 2 + 0;
-    m.position.set(x, y, z);
+    m.position.set(x, y + (this.groundAt ? this.groundAt(x, z) : 0), z);
     this.scene.add(m);
     this.arcs.push({ m, t: 0, dur });
   }
   ring(x, z, r0, r1, color = 0xfff3b0, dur = 0.5, y = 0.1) {
     const g = FX.ringGeo || (FX.ringGeo = new THREE.RingGeometry(0.8, 1, 40)); // shared; only the material is per-ring
     const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }));
-    m.rotation.x = -Math.PI / 2; m.position.set(x, y, z);
+    m.rotation.x = -Math.PI / 2; m.position.set(x, y + (this.groundAt ? this.groundAt(x, z) : 0), z);
     this.scene.add(m);
     this.rings.push({ m, t: 0, dur, r0, r1 });
   }

@@ -15,7 +15,7 @@ async function castAll(page, cls) {
     const out = {};
     for (const id of actives) {
       for (const e of g.entities) if (e.isEnemy) e.remove();
-      p.x = 58.5; p.z = 62.5; p.facing = 0; p.setState('move'); g.snapCamera();
+      p.x = 58.5 + 90; p.z = 62.5 + 70; p.facing = 0; p.setState('move'); g.snapCamera();
       const foes = [];
       for (let i = 0; i < 6; i++) { const e = g.spawnEnemy('blot', p.x + (i % 3 - 1) * 0.7, p.z + (i < 3 ? 1.4 : 2.6), { noRoom: true }); e.spawnT = 0; e.hp = e.maxHp = 1e6; e.think = () => [0, 0]; e.obj.scale.setScalar(1); foes.push(e); }
       g.res = 100; p.cdMap = {};

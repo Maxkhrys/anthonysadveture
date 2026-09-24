@@ -23,6 +23,7 @@ export class Projectile extends Entity {
     // Projectile Size affix: bigger hitbox and model (basic shots and abilities alike)
     const ps = 1 + (g.pstats.projSize || 0) / 100;
     this.r = (o.r ?? 0.18) * ps; this.moveMode = 'fly'; this.y = 0.45; this.hit = new Set(); this.dist = 0;
+    this.gy0 = g.groundAt ? g.groundAt(o.x, o.z) : 0; // flies level from the height it was loosed at
     const u = g.pstats.uniques;
     if (this.kind === 'arrow' || this.kind === 'power') {
       if (u.has('windwhisper')) { this.pierce = 99; this.kb = 7; }
@@ -113,7 +114,7 @@ export class Projectile extends Entity {
     for (const e of g.entities) if ((e.isProjectile && !e.friendly && e.reflect) && segT(x0, z0, this.x, this.z, e.x, e.z).d < 0.35) { e.reflect(this.dir); return this.pop(); }
     if (wall || this.dist > this.range) { if (this.aoe) return this.explode(); return this.pop(); }
     this.sync();
-    this.obj.position.y = this.y;
+    this.obj.position.y = this.y + this.gy0;
   }
   onImpact(e) {
     const g = this.g, u = g.pstats.uniques;
@@ -142,7 +143,7 @@ export class Projectile extends Entity {
 export class EchoShot extends Entity {
   constructor(g, o) {
     super(g, o.x, o.z); this.o = o; this.t = 0; this.delay = o.delay ?? 0.6;
-    this.obj.add(mesh([B(0.06, 0.06, 0.7, 0, 0, 0, 0x9ad8ff)], MAT_GLOW, false)); this.obj.rotation.y = o.dir; this.obj.position.y = 0.45;
+    this.obj.add(mesh([B(0.06, 0.06, 0.7, 0, 0, 0, 0x9ad8ff)], MAT_GLOW, false)); this.obj.rotation.y = o.dir; this.obj.position.y = 0.45 + (g.groundAt ? g.groundAt(o.x, o.z) : 0);
     this.alwaysUpdate = true;
   }
   update(dt) {
@@ -291,7 +292,7 @@ export class Familiar extends Entity {
     if (Math.random() < 0.2) g.fx.add({ x: this.x, y: 0.7, z: this.z, color: 0x8b5cf6, life: 0.4, size: 0.05, g: -0.5 });
     this.facing = Math.atan2(p.x - this.x, p.z - this.z);
     this.obj.rotation.y = this.facing;
-    this.sync(); this.obj.position.y = 0.7 + Math.sin(this.t * 5) * 0.08;
+    this.sync(); this.obj.position.y = (this.gy || 0) + 0.7 + Math.sin(this.t * 5) * 0.08;
   }
 }
 export function frostNova(g, x, z, mult, freezeT) {

@@ -1,9 +1,16 @@
 // Narrative, quests, NPC conversations, shop stock.
+import { hx, hz } from './world/layout.js';
 import { sfx, playMusic } from './engine/audio.js';
 import { dropPips } from './entities/common.js';
 import { genItem, RARITY, itemIcon } from './rpg/items.js';
 import { gainMat, learn } from './rpg/crafting.js';
 
+// where each region's name sits on the map
+const REGION_LABELS = {
+  heartland: { t: 'Thimblewick Heartland', x: 160, z: 142 }, whisperwood: { t: 'Whisperwood', x: 112, z: 124 }, deepwood: { t: 'The Deepwood', x: 46, z: 110 },
+  glassmere: { t: 'Glassmere', x: 150, z: 90 }, lake: { t: 'Lake Mirrow', x: 196, z: 212 }, sunscald: { t: 'Sunscald Reach', x: 276, z: 132 },
+  cinderpeak: { t: 'Cinderpeak', x: 262, z: 20 }, moonfen: { t: 'Moonfen', x: 50, z: 196 }, highlands: { t: 'Chime Highlands', x: 110, z: 12 },
+};
 export class Story {
   constructor(g) { this.g = g; }
   get f() { return this.g.flags; }
@@ -28,22 +35,32 @@ export class Story {
   }
   markers() {
     const f = this.f, m = [];
-    if (this.stage === 1) m.push({ x: 17.5, z: 29.5, color: '#7fd36a', pulse: true });
-    if (this.stage === 2) m.push({ x: 58, z: 56, color: '#ffd25e', pulse: true });
-    m.push({ x: 58, z: 57, color: '#ffd25e' });
-    m.push({ x: 74.5, z: 9.5, color: '#c9a8ff' });
-    if (f.q_camp === 1) m.push({ x: 96, z: 28, color: '#e8424f', pulse: true });
-    if (f.q_pier === 1) m.push({ x: 60, z: 92, color: '#7ad8ff', pulse: true });
-    if (f.q_mill === 1 && !f.windmill) m.push({ x: 47, z: 51, color: '#fff3cf', pulse: true });
-    if (this.g.inv.chimes.includes('verdant') && !f['chest:echo-chest']) m.push({ x: 32.5, z: 29.5, color: '#9ad8ff' });
-    if (this.g.inv.mats && (this.g.inv.mats.thornheart || this.g.inv.mats.echo || this.g.inv.mats.ember || this.g.inv.mats.sailcloth)) m.push({ x: 55.3, z: 64.8, color: '#c9a8ff', pulse: true });
+    if (this.stage === 1) m.push({ x: hx(17.5), z: hz(29.5), color: '#7fd36a', pulse: true });
+    if (this.stage === 2) m.push({ x: hx(58), z: hz(56), color: '#ffd25e', pulse: true });
+    m.push({ x: hx(58), z: hz(57), color: '#ffd25e' });
+    m.push({ x: hx(74.5), z: hz(9.5), color: '#c9a8ff' });
+    if (f.q_camp === 1) m.push({ x: hx(96), z: hz(28), color: '#e8424f', pulse: true });
+    if (f.q_pier === 1) m.push({ x: hx(60), z: hz(92), color: '#7ad8ff', pulse: true });
+    if (f.q_mill === 1 && !f.windmill) m.push({ x: hx(47), z: hz(51), color: '#fff3cf', pulse: true });
+    if (this.g.inv.chimes.includes('verdant') && !f['chest:echo-chest']) m.push({ x: hx(32.5), z: hz(29.5), color: '#9ad8ff' });
+    if (this.g.inv.mats && (this.g.inv.mats.thornheart || this.g.inv.mats.echo || this.g.inv.mats.ember || this.g.inv.mats.sailcloth)) m.push({ x: hx(55.3), z: hz(64.8), color: '#c9a8ff', pulse: true });
     const g = this.g;
-    if (g.area && g.area.id === 'overworld') for (const e of g.entities) if (e.constructor.name === 'LootChest' && !e.opened && f['seenchest:' + e.id]) m.push({ x: e.x, z: e.z, color: ['#c89a5a', '#c0c0d0', '#ffd25e'][e.tier] });
+    // chests you've seen (from the map's own list, so far-away ones stay marked)
+    if (g.area && g.area.id === 'overworld') for (const d of g.area.defs) if (d.type === 'lootchest' && f['seenchest:' + d.id] && !f['chest:' + d.id]) m.push({ x: d.x, z: d.z, color: ['#c89a5a', '#c0c0d0', '#ffd25e'][d.tier] });
+    if (g.questMarkers) m.push(...g.questMarkers());
     return m;
   }
   labels() {
-    return [{ t: 'Thimblewick', x: 50, z: 76 }, { t: 'Whisperwood', x: 8, z: 50 }, { t: 'Rootwell Hollow', x: 6, z: 24 }, { t: 'Chime Gate', x: 66, z: 20 },
-      { t: 'Cinderpeak', x: 118, z: 20 }, { t: 'Sunscald Reach', x: 118, z: 90 }, { t: 'Lake Mirrow', x: 96, z: 86 }, { t: 'Hush Camp', x: 86, z: 40 }, { t: 'Saltwhistle Shore', x: 20, z: 100 }];
+    const g = this.g, a = g.area;
+    // Pass 6: region and landmark names appear once discovered (or marked by someone)
+    if (a && a.landmarks && g.world6) {
+      const D = g.world6.discovery, out = [];
+      for (const [id, R] of Object.entries(REGION_LABELS)) if (D.regions.includes(id)) out.push({ t: R.t, x: R.x, z: R.z, region: true });
+      for (const L of a.landmarks) if (!L.hidden || D.landmarks.includes(L.id)) if (D.landmarks.includes(L.id) || D.marked.includes(L.id)) out.push({ t: L.name, x: L.x, z: L.z + 3, marked: !D.landmarks.includes(L.id) });
+      return out;
+    }
+    return [{ t: 'Thimblewick', x: hx(50), z: hz(76) }, { t: 'Whisperwood', x: hx(8), z: hz(50) }, { t: 'Rootwell Hollow', x: hx(6), z: hz(24) }, { t: 'Chime Gate', x: hx(66), z: hz(20) },
+      { t: 'Cinderpeak', x: hx(118), z: hz(20) }, { t: 'Sunscald Reach', x: hx(118), z: hz(90) }, { t: 'Lake Mirrow', x: hx(96), z: hz(86) }, { t: 'Hush Camp', x: hx(86), z: hz(40) }, { t: 'Saltwhistle Shore', x: hx(20), z: hz(100) }];
   }
   hasNews(id) {
     const f = this.f;
@@ -55,13 +72,13 @@ export class Story {
     }
     return false;
   }
-  pierDone() { const b = this.g.entities.find(e => e.id === 'pier-block'); return this.f['sunk:pier-block'] || (b && Math.floor(b.x) !== 60) || (this.f['moved:pier-block'] && Math.floor(this.f['moved:pier-block'][0]) !== 60); }
+  pierDone() { const b = this.g.entities.find(e => e.id === 'pier-block'); return this.f['sunk:pier-block'] || (b && Math.floor(b.x) !== hx(60)) || (this.f['moved:pier-block'] && Math.floor(this.f['moved:pier-block'][0]) !== hx(60)); }
 
   // ------------------------------------------------ opening
   opening() {
     const g = this.g;
     g.cutscene = true;
-    g.camFocus = { x: 58, z: 57.5 };
+    g.camFocus = { x: hx(58), z: hz(57.5) };
     setTimeout(() => {
       g.ui.lines([
         ['Elder Tamsin', 'Moss! Oh, thank the roots you\'re awake. Come, quick — listen.'],
@@ -123,8 +140,8 @@ export class Story {
       learn(g, 'tollring'); gainMat(g, 'filament', 1, npc.x, npc.z); gainMat(g, 'echo', 1);
       g.gainXp(300); sfx('chime');
       const d = g.area.defs.find(d => d.type === 'tollrack'); if (d) g.spawnDef(d);
-      const o = g.entities.find(e => e.id === 'oswin'); if (o) { o.x = 54.5; o.z = 58.4; o.home = { x: o.x, z: o.z }; }
-      g.pr.addFlash(0.25, 0xffd25e); g.fx.ring(53.5, 56.5, 0.5, 5, 0xffd25e, 1.2, 0.2);
+      const o = g.entities.find(e => e.id === 'oswin'); if (o) { o.x = hx(54.5); o.z = hz(58.4); o.home = { x: o.x, z: o.z }; }
+      g.pr.addFlash(0.25, 0xffd25e); g.fx.ring(hx(53.5), hz(56.5), 0.5, 5, 0xffd25e, 1.2, 0.2);
       ui.toast('Side quest complete: The Silent Toll', 'Recipe: Tolling Edge · Resonant Filament · Hollow Echo · +300 XP. Thimblewick rings again.', 4);
       g.save();
     });
@@ -246,7 +263,7 @@ export class Story {
           gainMat(g, 'sailcloth', 1, npc.x, npc.z);
           learn(g, 'millwind');
           const d = g.area.defs.find(d => d.type === 'millyard'); if (d) g.spawnDef(d);
-          g.fx.ring(47, 51, 0.8, 3.2, 0xfff3cf, 1.4, 0.15); g.pr.addFlash(0.2, 0xfff3cf);
+          g.fx.ring(hx(47), hz(51), 0.8, 3.2, 0xfff3cf, 1.4, 0.15); g.pr.addFlash(0.2, 0xfff3cf);
           ui.toast('Side quest complete: The Still Mill', '+80 pips · +80 XP · Mill Sailcloth · recipe: Millwind Edge', 3.5);
           g.save();
         });
@@ -443,7 +460,7 @@ export class Story {
   ringBell() {
     const g = this.g, f = this.f;
     g.cutscene = true;
-    g.camFocus = { x: 58, z: 57.5 };
+    g.camFocus = { x: hx(58), z: hz(57.5) };
     g.ui.lines([
       ['Elder Tamsin', 'Moss… is that… the Verdant Voice? Quickly — set it in the bell!'],
     ], () => {

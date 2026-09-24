@@ -37,7 +37,7 @@ class Lob extends Entity {
       if (Math.hypot(p.x - this.x, p.z - this.z) < this.r + p.r) p.hurt({ dmg: this.dmg, x: this.x, z: this.z, src: this.src, kb: 6 });
       return this.remove();
     }
-    this.sync(); this.obj.position.y = this.y;
+    this.sync(); this.obj.position.y = this.y + (this.gy || 0);
   }
   remove() { unmark(this.mk); super.remove(); }
 }

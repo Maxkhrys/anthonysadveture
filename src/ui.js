@@ -216,6 +216,7 @@ export class UI {
       case T.LAVA: return '#ff7a2a'; case T.PROP: return '#a06a4a'; case T.STONE: return '#c8bca8'; case T.BRIDGE: case T.DOCK: return '#a87a48';
       case T.WALL: return '#2a2034'; case T.PILLAR: return '#4a3a58'; case T.PIT: return '#000'; case T.FILLED: return '#a0703e';
       case T.FLOOR: case T.MOSS: return '#8c7a6a'; case T.CAVE: return '#5e5566';
+      case T.MUD: return '#343a36'; case T.CLAY: return '#d0905e'; case T.FIELD: return '#8a6a3a'; case T.EMBER: return '#4a2a24'; case T.STAIRS: return '#d8ccb4';
     }
     return '#555';
   }
@@ -223,7 +224,14 @@ export class UI {
     const a = this.g.area;
     const c = document.createElement('canvas'); c.width = a.w; c.height = a.h;
     const x = c.getContext('2d');
-    for (let j = 0; j < a.h; j++) for (let i = 0; i < a.w; i++) { x.fillStyle = this.tileColor(a.tiles[j * a.w + i]); x.fillRect(i, j, 1, 1); }
+    // one pixel per tile, written straight into an ImageData (fast even for the big world)
+    const img = x.createImageData(a.w, a.h), px = img.data, cache = {};
+    for (let k = 0, n = a.w * a.h; k < n; k++) {
+      const t = a.tiles[k];
+      const rgb = cache[t] || (cache[t] = (() => { const h = parseInt(this.tileColor(t).slice(1), 16); return [h >> 16, (h >> 8) & 255, h & 255]; })());
+      px[k * 4] = rgb[0]; px[k * 4 + 1] = rgb[1]; px[k * 4 + 2] = rgb[2]; px[k * 4 + 3] = 255;
+    }
+    x.putImageData(img, 0, 0);
     this.miniCache = c; this.miniArea = a;
   }
   drawMini() {
@@ -267,16 +275,25 @@ export class UI {
     const H = (i, j, k = 0) => { let h = (i * 374761393 + j * 668265263 + k * 982451653) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967295; };
     const PAL = { land: '#e8d6a8', land2: '#dcc592', forest: '#9fb07a', forest2: '#8a9c68', sand: '#f0dca6', ash: '#a8908a', water: '#8fb8c8', deep: '#6e9ab4', cliff: '#b8a07a', rock: '#8a7a78', path: '#c89a62', stone: '#d8cbb0', lava: '#e07a4a' };
     const T_ = a.tiles, tl = (i, j) => (i < 0 || j < 0 || i >= a.w || j >= a.h) ? T.CLIFF : T_[j * a.w + i];
+    // base colours straight into pixels (the Pass 6 world is 83k tiles)
+    const base = x.createImageData(c.width, c.height), bp = base.data, rgb = {};
+    const RGB = hex => rgb[hex] || (rgb[hex] = [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)]);
+    Object.assign(PAL, { mud: '#7a8878', clay: '#e0b48a', field: '#c8aa6a', ember: '#8a6a60', high: '#e4e2cc', fen: '#8a9c88' });
     for (let j = 0; j < a.h; j++) for (let i = 0; i < a.w; i++) {
       const t = tl(i, j), n = H(i, j);
       let col = PAL.land;
+      const bio = a.biome ? a.biome[j * a.w + i] : -1;
       if (t === T.FOREST || t === T.TREE) col = n < 0.5 ? PAL.forest : PAL.forest2;
       else if (t === T.SAND || t === T.SANDSTONE) col = PAL.sand; else if (t === T.ASH) col = PAL.ash;
       else if (t === T.WATER || t === T.SHALLOW) col = PAL.water; else if (t === T.DEEP) col = PAL.deep;
-      else if (t === T.CLIFF) col = PAL.cliff; else if (t === T.ROCK) col = PAL.rock; else if (t === T.PATH || t === T.BRIDGE || t === T.DOCK) col = PAL.path;
-      else if (t === T.STONE) col = PAL.stone; else if (t === T.LAVA) col = PAL.lava; else if (n < 0.3) col = PAL.land2;
-      x.fillStyle = col; x.fillRect(i * S, j * S, S, S);
+      else if (t === T.CLIFF) col = PAL.cliff; else if (t === T.ROCK) col = PAL.rock; else if (t === T.PATH || t === T.BRIDGE || t === T.DOCK || t === T.STAIRS) col = PAL.path;
+      else if (t === T.STONE) col = PAL.stone; else if (t === T.LAVA) col = PAL.lava;
+      else if (t === T.MUD) col = PAL.mud; else if (t === T.CLAY) col = PAL.clay; else if (t === T.FIELD) col = PAL.field; else if (t === T.EMBER) col = PAL.ember;
+      else if (bio === 8) col = PAL.high; else if (bio === 7) col = PAL.fen; else if (n < 0.3) col = PAL.land2;
+      const [r, g2, b] = RGB(col);
+      for (let yy = 0; yy < S; yy++) for (let xx = 0; xx < S; xx++) { const o = ((j * S + yy) * c.width + i * S + xx) * 4; bp[o] = r; bp[o + 1] = g2; bp[o + 2] = b; bp[o + 3] = 255; }
     }
+    x.putImageData(base, 0, 0);
     // ink details
     for (let j = 0; j < a.h; j++) for (let i = 0; i < a.w; i++) {
       const t = tl(i, j), n = H(i, j, 1), X = i * S, Y = j * S;
@@ -286,7 +303,7 @@ export class UI {
       if ((t === T.WATER || t === T.DEEP) && tl(i, j - 1) !== T.WATER && tl(i, j - 1) !== T.DEEP) { x.fillStyle = '#5a7a8a'; x.fillRect(X, Y, S, 1); }
       if (t === T.PATH && n < 0.35) { x.fillStyle = '#9a6a3a'; x.fillRect(X + 1, Y + 1, 1, 1); }
     }
-    for (const d of a.defs) if (d.type === 'deco' && ['house', 'shop', 'windmill', 'belltower', 'tent', 'hollowtree', 'chimegate', 'shrine'].includes(d.model)) {
+    for (const d of a.defs) if (d.type === 'deco' && ['house', 'shop', 'windmill', 'belltower', 'tent', 'hollowtree', 'chimegate', 'shrine', 'stilthouse', 'forgehut', 'farmhouse', 'bigforge', 'glasshouse'].includes(d.model)) {
       const X = (d.x - d.w / 2) * S, Y = (d.z - d.d / 2) * S, W = d.w * S, D = d.d * S;
       x.fillStyle = d.model === 'hollowtree' ? '#5a7a44' : d.model === 'tent' ? '#6a4a6a' : '#b05a42';
       x.fillRect(X + 1, Y + 1, W - 2, D - 2); x.fillStyle = '#3a2a2a'; x.fillRect(X + 1, Y + D - 2, W - 2, 1);
@@ -306,6 +323,25 @@ export class UI {
     x.font = 'bold 13px Pixelify Sans, monospace'; x.fillStyle = '#5a3a1a'; x.fillText('N', cx - 4, cy - 28);
     this.illus = c; this.illusArea = a;
   }
+  // one soft parchment patch over every undiscovered 8x8-tile cell
+  fogCanvas() {
+    const g = this.g, a = g.area, D = g.world6.discovery;
+    if (this.fogKey === D.fog && this.fogC) return this.fogC;
+    this.fogKey = D.fog;
+    const S = 4, c = this.fogC || (this.fogC = document.createElement('canvas'));
+    c.width = a.w * S; c.height = a.h * S;
+    const x = c.getContext('2d'); x.clearRect(0, 0, c.width, c.height);
+    const cols = Math.ceil(a.w / 8), rows = Math.ceil(a.h / 8);
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+      const k = j * cols + i, nib = parseInt(D.fog[k >> 2] || '0', 16);
+      if (nib & (1 << (k & 3))) continue;
+      x.fillStyle = (i + j) % 2 ? '#c8b48ae8' : '#c4ae84e8'; x.fillRect(i * 8 * S - 2, j * 8 * S - 2, 8 * S + 4, 8 * S + 4);
+    }
+    x.globalCompositeOperation = 'source-atop'; x.fillStyle = '#8a6a3a30';
+    for (let k = 0; k < c.width + c.height; k += 12) { x.fillRect(k, 0, 2, c.height); }
+    x.globalCompositeOperation = 'source-over';
+    return c;
+  }
   drawBigMap() {
     const g = this.g, a = g.area;
     const cv = $('bigmap'), x = cv.getContext('2d');
@@ -316,6 +352,8 @@ export class UI {
     if (this.illusArea !== a) this.buildIllustrated();
     const sc = Math.min(cv.width / a.w, cv.height / a.h);
     x.drawImage(this.illus, 0, 0, a.w * sc, a.h * sc);
+    // Pass 6: land you haven't seen stays under the fog (the map remembers what you walked)
+    if (g.world6 && a.id === 'overworld' && !g.flags.devRevealMap) { const fog = this.fogCanvas(); if (fog) x.drawImage(fog, 0, 0, a.w * sc, a.h * sc); }
     // markers: friendly pins, the current objective pulses
     const t = performance.now() / 1000;
     for (const m of this.g.story.markers()) {

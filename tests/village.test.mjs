@@ -1,5 +1,5 @@
 // Villagers, the mill -> recipe -> village chain, and the Echo (combat and puzzle use).
-import { sim, fresh, walkTo, pressE } from './lib.mjs';
+import { sim, fresh, walkTo, pressE, HX, HZ } from './lib.mjs';
 
 const dialog = page => page.evaluate(() => { const d = document.getElementById('dialog'); return d.classList.contains('hidden') ? null : { who: d.querySelector('.who').textContent, text: d.querySelector('.text').textContent, choices: [...d.querySelectorAll('.choices span')].map(s => s.textContent) }; });
 // advance text until a choice menu (or nothing) is showing
@@ -70,7 +70,7 @@ export default async function (page, R) {
   await finish(page);
   R.ok(await page.evaluate(() => window.__game.flags.q_mill === 1), 'Oswin gives the Still Mill quest through a topic');
   R.ok(await page.evaluate(() => !window.__game.entities.some(e => e.constructor.name === 'MillYard')), 'no mill yard before the mill is fixed');
-  await page.evaluate(() => { const g = window.__game, p = g.player; g.inv.bellows = true; p.x = 47.5; p.z = 53.6; p.facing = Math.PI; g.snapCamera(); });
+  await page.evaluate(() => { const g = window.__game, p = g.player; g.inv.bellows = true; p.x = 47.5 + 90; p.z = 53.6 + 70; p.facing = Math.PI; g.snapCamera(); });
   await sim(page, 1); await sim(page, 26, ['KeyL']); await sim(page, 12);
   R.ok(await page.evaluate(() => !!window.__game.flags.windmill), 'a charged gale restarts the windmill');
   await talkTo(page, 'oswin');
@@ -101,11 +101,11 @@ export default async function (page, R) {
 
   // ---------------------------------------------------------------- the Echo: puzzle use
   const race = async () => {
-    await page.evaluate(() => { const g = window.__game, p = g.player; p.x = 29.5; p.z = 29.8; p.facing = Math.PI; p.setState('move'); g.snapCamera(); g.setSignal('echo.a', false, false); g.setSignal('echo.b', false, false); });
+    await page.evaluate(() => { const g = window.__game, p = g.player; p.x = 29.5 + 90; p.z = 29.8 + 70; p.facing = Math.PI; p.setState('move'); g.snapCamera(); g.setSignal('echo.a', false, false); g.setSignal('echo.b', false, false); });
     await sim(page, 2);
     await sim(page, 1, ['KeyL']); await sim(page, 1);
     const t0 = await page.evaluate(() => window.__game.time);
-    await walkTo(page, 31.5, 33.3, 200, 0.3); await walkTo(page, 33.4, 33.3, 200, 0.3); await walkTo(page, 35.5, 29.8, 200, 0.25);
+    await walkTo(page, 31.5 + HX, 33.3 + HZ, 200, 0.3); await walkTo(page, 33.4 + HX, 33.3 + HZ, 200, 0.3); await walkTo(page, 35.5 + HX, 29.8 + HZ, 200, 0.25);
     await page.evaluate(() => { window.__game.player.facing = Math.PI; });
     await sim(page, 1, ['KeyL']); await sim(page, 3);
     const t1 = await page.evaluate(() => window.__game.time);
@@ -119,7 +119,7 @@ export default async function (page, R) {
   await page.evaluate(() => { window.__game.inv.chimes = ['verdant']; });
   const withEcho = await race();
   R.ok(withEcho.open, 'with the Verdant Chime\'s echo, the Echo Door opens', JSON.stringify(withEcho));
-  await walkTo(page, 36.5, 25.4, 200, 0.2);
+  await walkTo(page, 36.5 + HX, 25.4 + HZ, 200, 0.2);
   await page.evaluate(() => { window.__game.player.facing = Math.PI; });
   await pressE(page, 1); await page.waitForTimeout(900);
   for (let i = 0; i < 6; i++) { await pressE(page, 1); await page.waitForTimeout(200); }
@@ -128,7 +128,7 @@ export default async function (page, R) {
 
   // ---------------------------------------------------------------- the Echo: combat use
   const combat = await page.evaluate(() => {
-    const g = window.__game, p = g.player; p.x = 30; p.z = 31; p.facing = Math.PI / 2; p.setState('move');
+    const g = window.__game, p = g.player; p.x = 30 + 90; p.z = 31 + 70; p.facing = Math.PI / 2; p.setState('move');
     const e = g.spawnEnemy('beetle', p.x + 1.5, p.z, { noRoom: true }); e.spawnT = 0; e.hp = e.maxHp = 1e5; e.think = () => [0, 0];
     let gusts = 0; const og = e.onGust.bind(e); e.onGust = (d, pw) => { gusts++; return og(d, pw); };
     g.noRender = true; window.__sim(1, ['KeyL']); window.__sim(1);

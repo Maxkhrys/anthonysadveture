@@ -10,7 +10,7 @@ export default async function (page, R) {
     g.godMode = true;
     for (const kind of ['mantis', 'slug', 'moth', 'porcelain', 'leech']) {
       for (const e of g.entities) if (e.isEnemy) e.remove();
-      p.x = 58.5; p.z = 64.5; p.setState('move'); g.snapCamera();
+      p.x = 58.5 + 90; p.z = 64.5 + 70; p.setState('move'); g.snapCamera();
       const e = g.spawnEnemy(kind, p.x + 2.5, p.z, { noRoom: true, eliteChance: 0 }); e.spawnT = 0; e.obj.scale.setScalar(1);
       const states = new Set();
       g.noRender = true;
@@ -155,7 +155,7 @@ export async function conservatory(page, R) {
   const toad = await page.evaluate(async () => {
     const g = window.__game, t = g.fenToad;
     if (!t) return { present: false };
-    const out = { present: true, sleeping: t.state === 'sleep', wade: g.tileAt(22, 86) === 24 };
+    const out = { present: true, sleeping: t.state === 'sleep', wade: g.tileAt(22 + 90, 86 + 70) === 24 };
     for (const b of g.entities.filter(e => e.constructor.name === 'HangingBell' && e.group === 'fen')) { b.cool = 0; b.ring(); }
     g.wtT = 0; g.worldTick(0.1);
     await new Promise(r => setTimeout(r, 3600));

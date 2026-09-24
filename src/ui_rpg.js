@@ -53,7 +53,7 @@ export function installRpgUI(UI) {
     el.className = 'flt' + (big ? ' crit' : '') + (small ? ' small' : '');
     el.textContent = text; el.style.color = color;
     $('floaters').appendChild(el);
-    (this.floats || (this.floats = [])).push({ el, x: x + (Math.random() - 0.5) * 0.3, y, z, t: 0, vy: big ? 1.6 : 1.2 });
+    (this.floats || (this.floats = [])).push({ el, x: x + (Math.random() - 0.5) * 0.3, y: y + (this.g.groundAt ? this.g.groundAt(x, z) : 0), z, t: 0, vy: big ? 1.6 : 1.2 });
     if (this.floats.length > 60) { const f = this.floats.shift(); f.el.remove(); }
   };
   P.updateFloats = function (dt) {
@@ -84,7 +84,7 @@ export function installRpgUI(UI) {
         b.innerHTML = `<i></i>${e.elite ? `<label>${e.displayName}</label>` : ''}<small>${e.level || ''}</small>`;
         host.appendChild(b); this.bars.set(e, b);
       }
-      const s = this.g.pr.project(_v.set(e.x, (e.alt || 0) + 0.95 * (e.eliteScale || 1) + (e.kind === 'knight' ? 0.5 : 0), e.z));
+      const s = this.g.pr.project(_v.set(e.x, (e.gy || 0) + (e.alt || 0) + 0.95 * (e.eliteScale || 1) + (e.kind === 'knight' ? 0.5 : 0), e.z));
       b.style.left = s.x + 'px'; b.style.top = s.y + 'px';
       b.firstChild.style.width = Math.max(0, e.hp / e.maxHp * 100) + '%';
     }

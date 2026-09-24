@@ -57,7 +57,7 @@ export class Pickup extends Entity {
     this.spin.rotation.y += dt * 4;
     if (d < 0.45 && this.t > 0.25 && p.state !== 'dead') this.collect();
     this.sync();
-    this.obj.position.y = this.y + Math.sin(this.t * 4) * 0.03;
+    this.obj.position.y = this.y + (this.gy || 0) + Math.sin(this.t * 4) * 0.03;
   }
   collect() {
     const g = this.g;
