@@ -19,16 +19,18 @@ export class Input {
     this.aimSrc = 'keys'; this.mouseX = innerWidth / 2; this.mouseY = innerHeight / 2; this.onCanvas = false;
     this.padAim = null; // {x,z} unit vector from the right stick
     this.aimPref = 'auto';
+    this.paused = false;
     addEventListener('keydown', e => {
+      if (this.paused) return;
       if (['Tab', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
       this.keys.add(e.code); this.taps.add(e.code); this.usingPad = false;
       // attacking from the keyboard (J) is an intentional switch to keyboard aiming
       if (e.code === 'KeyJ' && this.aimPref !== 'mouse') this.aimSrc = 'keys';
     });
-    addEventListener('keyup', e => this.keys.delete(e.code));
+    addEventListener('keyup', e => { if (!this.paused) this.keys.delete(e.code); });
     addEventListener('blur', () => { this.keys.clear(); this.mouse.clear(); });
     const cv = document.getElementById('game');
-    cv.addEventListener('mousedown', e => { this.mouse.add(e.button); this.mtaps.add(e.button); this.mouseAt(e); if (this.aimPref !== 'keys') this.aimSrc = 'mouse'; e.preventDefault(); });
+    cv.addEventListener('mousedown', e => { if (this.paused) return; this.mouse.add(e.button); this.mtaps.add(e.button); this.mouseAt(e); if (this.aimPref !== 'keys') this.aimSrc = 'mouse'; e.preventDefault(); });
     addEventListener('mousemove', e => {
       const moved = Math.hypot(e.clientX - this.mouseX, e.clientY - this.mouseY);
       this.mouseAt(e);
@@ -42,6 +44,11 @@ export class Input {
   mouseAt(e) { this.mouseX = e.clientX; this.mouseY = e.clientY; this.onCanvas = true; }
   get mouseAim() { return this.aimSrc === 'mouse' && this.aimPref !== 'keys'; }
   update() {
+    if (this.paused) {
+      this.keys.clear(); this.taps.clear(); this.mouse.clear(); this.mtaps.clear();
+      this.prev = this.state || {}; this.state = {}; this.mx = 0; this.mz = 0;
+      return;
+    }
     this.prev = this.state;
     const s = {};
     for (const k in KEYMAP) s[k] = KEYMAP[k].some(c => this.keys.has(c) || this.taps.has(c));
