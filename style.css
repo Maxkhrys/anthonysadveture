@@ -237,3 +237,28 @@ body.aiming #game{cursor:none}
 #cr-go.confirm{background:#7a3a2a}
 #craft-mats{margin-top:10px;font-size:14px;color:var(--paper2)}
 #craft{background:#0d0a1488}
+
+/* Developer Command Console (Development Tooling) */
+.dev-console{position:fixed;top:10px;left:50%;transform:translateX(-50%);width:min(860px,94vw);max-height:450px;background:#0d0a16f2;border:2px solid #ffd25e;box-shadow:0 8px 32px #000000cc;z-index:99999;display:flex;flex-direction:column;padding:10px 14px;color:#f0e8d0;font-family:monospace;pointer-events:auto}
+.dev-console.hidden{display:none}
+.dev-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ffffff22;padding-bottom:6px;margin-bottom:8px;font-size:12px}
+.dev-tag{color:#ffd25e;font-weight:bold;letter-spacing:1px}
+.dev-hint{color:#8a8098;font-size:11px}
+.dev-log{flex:1;max-height:240px;overflow-y:auto;margin-bottom:8px;font-size:13px;line-height:1.4;white-space:pre-wrap;word-break:break-word;padding-right:4px}
+.dev-msg{margin:2px 0}
+.dev-info{color:#e0d8c8}
+.dev-gold{color:#ffd25e;font-weight:bold}
+.dev-green{color:#6fdc5a}
+.dev-yellow{color:#ffcf5a}
+.dev-red,.dev-error{color:#ff5a6a;font-weight:bold}
+.dev-cyan{color:#8be9fd}
+.dev-dim{color:#7a7288}
+.dev-autocomplete{font-size:12px;color:#8be9fd;margin-bottom:6px;display:flex;flex-wrap:wrap;gap:6px}
+.dev-match{background:#2a2038;border:1px solid #4a3a60;padding:2px 6px;cursor:pointer}
+.dev-match:hover{border-color:#ffd25e;color:#fff}
+.dev-input-row{display:flex;align-items:center;gap:8px}
+.dev-prompt{color:#ffd25e;font-size:18px;font-weight:bold}
+.dev-input{flex:1;background:#181224;border:1px solid #5a4870;color:#fff;padding:6px 10px;font-family:monospace;font-size:14px;outline:none}
+.dev-input:focus{border-color:#ffd25e;box-shadow:0 0 4px #ffd25e66}
+.dev-send{background:#2c2040;border:1px solid #d9b36a;color:#ffd25e;font-family:var(--font);font-size:14px;padding:4px 14px;cursor:pointer}
+.dev-send:hover{background:#3e2e5a}
