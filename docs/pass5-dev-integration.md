@@ -1,11 +1,25 @@
 # Pass 5 — developer-room integration guide
 
-At the time of delivery no newer Gemini dev-room branch existed on the remote (checked
-`git fetch --prune` before every milestone commit; the only dev tooling is the one merged into
-`integration/mossling-pass4-review` at `a8efca8`). Pass 5 therefore **does not modify**
-`src/dev/commands.js`, `src/dev/console.js` or `src/world/devroom.js`. Everything new is
-discoverable through data registries, and a set of Pass 5 commands plugs into the existing
-console tables from a separate file.
+**Status: merged.** Gemini's Dev Tools Pass 2 (`origin/feature/dev-tools-pass2`, `5d672a9`) appeared
+before delivery and was merged INTO this branch with a normal merge commit (no rebase, no force).
+Gemini's rewritten `src/dev/commands.js`, `src/dev/console.js`, `src/dev/tools.js` and
+`src/world/devroom.js` (20 labs, ProfileLab, StressManager, category UI) were kept as-is; the
+only conflict was `style.css`, resolved by keeping both style blocks.
+
+Small, additive hooks into Gemini's facility:
+
+- `src/dev/tools.js` → `discoverSystems()` now reads `REGISTRY` from `src/rpg/registry.js`:
+  `eliteModifiers` includes Resonant and Oathbound, and a new `discoveredSystems.pass5` section
+  lists skills, tree sizes, paths, named weapons, accessories, sets, reactions, enemies, bosses,
+  areas and affix tiers. Enemy kinds, weapons, armours, legendaries, recipes and materials were
+  already discovered live from the extended tables.
+- `src/dev/commands.js` → `/tp conservatory|canopy|fen` added to the landmark table.
+- `src/dev/pass5.js` commands carry Gemini's `category` field, so they appear under the
+  category index (CHARACTER / LOOT / COMBAT / CRAFTING / WORLD / VISUAL).
+- `src/world/devroom.js` → the enemy lab gets a row of spawn totems (z = 47) built from `PASS5_ENEMIES`; `/spawn <kind>` also works for them.
+
+Pass 5's own `/sandbox` save guard sits alongside Gemini's devroom isolation; they don't
+interact (the devroom never writes progression; `/sandbox on` additionally makes `save()` a no-op).
 
 ## Registries (single source of truth)
 

@@ -173,8 +173,10 @@ phone or gamepad has been tested.
 ## Tests
 ```
 npm run test:persistence   # 14 pass
-npm run test:dev           # 15 pass (loot test updated: new affixes are live, Astral Step never rolls)
+npm run test:dev           # 23 pass (15 console + 8 from Gemini's Dev Tools Pass 2; loot test updated: new affixes are live, Astral Step never rolls)
 node tests/run.mjs aim balance content crafting devp5 integration loop persistence skills village
+# aim 29 · balance 19 · content 22 · crafting 26 · devp5 7 · integration 9 · loop 18
+# persistence 13 · skills 20 · village 21  → 184 checks, 0 failed (after merging Gemini's branch)
 ```
 New suites:
 - `skills`: every one of the 24 abilities casts through the hotbar; tree rules; respec;
@@ -182,6 +184,7 @@ New suites:
 - `content`: creatures, elites, materials, all Conservatory puzzles, both bosses.
 - `loop`: death drop, fast travel, rest respawn, the village story, the tutorial mini-boss,
   settings, and migration of a real old save.
-- `devp5`: the new dev commands and sandbox isolation.
+- `devp5`: the new dev commands and sandbox isolation, plus Gemini's facility: Pass 5 spawn
+  totems in the devroom and Pass 5 content in `discoverSystems()`.
 
 These scripted checks prove the systems run. They say nothing about how combat feels.

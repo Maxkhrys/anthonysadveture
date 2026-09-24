@@ -19,20 +19,20 @@ const guard = (game, args, log) => {
 const give = (game, it, log) => { it.provenance = { source: game.devSandbox ? 'dev-sandbox' : 'dev' }; game.inv.bag.push(it); game.recalc(); log(`+ ${it.name}`, 'green'); };
 
 const DEFS = {
-  sandbox: { name: 'sandbox', desc: 'Dev sandbox: while on, the game never saves, so spawned loot and progress stay out of your profile. Off reloads your saved character.', usage: '/sandbox <on|off>' },
-  skill: { name: 'skill', desc: 'Skill tree: list nodes, unlock one, unlock all, grant points or reset.', usage: '/skill <list|all|reset|points N|node_id>' },
-  loadout: { name: 'loadout', desc: 'Put an unlocked active ability in hotbar slot 1-6.', usage: '/loadout <slot> <skill_id>' },
-  named: { name: 'named', desc: 'Give a named weapon, accessory or set piece (list shows all).', usage: '/named <list|id> [keep]' },
-  set: { name: 'set', desc: 'Equip a full armour set.', usage: '/set <bellwarden|thornstalker|cinderwoven> [keep]' },
-  affix: { name: 'affix', desc: 'Roll a natural item with its first affix forced to a stat-roll tier.', usage: '/affix <common..prismatic> [slot] [keep]' },
-  reinforce: { name: 'reinforce', desc: 'Set the equipped weapon reinforcement level (0-20).', usage: '/reinforce <n> [keep]' },
-  mat: { name: 'mat', desc: 'Give crafting materials (Pass 5 ones included).', usage: '/mat <id|all> [n] [keep]' },
-  elite: { name: 'elite', desc: 'Spawn an elite with a chosen modifier (Resonant, Oathbound…).', usage: '/elite <modifier> [kind]' },
-  fight: { name: 'fight', desc: 'Go to a Pass 5 boss and wake it (seamkeeper | toad).', usage: '/fight <seamkeeper|toad>' },
-  react: { name: 'react', desc: 'Stage an element combination on dummies (conduct | shatter | firestorm).', usage: '/react <conduct|shatter|firestorm>' },
-  registry: { name: 'registry', desc: 'Print what the Pass 5 registry contains (discoverable content).', usage: '/registry [section]' },
-  capture: { name: 'capture', desc: 'Capture helpers: freeze, slow motion, a fixed camera, hide the HUD, performance numbers.', usage: '/capture <freeze|slow 0.25|normal|cam x z [zoom]|free|hud|perf>' },
-  deathdrop: { name: 'deathdrop', desc: 'Test the death drop: drop half your pips here as if you had fallen.', usage: '/deathdrop' },
+  sandbox: { name: 'sandbox', category: 'CHARACTER', desc: 'Dev sandbox: while on, the game never saves, so spawned loot and progress stay out of your profile. Off reloads your saved character.', usage: '/sandbox <on|off>' },
+  skill: { name: 'skill', category: 'CHARACTER', desc: 'Skill tree: list nodes, unlock one, unlock all, grant points or reset.', usage: '/skill <list|all|reset|points N|node_id>' },
+  loadout: { name: 'loadout', category: 'CHARACTER', desc: 'Put an unlocked active ability in hotbar slot 1-6.', usage: '/loadout <slot> <skill_id>' },
+  named: { name: 'named', category: 'LOOT', desc: 'Give a named weapon, accessory or set piece (list shows all).', usage: '/named <list|id> [keep]' },
+  set: { name: 'set', category: 'LOOT', desc: 'Equip a full armour set.', usage: '/set <bellwarden|thornstalker|cinderwoven> [keep]' },
+  affix: { name: 'affix', category: 'LOOT', desc: 'Roll a natural item with its first affix forced to a stat-roll tier.', usage: '/affix <common..prismatic> [slot] [keep]' },
+  reinforce: { name: 'reinforce', category: 'CRAFTING', desc: 'Set the equipped weapon reinforcement level (0-20).', usage: '/reinforce <n> [keep]' },
+  mat: { name: 'mat', category: 'CRAFTING', desc: 'Give crafting materials (Pass 5 ones included).', usage: '/mat <id|all> [n] [keep]' },
+  elite: { name: 'elite', category: 'COMBAT', desc: 'Spawn an elite with a chosen modifier (Resonant, Oathbound…).', usage: '/elite <modifier> [kind]' },
+  fight: { name: 'fight', category: 'COMBAT', desc: 'Go to a Pass 5 boss and wake it (seamkeeper | toad).', usage: '/fight <seamkeeper|toad>' },
+  react: { name: 'react', category: 'COMBAT', desc: 'Stage an element combination on dummies (conduct | shatter | firestorm).', usage: '/react <conduct|shatter|firestorm>' },
+  registry: { name: 'registry', category: 'WORLD', desc: 'Print what the Pass 5 registry contains (discoverable content).', usage: '/registry [section]' },
+  capture: { name: 'capture', category: 'VISUAL', desc: 'Capture helpers: freeze, slow motion, a fixed camera, hide the HUD, performance numbers.', usage: '/capture <freeze|slow 0.25|normal|cam x z [zoom]|free|hud|perf>' },
+  deathdrop: { name: 'deathdrop', category: 'WORLD', desc: 'Test the death drop: drop half your pips here as if you had fallen.', usage: '/deathdrop' },
 };
 const HANDLERS = {
   sandbox(game, args, log) {

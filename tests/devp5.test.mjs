@@ -27,4 +27,17 @@ export default async function (page, R) {
   R.ok(r.spoon && r.set && r.prism && r.tree && r.elite && r.reinforced, 'sandbox: named weapons, sets, forced Prismatic rolls, the whole tree, elites and reinforcement are one command away', JSON.stringify(r));
   R.ok(r.untouched, 'nothing spawned in the sandbox reaches the saved profile');
   R.ok(r.help, 'Pass 5 commands are registered in the existing console tables');
+
+  // Gemini's Dev Tools Pass 2 facility sees Pass 5 content
+  const f = await page.evaluate(async () => {
+    const g = window.__game, D = window.__dev;
+    D.execute('/devroom');
+    for (let i = 0; i < 100 && (g.transitioning || g.area.id !== 'devroom'); i++) await new Promise(r => setTimeout(r, 100));
+    const totems = g.entities.filter(e => e.constructor.name === 'DevSpawnerTotem').map(e => e.enemyKind);
+    const tools = await import('/src/dev/tools.js');
+    const d = tools.discoverSystems().discoveredSystems;
+    return { area: g.area.id, totems, elites: d.eliteModifiers, p5: !!d.pass5 && d.pass5.skills.length, cats: ['skill', 'named', 'fight'].map(k => window.__devDefs[k].category) };
+  });
+  R.ok(f.area === 'devroom' && ['mantis', 'slug', 'moth', 'porcelain', 'leech'].every(k => f.totems.includes(k)), 'the dev facility has spawn totems for every Pass 5 creature', JSON.stringify(f.totems));
+  R.ok(f.elites.includes('Resonant') && f.elites.includes('Oathbound') && f.p5 === 24 && f.cats.every(Boolean), 'discoverSystems lists Pass 5 content and Pass 5 commands sit in console categories', JSON.stringify(f));
 }
