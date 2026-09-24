@@ -29,19 +29,67 @@ from the pause menu. **Continue** on the title screen resumes from your last che
 | Action | Keyboard / mouse | Gamepad |
 |---|---|---|
 | Move | WASD / arrow keys | Left stick / D-pad |
-| Sword: tap for a 3-hit combo, **hold then release** for a spin attack | J / left click | X |
-| Shield: hold to block; raise it *just* before a hit to **parry** | K / right click | LB / LT |
+| Basic attack (tap); charged attack (hold, then release) | J / left click | X |
+| Abilities | 1, 2, 3 | |
+| Guard: hold to block; tap *just* before a hit to **parry** | K / right click | LB / LT |
 | Roll (invulnerable) | Space / Shift | A |
 | Gustbellows: tap for a puff, **hold** for a gale | L | Y |
 | Talk / read / open / advance text | E / Enter | B |
+| Bag, equipment and skills | I | |
+| Salvage the selected item (in the bag) | X | |
 | Bell Surge, once the bar is full | R | RB / RT |
 | Drink a Red Tonic | Q | Back |
-| Map, journal, gear, controls | Esc / Tab | Start |
+| Map, journal, gear, controls, settings | Esc / Tab | Start |
 | Music on/off | M | |
 
-Walk into a stone block and keep walking to push it.
+## Pass 2: RPG loot overhaul
 
-## What's in this build
+- **Three classes**, chosen when you start a new game. Each has its own basic attack, charged attack and resource,
+  three abilities (unlocked at levels 1, 3 and 6, each with five ranks), and its own outfit.
+  - **Samurai** (Ki): katana combo, spin slash, Iaido Dash, Blade Tempest, Oni Cleave.
+  - **Archer** (Focus): arrows, piercing power shot, Multishot, Snare Trap, Rain of Arrows.
+  - **Witch** (Mana): homing bolts, fireball, Frost Nova, Chain Lightning, Hex Familiar.
+- **Experience and levels** up to 30. Each level raises your stats, refills your health and gives a skill point.
+- **Loot:**
+  - 28 weapon bases: 10 katanas, 9 bows, 9 staves and wands.
+  - 16 armour and charm bases.
+  - 17 random bonus stats (affixes), including damage, crit, attack speed, life steal, cooldowns, magic find, and
+    chances to burn, chill or shock.
+  - 5 rarities, from Common to Legendary, with light beams on the ground for rarer drops.
+  - 15 hand-made Legendaries with unique powers, such as Rootcleaver, Windwhisper, Hexbloom, Starfall and The
+    First Chime.
+  - The weapon you equip is shown on your character.
+- **Inventory:** a 30-slot bag, four equipment slots, a stats sheet, tooltips that compare against what you're
+  wearing, upgrade arrows, and salvage.
+- **Chests:** 34 tiered chests (wooden, iron, gilded) placed across the world, marked on the map.
+- **Monsters:**
+  - Every enemy has a level set by its zone.
+  - Elites (Swift, Brutal, Vampiric, Armoured, Volatile) glow with an aura and always drop gear.
+  - Status effects: burn, chill, freeze, root, mark.
+  - Floating damage numbers and enemy health bars.
+- **Eight new monster types:**
+  - Sand Scorpions burrow and erupt beneath you.
+  - Ember Imps lob fire and blink away.
+  - Mirewraiths fade out and strike from behind.
+  - Hushbound Brigands carry a shield wall and lunge with spears.
+  - Sporelings burst into a lingering cloud.
+  - Barkhulk treants stomp and sweep.
+  - Stone Sentinels throw boulders.
+  - The **Pip Thief**, a treasure goblin, runs away with a sack of loot.
+- **Replayable content:**
+  - The **Hush Rift**: an endless, procedurally generated dungeon entered from the Rift Stone in Thimblewick. It has
+    sealed battle rooms, a Champion on every floor, and rewards that grow with depth.
+  - A repeatable **Bounty Board**.
+  - Overworld monsters respawn once you're far away.
+  - A rotating gear stock in the shop.
+- **Presentation:**
+  - A loading screen with tips, and a title menu with Continue, New, Settings and How to Play.
+  - A class select screen.
+  - A **tutorial guide** checklist that reacts to what you do.
+  - A settings screen: difficulty, volumes, screen shake, damage numbers, guide, pixel size and shadow quality.
+  - Bloom glow, a day and night cycle, rain, fireflies, and particle auras on Epic and Legendary weapons.
+
+## Chapter I (story)
 
 **Chapter I: The Verdant Voice.** It is complete and can be played from start to finish.
 
@@ -129,7 +177,7 @@ If you mess up a puzzle room, step out and back in and it resets. A sign in the 
 - The final dungeon behind the Chime Gate, and the story's resolution: why the Voices left, and what the Last Toll
   is.
 - There are no house interiors. You talk to villagers outdoors, and the shop is a market stall.
-- No difficulty options or key remapping.
+- Key remapping and multiple save slots.
 
 ## Technical notes
 

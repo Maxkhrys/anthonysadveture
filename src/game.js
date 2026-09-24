@@ -115,6 +115,38 @@ export class Game {
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; e.obj.add(ring); e.aura = ring;
     e.displayName = e.elite + ' ' + ({ blot: 'Blotling', beetle: 'Thornback', puffer: 'Puffer', wisp: 'Hushwisp', knight: 'Hush Knight', seedling: 'Seedling', ...MONSTER_NAMES }[e.kind] || 'Hushling');
   }
+  // day/night + weather for the overworld
+  atmosphere(dt) {
+    const a = this.area;
+    if (!a || a.id !== 'overworld') return;
+    const u = this.pr.postMat.uniforms;
+    const day = ((this.time + (this.flags.dayOffset || 0)) / 420 + 0.32) % 1;
+    this.dayT = day;
+    const L = Math.max(0, Math.min(1, Math.sin((day - 0.2) * Math.PI * 2) * 1.4 + 0.45)); // 0 night .. 1 day
+    const warm = Math.max(0, 1 - Math.abs(L - 0.45) * 3); // dawn/dusk glow
+    this.weatherT = (this.weatherT ?? 120) - dt;
+    if (this.weatherT <= 0) { this.raining = !this.raining && Math.random() < 0.55; this.weatherT = this.raining ? 50 + Math.random() * 60 : 120 + Math.random() * 180; if (this.raining && !this.cutscene) this.ui.toast('Rain rolls in over Lanternreach…', '', 1.6); }
+    this.rainK = (this.rainK || 0) + ((this.raining ? 1 : 0) - (this.rainK || 0)) * Math.min(1, dt * 0.5);
+    const r = this.rainK;
+    const lit = 0.45 + 0.55 * L;
+    this.sun.intensity = 2.3 * lit * (1 - r * 0.45);
+    this.sun.color.setRGB(1, 0.94 - warm * 0.2 - (1 - L) * 0.1, 0.82 - warm * 0.35 + (1 - L) * 0.15);
+    this.hemi.intensity = (0.75 + 0.5 * L) * (1 - r * 0.2);
+    this.hemi.color.setRGB(0.6 + 0.15 * L, 0.7 + 0.15 * L, 1.0);
+    this.scene.background.setRGB(0.1 + 0.46 * L - r * 0.1, 0.12 + 0.66 * L - r * 0.1, 0.25 + 0.66 * L - r * 0.05);
+    const hush = this.flags.hushLifted ? 1 : 0;
+    u.grade.value.set((hush ? 1.06 : 0.97) + warm * 0.08 - (1 - L) * 0.12, (hush ? 1.03 : 0.95) - warm * 0.02 - (1 - L) * 0.06, (hush ? 0.96 : 1.04) - warm * 0.08 + (1 - L) * 0.1);
+    u.desat.value = (hush ? 0 : 0.14) + r * 0.18;
+    u.vignette.value = 0.35 + (1 - L) * 0.35;
+    u.bloom.value = 0.22 + (1 - L) * 0.25;
+    this.playerLamp.intensity = L < 0.5 ? (0.5 - L) * 8 : 0;
+    this.playerLamp.position.set(this.player.x, 1.4, this.player.z);
+    // rain streaks and puddle splashes
+    if (r > 0.05) for (let i = 0; i < 14 * r; i++) this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 26, y: 4 + Math.random() * 2, z: this.cam.z + (Math.random() - 0.5) * 20, vx: -1.5, vy: -18, g: 0, drag: 0, color: 0xb8d0f0, life: 0.28, size: 0.035, stretch: 5, shrink: false });
+    if (r > 0.05 && Math.random() < r) this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 22, y: 0.03, z: this.cam.z + (Math.random() - 0.5) * 16, vy: 0.5, g: 3, color: 0xdfe8ff, life: 0.25, size: 0.06 });
+    // fireflies at night
+    if (L < 0.4 && Math.random() < 0.3) this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 24, y: 0.4 + Math.random(), z: this.cam.z + (Math.random() - 0.5) * 18, vx: (Math.random() - 0.5) * 0.4, vz: (Math.random() - 0.5) * 0.4, g: 0, drag: 0, color: 0xd8ff8a, life: 2.5, size: 0.05 });
+  }
   worldTick(dt) {
     if (!this.area || this.area.id !== 'overworld' || this.locked()) return;
     this.wtT = (this.wtT || 0) - dt;
@@ -670,7 +702,7 @@ export class Game {
   hushLift() { this.flags.hushLifted = true; this.updateGrade(); }
   updateGrade() {
     const u = this.pr.postMat.uniforms;
-    if (this.area && this.area.dark) { u.grade.value.set(1.05, 1.0, 1.08); u.desat.value = 0; u.vignette.value = 0.8; return; }
+    if (this.area && this.area.dark) { u.grade.value.set(1.05, 1.0, 1.08); u.desat.value = 0; u.vignette.value = 0.8; u.bloom.value = 0.4; return; }
     u.vignette.value = 0.35;
     if (this.flags.hushLifted) { u.grade.value.set(1.06, 1.03, 0.96); u.desat.value = 0; }
     else { u.grade.value.set(0.97, 0.95, 1.04); u.desat.value = 0.14; }
@@ -783,6 +815,7 @@ export class Game {
       this.lamps.forEach((l, i) => { const s = src[i]; if (s) { l.position.set(s.x, 1.2, s.z); l.intensity = 6 + Math.sin(this.time * 15 + i) * 0.8; } else l.intensity = 0; });
       this.playerLamp.position.set(this.player.x, 1.4, this.player.z);
     } else this.lamps.forEach(l => l.intensity = 0);
+    this.atmosphere(dt);
     if (this.noRender) return;
     this.ui.drawMini();
     this.pr.render(this.scene, dt);

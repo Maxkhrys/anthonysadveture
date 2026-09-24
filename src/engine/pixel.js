@@ -32,13 +32,13 @@ export class PixelRenderer {
         tColor: { value: null }, tDepth: { value: null }, texel: { value: new THREE.Vector2() },
         offset: { value: new THREE.Vector2() }, flash: { value: 0 }, flashColor: { value: new THREE.Color() },
         vignette: { value: 0.35 }, grade: { value: new THREE.Vector3(1, 1, 1) }, near: { value: 0.1 }, far: { value: 120 },
-        desat: { value: 0 },
+        desat: { value: 0 }, bloom: { value: 0.22 },
       },
       vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy,0.,1.); }`,
       fragmentShader: `
         uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 texel; uniform vec2 offset;
         uniform float flash; uniform vec3 flashColor; uniform float vignette; uniform vec3 grade;
-        uniform float near; uniform float far; uniform float desat;
+        uniform float near; uniform float far; uniform float desat; uniform float bloom;
         varying vec2 vUv;
         float dep(vec2 uv){ return texture2D(tDepth, uv).r * (far-near); }
         void main(){
@@ -53,6 +53,14 @@ export class PixelRenderer {
           float db = dep(px+vec2(0.,texel.y));
           float rim = step(0.55, db - d) * (1.0-edge);
           c += rim * 0.10 * vec3(1.0,0.95,0.8);
+          // soft bloom: bright neighbours bleed light
+          vec3 glow = vec3(0.0);
+          for (int i = 0; i < 8; i++) {
+            float a = float(i) * 0.785398;
+            vec2 o = vec2(cos(a), sin(a)) * texel;
+            glow += max(texture2D(tColor, px + o * 2.0).rgb - 0.7, 0.0) + max(texture2D(tColor, px + o * 4.5).rgb - 0.7, 0.0) * 0.6;
+          }
+          c += glow * bloom;
           c *= grade;
           float l = dot(c, vec3(0.299,0.587,0.114));
           c = mix(c, vec3(l), desat);

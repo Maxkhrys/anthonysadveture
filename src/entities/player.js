@@ -396,6 +396,11 @@ export class Player extends Entity {
       if (this.stepT > 1.3) { this.stepT = 0; sfx('step'); if (g.area.id === 'overworld') g.fx.dust(this.x, this.z, 1, t === T.SAND ? 0xf1d38e : 0xc8d8a8); }
     }
     this.animate(dt, moved);
+    const w = inv.equip.weapon;
+    if (w && w.r >= 3 && Math.random() < (w.r === 4 ? 0.5 : 0.25)) {
+      const hand = new THREE.Vector3(); (this.m.offhand.children.length ? this.m.offhand : this.m.sword).getWorldPosition(hand);
+      g.fx.add({ x: hand.x + (Math.random() - 0.5) * 0.3, y: hand.y + Math.random() * 0.4, z: hand.z + (Math.random() - 0.5) * 0.3, vy: 0.6, g: 0, color: w.r === 4 ? 0xff9a2a : 0xc46bff, life: 0.5, size: 0.04 });
+    }
     this.sync();
   }
 
