@@ -11,7 +11,7 @@ catch { ({ chromium } = await import('/opt/node22/lib/node_modules/playwright/in
 
 const dir = fileURLToPath(new URL('.', import.meta.url));
 const want = process.argv.slice(2);
-const suites = readdirSync(dir).filter(f => f.endsWith('.test.mjs')).map(f => f.replace('.test.mjs', '')).filter(n => !want.length || want.includes(n));
+const suites = readdirSync(dir).filter(f => f.endsWith('.test.mjs')).map(f => f.replace('.test.mjs', '')).filter(n => want.length ? want.includes(n) : !n.startsWith('z')); // z* = capture/profiling tools, run by name
 const port = 8000 + Math.floor(Math.random() * 900);
 const server = spawn(process.execPath, [fileURLToPath(new URL('../serve.mjs', import.meta.url))], { env: { ...process.env, PORT: port }, stdio: 'ignore' });
 await new Promise(r => setTimeout(r, 500));

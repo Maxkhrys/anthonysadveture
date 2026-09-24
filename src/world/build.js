@@ -240,8 +240,16 @@ export function buildScenery(area) {
   const { w, h, tiles } = area;
   area.chimneys = []; area.lights = [];
   const walk = t => t === T.GRASS || t === T.FLOWERS || t === T.FOREST || t === T.PATH || t === T.SAND || t === T.MOSS;
-  const inst = {};
-  const I = (name, max, sway) => inst[name] || (inst[name] = new Instancer(PROPS[name](), max, sway));
+  // Scenery is collected per prop type *and* per map chunk, then built into exactly-sized
+  // instanced meshes with real bounds, so the camera only draws the chunks it can see.
+  const CH = 16, bins = new Map(), geos = {};
+  const FLAT = new Set(['clover', 'leaf', 'leafG', 'twig', 'button', 'coin', 'rootlet', 'stones', 'flower', 'flowerR', 'flowerB', 'pebble', 'toadstools']);
+  const I = (name, max, sway) => ({ add(x, y, z, ry = 0, sc = 1, sy = sc) {
+    const key = name + '|' + Math.floor(x / CH) + ',' + Math.floor(z / CH);
+    let b = bins.get(key);
+    if (!b) { b = { name, sway, list: [] }; bins.set(key, b); }
+    b.list.push(x, y, z, ry, sc, sy);
+  } });
   // deco footprint map
   const decoMask = new Uint8Array(w * h);
   for (const d of area.defs) if (d.type === 'deco') {
@@ -348,6 +356,22 @@ export function buildScenery(area) {
       I(kind, 400).add(d.x + ox, 0, d.z + oz, k * 6, 0.8);
     });
   }
-  for (const k in inst) { inst[k].mesh.instanceMatrix.needsUpdate = true; group.add(inst[k].mesh); }
+  const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+  const swayMats = {};
+  for (const b of bins.values()) {
+    const g = geos[b.name] || (geos[b.name] = geo(PROPS[b.name]()));
+    let mat = MAT;
+    if (b.sway) mat = swayMats.m || (swayMats.m = new Instancer(PROPS.tuft(), 1, true).mesh.material);
+    const n = b.list.length / 6, mesh = new THREE.InstancedMesh(g, mat, n);
+    for (let i = 0; i < n; i++) {
+      const o = i * 6;
+      _m.compose(_p.set(b.list[o], b.list[o + 1], b.list[o + 2]), _q.setFromAxisAngle(_up, b.list[o + 3]), _s.set(b.list[o + 4], b.list[o + 5], b.list[o + 4]));
+      mesh.setMatrixAt(i, _m);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere(); mesh.boundingSphere.radius += 1.5; // sway + tall props
+    mesh.frustumCulled = true; mesh.castShadow = !b.sway && !FLAT.has(b.name); mesh.receiveShadow = false;
+    group.add(mesh);
+  }
   return group;
 }

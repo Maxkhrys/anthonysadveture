@@ -74,6 +74,8 @@ export class Projectile extends Entity {
     this.obj.rotation.y = this.dir;
     if (this.kind !== 'arrow' && this.kind !== 'power' && this.kind !== 'crescent') this.m.rotation.x += dt * 12;
     if (Math.random() < 0.6) g.fx.add({ x: this.x, y: this.y, z: this.z, color: this.color, life: 0.25, size: this.kind === 'fireball' ? 0.1 : 0.05, g: 0 });
+    // skimming water leaves a wake
+    if (Math.random() < 0.35) { const tt = g.tileAt(Math.floor(this.x), Math.floor(this.z)); if (tt === 4 || tt === 5) g.fx.add({ x: this.x, y: -0.1, z: this.z, vy: 0.8, g: 6, color: 0xe8f8ff, life: 0.35, size: 0.05, floor: -0.14 }); }
     // swept test along this frame's whole path, so fast shots never skip small targets
     const hits = [];
     for (const e of g.entities) {

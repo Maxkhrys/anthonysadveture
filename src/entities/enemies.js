@@ -88,6 +88,7 @@ export class Enemy extends Entity {
     const g = this.g;
     this.dropToken();
     sfx(how === 'splash' ? 'splash' : how === 'fall' ? 'fall' : 'enemydie');
+    if (how === 'splash') { g.fx.ring(this.x, this.z, 0.1, 1.3, 0xe8f8ff, 0.6, -0.1); g.fx.ring(this.x, this.z, 0.1, 0.8, 0xffffff, 0.9, -0.1); for (let i = 0; i < 14; i++) { const a = Math.random() * 6.28; g.fx.add({ x: this.x, y: 0, z: this.z, vx: Math.cos(a) * 1.5, vz: Math.sin(a) * 1.5, vy: 3 + Math.random() * 2, color: i % 2 ? 0xe8f8ff : 0x9ad8ff, life: 0.6, size: 0.06, g: 12, floor: -0.14 }); } }
     g.fx.burst(this.x, 0.4, this.z, 18, INK, 4.5, { life: 0.6 });
     g.fx.burst(this.x, 0.4, this.z, 6, 0xfff3b0, 3, { life: 0.4, size: 0.06 });
     g.fx.ring(this.x, this.z, 0.2, 1.2, 0x8b5cf6, 0.35);

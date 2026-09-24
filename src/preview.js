@@ -50,7 +50,7 @@ export class DollPreview {
       this.hero = makeHero(cls); this.hero.root.scale.setScalar(1); this.cls = cls;
       this.scene.add(this.hero.root);
       // a relaxed ready pose
-      this.hero.armR.rotation.x = cls === 'witch' ? -0.5 : 0.15; this.hero.armR.rotation.z = 0.25; this.hero.sword.rotation.x = cls === 'witch' ? 0.15 : 2.5; this.hero.armL.rotation.z = -0.2; if (cls === 'archer') this.hero.armL.rotation.x = -0.4;
+      this.hero.armR.rotation.x = cls === 'witch' ? -0.5 : -0.9; this.hero.armR.rotation.z = 0.25; this.hero.sword.rotation.x = cls === 'witch' ? 0.15 : -0.5; this.hero.armL.rotation.z = -0.2; if (cls === 'archer') this.hero.armL.rotation.x = -0.4;
     }
     this.hero.setGear(equip);
     this.flash = 0.4;

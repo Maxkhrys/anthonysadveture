@@ -69,7 +69,9 @@ html,body{margin:0;height:100%;background:#0d0a14;overflow:hidden;font-family:va
 #fade{position:absolute;inset:0;background:#000;opacity:0;transition:opacity .35s}
 
 #title{background:radial-gradient(ellipse at 50% 45%,#0000 25%,#0d0a1499 70%,#0d0a14e6 100%),linear-gradient(#0d0a1480,#0000 30%,#0000 70%,#0d0a14a0)}
-#title .logo{text-align:center;margin-bottom:40px;filter:drop-shadow(0 6px 0 #1b1426) drop-shadow(0 0 24px #ffd25e40);animation:logoin 1.4s ease-out}
+#title .logo{text-align:center;margin-bottom:40px;animation:logoin 1.4s ease-out}
+#title .logo h1{filter:drop-shadow(0 6px 0 #1b1426) drop-shadow(0 0 24px #ffd25e40)}
+#title .logo .sub{text-shadow:2px 2px 0 #1b1426}
 @keyframes logoin{from{opacity:0;transform:translateY(10px)}}
 #title h1{font-size:96px;margin:0;letter-spacing:10px;line-height:1;background:linear-gradient(#fffbe8 0%,#fff3cf 45%,#ffd25e 55%,#e8a040 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:2px #1b1426}
 #title h2{font-size:30px;margin:6px 0 0;color:#bfe89a;letter-spacing:6px;text-shadow:3px 3px 0 #1b1426}

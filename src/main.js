@@ -133,7 +133,7 @@ function frame(now) {
     if (input.pressed('interact') || input.pressed('attack') || input.pressed('roll')) { initAudio(); menu[sel].act(); return; }
     game.time += dt;
     // a slow drift over Thimblewick at golden hour, lanterns just coming on
-    game.flags.dayOffset = (0.69 - 0.32) * 420 - game.time;
+    game.flags.dayOffset = (0.665 - 0.32) * 420 - game.time;
     game.camFocus = { x: 55 + Math.sin(titleT * 0.05) * 9, z: 60 + Math.cos(titleT * 0.04) * 5 };
     game.fx.update(dt, game.cam);
     game.liquidTime.value = game.time;
