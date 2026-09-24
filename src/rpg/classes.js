@@ -2,6 +2,8 @@ import { reinforcementMultiplier } from '../persistence/model.js';
 import { XP_PROGRESSION } from './progression.js';
 // Classes, derived stats, experience.
 import { unitAt } from './items.js';
+import { treeStats, rankOf, ensureTree } from './skills.js';
+import { SETS, weaponFamily, CLASS_FAMILIES, OFFCLASS_SCALING } from './gear.js';
 
 export const CLASSES = {
   samurai: {
@@ -51,23 +53,49 @@ export const xpNeed = l => XP_PROGRESSION.thresholds[l - 1] ?? Infinity;
 export function computeStats(inv) {
   const C = CLASSES[inv.cls] || CLASSES.samurai;
   const L = inv.level;
-  const s = { dmgPct: 0, crit: C.crit, critDmg: 50, atkSpd: 0, lifesteal: 0, regen: 0, resRegen: 0, moveSpd: 0, cdr: 0, abilityDmg: 0, mf: 0, xpPct: 0, burn: 0, chill: 0, shock: 0, armor: Math.round(C.armor + C.armorLv * (L - 1)), hp: C.hp + C.hpLv * (L - 1) + 15 * (inv.vessels || 0) };
-  s.uniques = new Set();
+  if (!inv.tree) ensureTree(inv);
+  const s = { dmgPct: 0, crit: C.crit, critDmg: 50, atkSpd: 0, lifesteal: 0, regen: 0, resRegen: 0, moveSpd: 0, cdr: 0, abilityDmg: 0, mf: 0, xpPct: 0, burn: 0, chill: 0, shock: 0, echoDmg: 0, projSize: 0, reach: 0, armor: Math.round(C.armor + C.armorLv * (L - 1)), hp: C.hp + C.hpLv * (L - 1) + 15 * (inv.vessels || 0) };
+  s.uniques = new Set(); s.qual = new Set(); s.sets = {};
   for (const it of Object.values(inv.equip)) {
     if (!it) continue;
     for (const k in it.stats) s[k] = (s[k] || 0) + it.stats[k];
     if (it.unique) s.uniques.add(it.unique);
+    if (it.set) s.sets[it.set] = (s.sets[it.set] || 0) + 1;
+    if (it.rolledAffixes) for (const a of it.rolledAffixes) if (a.qualitative) s.qual.add(a.qualitative.id);
+  }
+  // skill tree passives
+  const T = treeStats(inv);
+  for (const k in T) s[k] = (s[k] || 0) + T[k];
+  // armour sets: 2-piece and full (5-piece) bonuses
+  s.setBonus = {};
+  for (const [id, n] of Object.entries(s.sets)) {
+    const S = SETS[id]; if (!S) continue;
+    const tier = n >= 5 ? 5 : n >= 2 ? 2 : 0;
+    s.setBonus[id] = tier;
+    if (tier >= 2) for (const k in S.bonus2.stats) s[k] = (s[k] || 0) + S.bonus2.stats[k];
+    if (tier >= 5) for (const k in S.bonus5.stats) s[k] = (s[k] || 0) + S.bonus5.stats[k];
   }
   const w = inv.equip.weapon;
+  // weapon affinity: any class can wield anything; your own class's weapons scale fully
+  s.family = weaponFamily(w) || CLASS_FAMILIES[inv.cls][0];
+  s.specialist = !w || !w.cls || w.cls === inv.cls;
+  s.affinity = s.specialist ? 1 : OFFCLASS_SCALING;
   const fallback = unitAt(L) * 0.5;
-  s.wmin = w ? w.min * reinforcementMultiplier(w) : Math.round(fallback * 0.8); s.wmax = w ? w.max * reinforcementMultiplier(w) : Math.round(fallback * 1.2);
+  s.wmin = w ? w.min * reinforcementMultiplier(w) * s.affinity : Math.round(fallback * 0.8); s.wmax = w ? w.max * reinforcementMultiplier(w) * s.affinity : Math.round(fallback * 1.2);
+  // keystone trade-offs
+  if (rankOf(inv, 'bellofruin')) s.atkSpd -= 15;
+  if (rankOf(inv, 'tempestquiver')) s.resRegen -= 25;
+  if (rankOf(inv, 'mothcovenant')) s.resRegen -= 20;
   s.wspd = (w ? w.spd : 1) * (1 + s.atkSpd / 100);
-  s.maxHp = Math.round(s.hp);
+  s.maxHp = Math.round(s.hp * (rankOf(inv, 'endlessgale') ? 0.85 : 1));
   s.speed = C.speed * (1 + s.moveSpd / 100);
   s.resRegenRate = C.resRegen * (1 + s.resRegen / 100);
   s.crit = Math.min(75, s.crit);
   s.cdr = Math.min(40, s.cdr);
   s.dr = 100 / (100 + s.armor * 1.8); // damage multiplier after armour
+  if (s.setBonus.bellwarden >= 5) s.dr *= 0.9;
+  if (rankOf(inv, 'cinderheart')) s.dr *= 1.15;
+  if (s.uniques.has('tuningfork')) s.surgeGain = 0.75;
   return s;
 }
 

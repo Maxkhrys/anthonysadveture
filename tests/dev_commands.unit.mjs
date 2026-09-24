@@ -20,27 +20,33 @@ import { simulateAffixRolls } from '../src/rpg/affix_simulation.js';
 import { buildDevRoom, DevTrainingDummy, DevElementalTarget, DevSpawnerTotem, DevLootChest } from '../src/world/devroom.js';
 import { defaultInventory } from '../src/persistence/model.js';
 import { MAX_LEVEL } from '../src/rpg/classes.js';
-import { genItem } from '../src/rpg/items.js';
+import { genItem, IMPLEMENTED_QUALITATIVE } from '../src/rpg/items.js';
 
-test('ordinary loot excludes inactive affixes while the dev registry retains them', () => {
-  const inactive = ['echoDmg', 'projSize', 'reach'];
+test('ordinary loot rolls affixes through stat-roll rarity and never shows unimplemented mechanics', () => {
+  // Pass 5: echoDmg, projSize and reach are applied in gameplay now and may roll naturally.
+  // Qualitative modifiers without a gameplay implementation (astral_step) must never appear.
   const random = Math.random;
   let seed = 42;
   Math.random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
+  const tiers = new Set();
   try {
     for (const cls of ['samurai', 'archer', 'witch']) {
-      for (const slot of ['weapon', 'charm']) {
+      for (const slot of ['weapon', 'charm', 'ring', 'boots']) {
         for (let i = 0; i < 500; i++) {
           const item = genItem({ cls, slot, level: 15, rarity: 1 + i % 3 });
           assert.ok(item.affixes.length > 0);
-          for (const key of inactive) {
-            assert.ok(!item.affixes.includes(key), `${key} leaked into ordinary loot`);
-            assert.equal(item.stats[key], undefined);
+          assert.equal(item.rolledAffixes.length, item.affixes.length, 'every affix carries its rolled tier');
+          for (const a of item.rolledAffixes) {
+            tiers.add(a.tier);
+            assert.equal(item.stats[a.id] >= a.actualRoll, true);
+            if (a.qualitative) assert.ok(IMPLEMENTED_QUALITATIVE.has(a.qualitative.id), `${a.qualitative.id} has no gameplay`);
           }
         }
       }
     }
-    for (const key of inactive) assert.ok(AFFIX_DEFINITIONS[key]);
+    for (const key of ['echoDmg', 'projSize', 'reach']) assert.ok(AFFIX_DEFINITIONS[key]);
+    assert.ok(!IMPLEMENTED_QUALITATIVE.has('astral_step'));
+    assert.ok(tiers.has('common') && tiers.has('rare') && tiers.has('legendary'), 'natural loot spans the tiers: ' + [...tiers]);
   } finally { Math.random = random; }
 });
 

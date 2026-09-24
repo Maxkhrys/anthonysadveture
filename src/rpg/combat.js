@@ -19,8 +19,10 @@ const enemiesNear = (g, x, z, r) => g.entities.filter(e => e.isEnemy && !e.dead 
 export class Projectile extends Entity {
   constructor(g, o) {
     super(g, o.x, o.z);
-    Object.assign(this, { dir: o.dir, speed: o.speed ?? 14, range: o.range ?? 9, mult: o.mult ?? 1, kind: o.kind, pierce: o.pierce ?? 0, homing: o.homing ?? 0, seek: o.seek || null, dir0: o.dir, aoe: o.aoe ?? 0, ability: !!o.ability, kb: o.kb ?? 3, color: o.color ?? 0xffffff, noSplit: o.noSplit, noCraft: !!o.noCraft, root: o.root || 0, echo: !!o.echo });
-    this.r = o.r ?? 0.18; this.moveMode = 'fly'; this.y = 0.45; this.hit = new Set(); this.dist = 0;
+    Object.assign(this, { dir: o.dir, speed: o.speed ?? 14, range: o.range ?? 9, mult: o.mult ?? 1, kind: o.kind, pierce: o.pierce ?? 0, homing: o.homing ?? 0, seek: o.seek || null, dir0: o.dir, aoe: o.aoe ?? 0, ability: !!o.ability, kb: o.kb ?? 3, color: o.color ?? 0xffffff, noSplit: o.noSplit, noCraft: !!o.noCraft, root: o.root || 0, echo: !!o.echo, element: o.element || null, bounce: o.bounce || 0, onExplode: o.onExplode || null, onHitFx: o.onHitFx || null, basic: !!o.basic, charged: !!o.charged, critBonus: o.critBonus || 0 });
+    // Projectile Size affix: bigger hitbox and model (basic shots and abilities alike)
+    const ps = 1 + (g.pstats.projSize || 0) / 100;
+    this.r = (o.r ?? 0.18) * ps; this.moveMode = 'fly'; this.y = 0.45; this.hit = new Set(); this.dist = 0;
     const u = g.pstats.uniques;
     if (this.kind === 'arrow' || this.kind === 'power') {
       if (u.has('windwhisper')) { this.pierce = 99; this.kb = 7; }
@@ -28,15 +30,23 @@ export class Projectile extends Entity {
       this.m = mesh([B(0.04, 0.04, 0.6, 0, -0.02, 0, ec || 0x8a6a3a), B(0.08, 0.06, 0.1, 0, -0.03, 0.3, ec || 0xdfe8f0), B(0.1, 0.02, 0.12, 0, -0.01, -0.28, ec || (this.kind === 'power' ? 0xffd25e : 0xf0f0f0))], this.kind === 'power' || this.echo ? MAT_GLOW : MAT, false);
       if (this.kind === 'power') this.m.scale.setScalar(1.5);
     } else if (this.kind === 'crescent') {
-      this.m = mesh([B(1.4, 0.06, 0.18, 0, 0, 0, 0xffffff), B(0.9, 0.05, 0.14, 0, 0, 0.12, 0xff6a6a)], MAT_GLOW, false);
+      const c2 = this.element === 'wind' ? 0x9ad8ff : this.color === 0x7fd36a ? 0x7fd36a : 0xff6a6a;
+      this.m = mesh([B(1.4, 0.06, 0.18, 0, 0, 0, 0xffffff), B(0.9, 0.05, 0.14, 0, 0, 0.12, c2), B(0.5, 0.04, 0.1, 0, 0, 0.22, c2)], MAT_GLOW, false);
+    } else if (this.kind === 'shard') {
+      this.m = mesh([B(0.06, 0.06, 0.26, 0, -0.03, 0, this.color), B(0.03, 0.03, 0.12, 0, -0.015, 0.1, 0xffffff)], MAT_GLOW, false);
+    } else if (this.kind === 'comet') {
+      this.m = mesh([B(0.5, 0.5, 0.5, 0, -0.25, 0, 0xff9a5a), B(0.36, 0.36, 0.36, 0, -0.18, 0, 0xfff3b0), B(0.2, 0.2, 0.6, 0, -0.1, -0.3, 0xbfe8f0)], MAT_GLOW, false);
     } else {
       const s = this.kind === 'fireball' ? 0.32 : this.kind === 'thorn' ? 0.1 : 0.18;
       this.m = mesh([B(s, s, s, 0, -s / 2, 0, this.color), B(s * 0.6, s * 0.6, s * 1.4, 0, -s * 0.3, 0, 0xffffff)], MAT_GLOW, false);
     }
+    if (ps !== 1) this.m.scale.multiplyScalar(ps);
     this.obj.add(this.m);
   }
   update(dt) {
     const g = this.g;
+    // Singularity Wake (qualitative affix): basic shots tug nearby foes toward their path
+    if (this.basic && g.pstats.qual.has('singularity_wake')) for (const e of g.entities) { if (!e.isEnemy || e.dead || e.isBoss) continue; const dx = this.x - e.x, dz = this.z - e.z, d = Math.hypot(dx, dz); if (d < 1.6 && d > 0.2) { e.kx += dx / d * 6 * dt * 4; e.kz += dz / d * 6 * dt * 4; } }
     // 'seek': an explicit, bounded bend toward a foe near the aimed line. It can never turn
     // the shot more than seek.cone away from where the player aimed.
     if (this.seek) {
@@ -89,8 +99,14 @@ export class Projectile extends Entity {
     for (const [, e] of hits) {
       this.hit.add(e);
       if (this.aoe) { this.x = e.x; this.z = e.z; return this.explode(); }
-      g.playerHit(e, { mult: this.mult, kind: this.kind, kb: this.kb, dir: this.dir, ability: this.ability });
+      g.playerHit(e, { mult: this.mult, kind: this.kind, element: this.element, kb: this.kb, dir: this.dir, ability: this.ability, echo: this.echo, basic: this.basic, critBonus: this.critBonus });
       this.onImpact(e);
+      if (this.onHitFx) this.onHitFx(this, e);
+      // Skipping Shot / Endless Quiver: turn toward the next foe instead of stopping
+      if (this.bounce > 0) {
+        const nxt = g.entities.filter(o => o.isEnemy && !o.dead && !this.hit.has(o) && Math.hypot(o.x - e.x, o.z - e.z) < 5 && g.shotClear(e.x, e.z, o.x, o.z)).sort((a, b) => Math.hypot(a.x - e.x, a.z - e.z) - Math.hypot(b.x - e.x, b.z - e.z))[0];
+        if (nxt) { this.bounce--; this.x = e.x; this.z = e.z; this.dir = this.dir0 = Math.atan2(nxt.x - e.x, nxt.z - e.z); this.dist = 0; this.range = 6; g.fx.ring(e.x, e.z, 0.05, 0.5, 0xffd25e, 0.15); this.sync(); return; }
+      }
       if (this.pierce-- <= 0) { this.x = e.x; this.z = e.z; return this.pop(); }
     }
     // spores and pods can be shot back
@@ -109,7 +125,8 @@ export class Projectile extends Entity {
   }
   explode() {
     const g = this.g;
-    blast(g, this.x, this.z, this.aoe, this.mult, this.color, { burn: this.kind === 'fireball', ability: this.ability });
+    blast(g, this.x, this.z, this.aoe, this.mult, this.color, { burn: this.kind === 'fireball' || this.kind === 'comet', ability: this.ability });
+    if (this.onExplode) this.onExplode(this);
     if (this.kind === 'fireball' && g.pstats.uniques.has('starfall')) g.spawn(new Meteor(g, this.x, this.z, this.mult * 1.2));
     if (this.kind === 'fireball' && !this.noCraft && hasEngraving(g, 'emberseeds')) {
       const a0 = Math.random() * 6.28;
@@ -199,8 +216,10 @@ export function blast(g, x, z, r, mult, color, o = {}) {
   g.fx.burst(x, 0.4, z, 16, [color, 0xffffff], 3.5, { life: 0.45 });
   for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28; g.fx.add({ x: x + Math.cos(a) * r * 0.4, y: 0.2, z: z + Math.sin(a) * r * 0.4, vx: Math.cos(a) * 1.2, vz: Math.sin(a) * 1.2, vy: 0.5, g: 0, drag: 1.5, color: o.burn ? 0x5a3a2a : 0xd8d0e0, life: 0.8, size: 0.16, grow: 1.4, shrink: false, soft: true }); }
   sfx('poof'); g.pr.addShake(0.2);
+  // fire blasts are remembered for a moment so seeds and fuses nearby can catch
+  if (o.burn) { (g.fireEvents || (g.fireEvents = [])).push({ x, z, r, t: g.time }); if (g.fireEvents.length > 24) g.fireEvents.shift(); }
   for (const e of enemiesNear(g, x, z, r)) {
-    g.playerHit(e, { mult, kind: 'blast', kb: 5, dir: Math.atan2(e.x - x, e.z - z), ability: o.ability, forceBurn: o.burn });
+    g.playerHit(e, { mult, kind: 'blast', element: o.burn ? 'fire' : o.element || 'arcane', kb: 5, dir: Math.atan2(e.x - x, e.z - z), ability: o.ability, forceBurn: o.burn, echo: o.echo });
     if (o.root) e.applyStatus && e.applyStatus('root', o.root);
   }
 }
@@ -236,7 +255,7 @@ export class RainZone extends Entity {
   update(dt) {
     const g = this.g; this.t += dt; this.tick -= dt;
     for (let i = 0; i < 3; i++) { const a = Math.random() * 6.28, r = Math.random() * 2.5; g.fx.add({ x: this.x + Math.cos(a) * r, y: 3, z: this.z + Math.sin(a) * r, vy: -14, g: 0, drag: 0, color: 0xe8e0d0, life: 0.2, size: 0.05, stretch: 4 }); }
-    if (this.tick <= 0) { this.tick = 0.25; for (const e of enemiesNear(g, this.x, this.z, 2.5)) g.playerHit(e, { mult: this.mult, kind: 'rain', kb: 0.5, dir: 0, ability: true, quiet: true }); sfx('cut'); }
+    if (this.tick <= 0) { this.tick = 0.25; for (const e of enemiesNear(g, this.x, this.z, 2.5)) { g.playerHit(e, { mult: this.mult, kind: 'rain', kb: 0.5, dir: 0, ability: true, quiet: true }); if (this.wet) e.applyStatus && e.applyStatus('wet', 4); } sfx('cut'); }
     if (this.t > this.dur) this.remove();
   }
 }
@@ -253,7 +272,7 @@ export class Meteor extends Entity {
 }
 export class Familiar extends Entity {
   constructor(g, mult, dur, fast) {
-    super(g, g.player.x, g.player.z); this.mult = mult; this.t = 0; this.dur = dur; this.cool = 0; this.rate = fast ? 0.3 : 0.6;
+    super(g, g.player.x, g.player.z); this.mult = mult; this.t = 0; this.dur = dur; this.cool = 0; this.rate = (fast ? 0.3 : 0.6) / (1 + 0.25 * (g.talent ? g.talent('grimalkin') : 0));
     this.obj.add(mesh([B(0.3, 0.26, 0.36, 0, 0, 0, 0x2a1a3a), B(0.08, 0.12, 0.06, -0.08, 0.26, 0.1, 0x2a1a3a), B(0.08, 0.12, 0.06, 0.08, 0.26, 0.1, 0x2a1a3a), B(0.06, 0.2, 0.06, 0, 0.1, -0.24, 0x2a1a3a)]));
     this.obj.add(mesh([B(0.06, 0.05, 0.02, -0.07, 0.16, 0.19, 0x7fd36a), B(0.06, 0.05, 0.02, 0.07, 0.16, 0.19, 0x7fd36a)], MAT_GLOW, false));
     this.alwaysUpdate = true; this.isFamiliar = true;
@@ -284,7 +303,9 @@ export function frostNova(g, x, z, mult, freezeT) {
 export function chainLightning(g, x, z, mult, n, range = 7, first = null) {
   let from = { x, z }, hit = new Set();
   for (let i = 0; i < n; i++) {
-    const t = i === 0 && first && !first.dead ? first : g.entities.filter(e => e.isEnemy && !e.dead && !hit.has(e) && Math.hypot(e.x - from.x, e.z - from.z) < (i ? 4.5 : range)).sort((a, b) => Math.hypot(a.x - from.x, a.z - from.z) - Math.hypot(b.x - from.x, b.z - from.z))[0];
+    const seekWet = g.talent && g.talent('conductor');
+    const score = e => Math.hypot(e.x - from.x, e.z - from.z) - (seekWet && e.status && (e.status.wet > 0 || e.status.freeze > 0) ? 3 : 0);
+    const t = i === 0 && first && !first.dead ? first : g.entities.filter(e => e.isEnemy && !e.dead && !hit.has(e) && Math.hypot(e.x - from.x, e.z - from.z) < (i ? (e.status && e.status.wet > 0 ? 6.5 : 4.5) : range)).sort((a, b) => score(a) - score(b))[0];
     if (!t) break;
     hit.add(t);
     bolt(g, from.x, from.z, t.x, t.z);

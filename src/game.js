@@ -17,7 +17,10 @@ import { Entity } from './entities/entity.js';
 import { MONSTER_NAMES } from './entities/monsters2.js';
 import { CLASSES, computeStats, xpNeed, MAX_LEVEL } from './rpg/classes.js';
 import { genItem, starterWeapon, RARITY, itemPower } from './rpg/items.js';
-import { GearDrop, LootChest, thornBurst, blast, chainLightning } from './rpg/combat.js';
+import { GearDrop, LootChest, thornBurst, blast, chainLightning, bolt, Projectile } from './rpg/combat.js';
+import { ensureTree, respecTree, rankOf, SKILLS, nodeById, treeOf } from './rpg/skills.js';
+import { react, isHeavy, elementOf, soak, fanFlames } from './rpg/elements.js';
+import { resonanceRing } from './rpg/abilities.js';
 import { flashObj } from './entities/common.js';
 import { loadSettings, applySettings } from './settings.js';
 import { Guide } from './guide.js';
@@ -86,8 +89,12 @@ export class Game {
     inv.equip.weapon = starterWeapon(cls);
     this.recalc(); inv.hp = inv.maxHp;
   }
+  // skill-tree rank of a node for the current character (0 when not taken)
+  talent(id) { return rankOf(this.inv, id); }
+  fxBolt(x0, z0, x1, z1) { bolt(this, x0, z0, x1, z1); }
   recalc() {
     const inv = this.inv;
+    ensureTree(inv);
     this.pstats = computeStats(inv);
     inv.maxHp = this.pstats.maxHp;
     inv.hp = Math.min(inv.hp, inv.maxHp);
@@ -277,45 +284,95 @@ export class Game {
   }
   // one player hit on one target: rolls damage, crits, procs, numbers
   playerHit(e, o) {
-    const ps = this.pstats, p = this.player, inv = this.inv;
+    const ps = this.pstats, p = this.player, inv = this.inv, U = ps.uniques;
     if (!e.isEnemy) { e.onHit && e.onHit({ dmg: 1, kind: o.kind, kb: o.kb, dir: o.dir, src: p }); return; }
     let dmg = (ps.wmin + Math.random() * (ps.wmax - ps.wmin)) * (o.mult ?? 1) * (1 + ps.dmgPct / 100);
     if (o.ability) dmg *= 1 + ps.abilityDmg / 100;
-    if (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2) dmg *= 1.4;
-    if (e.status && e.status.mark > 0) dmg *= 1.25;
+    const heavy = isHeavy(o), el = elementOf(o), S = e.status || {};
+    if (U.has('onigrin') && inv.hp < inv.maxHp / 2) dmg *= 1.4;
+    if (S.mark > 0) dmg *= 1.25;
     // Rime Bloom: a frozen foe shatters under the next blow
-    if (e.status && e.status.freeze > 0 && inv.sigils && inv.sigils[0] === 'rimebloom' && inv.cls === 'witch') {
-      dmg *= 1.6; e.status.freeze = 0; this.fx.burst(e.x, 0.5, e.z, 14, [0xdff4ff, 0xffffff], 3.5); sfx('parry');
+    if (S.freeze > 0 && inv.sigils && inv.sigils[0] === 'rimebloom' && inv.cls === 'witch') {
+      dmg *= 1.6; S.freeze = 0; this.fx.burst(e.x, 0.5, e.z, 14, [0xdff4ff, 0xffffff], 3.5); sfx('parry');
     }
+    // Echo attacks: the Echo Damage affix, Hollow Echo and the Echo Clapper
+    if (o.echo) { dmg *= 1 + (ps.echoDmg || 0) / 100; if (U.has('echoclapper')) { dmg *= 1.2; e.stagger = Math.max(e.stagger || 0, 0.45); } }
+    // skill tree, sets and accessories
+    if (heavy) {
+      const tough = e.elite || e.isBoss || e.poise || e.shell > 0;
+      if (tough) dmg *= 1 + 0.15 * this.talent('sundering');
+      if (ps.setBonus.bellwarden >= 2) { dmg *= 1.15; e.stagger = Math.max(e.stagger || 0, 0.35); }
+      if (ps.setBonus.bellwarden >= 5 && !o.bellshock) { this.bellCount = (this.bellCount || 0) + 1; if (this.bellCount % 4 === 0) resonanceRing(this, e.x, e.z, 2.2, 1.5); }
+      if (this.talent('resonantfury') && inv.cls === 'samurai') this.res = Math.min(100, this.res + 8);
+    }
+    if (el === 'fire' && this.talent('cinderheart')) dmg *= 1.35;
+    if ((S.freeze > 0 || S.chill > 0) && this.talent('brittle')) dmg *= 1 + 0.1 * this.talent('brittle');
+    if (S.root > 0 && U.has('briarbond')) dmg *= 1.15;
+    if (S.wet > 0 && U.has('toadsignet')) dmg *= 1.15;
+    // elemental reactions (wet+lightning, frozen+heavy, fire+wind ...)
+    dmg = react(this, e, o, dmg);
     // riposte: a parried foe is wide open — the first blow is a guaranteed crit, and all hits land harder
     let riposte = false;
     if (e.parried > 0) { dmg *= 1.5; if (!e.riposted) { e.riposted = true; riposte = true; } }
-    if (ps.uniques.has('candlewick') && e.status && e.status.burn > 0) dmg *= 1.2;
-    const crit = riposte || Math.random() * 100 < ps.crit;
-    if (crit) dmg *= 1 + ps.critDmg / 100;
+    if (U.has('candlewick') && S.burn > 0) dmg *= 1.2;
+    const seam = U.has('seamripper') && (S.root > 0 || e.tether) && !o.ability;
+    const thornstep = ps.setBonus.thornstalker >= 5 && this.thornstepT > this.time && !this.thornUsed;
+    const crit = riposte || o.forceCrit || seam || thornstep || Math.random() * 100 < ps.crit + (o.critBonus || 0);
+    if (thornstep && crit) this.thornUsed = true;
+    let critDmg = ps.critDmg + (o.kind === 'lunge' ? 50 : 0);
+    if (crit && this.talent('singlestroke')) critDmg += 60;
+    if (crit) dmg *= 1 + critDmg / 100;
     dmg *= e.dmgTaken || 1;
     dmg = Math.max(1, Math.round(dmg));
-    const r = e.onHit({ dmg, kind: o.kind, kb: o.kb, dir: o.dir, src: o.src || p, crit });
+    if (o.kind === 'surge' && e.isBoss) dmg = Math.max(1, Math.round(dmg)); // (surge unchanged vs bosses)
+    const r = e.onHit({ dmg, kind: o.kind, kb: o.kb, dir: o.dir, src: o.src || p, crit, heavy });
     if (r !== 'hit') return r;
     this.guide.event('attack');
     e.hpShow = 3;
     if (!o.quiet || crit) this.ui.float(e.x, 1.0 + (e.eliteScale ? 0.3 : 0), e.z, (crit ? '' : '') + dmg + (crit ? '!' : ''), crit ? '#ffd25e' : '#ffffff', crit);
+    if (crit) { sfx('crit'); if (e.elite || e.isBoss) { sfx('weakpoint'); this.fx.ring(e.x, e.z, 0.05, 0.6, 0xffd25e, 0.18, 0.6); } }
+    if (U.has('teaspoon') && !o.ability) sfx('bonk');
+    // Wither Hex stores what the cursed foe suffers
+    if (e.hexed) e.hexStore = (e.hexStore || 0) + dmg;
+    // Briar Tether: the stitched foes share the pain
+    if (e.tether && !o.shared) {
+      const T = e.tether;
+      for (const m of T.members) if (m !== e && !m.dead) { const n = Math.max(1, Math.round(dmg * T.share)); m.onHit({ dmg: n, kind: 'thorn', kb: 0, dir: o.dir, src: p, shared: true }); this.ui.float(m.x, 1.0, m.z, '' + n, '#7fd36a', false, true); }
+    }
     // life steal draws from a small pool that refills over time: strong, but it can't make a
     // crowd-clearing build immortal
-    if (!o.noProc && (ps.lifesteal || (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2))) {
-      const want = dmg * ((ps.lifesteal || 0) + (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2 ? 6 : 0)) / 100;
+    if (!o.noProc && (ps.lifesteal || (U.has('onigrin') && inv.hp < inv.maxHp / 2))) {
+      const want = dmg * ((ps.lifesteal || 0) + (U.has('onigrin') && inv.hp < inv.maxHp / 2 ? 6 : 0)) / 100;
       const got = Math.min(want, this.lsPool || 0);
       if (got > 0) { this.lsPool -= got; this.heal(got, true); }
     }
-    if (inv.cls === 'samurai' && !o.ability) this.res = Math.min(100, this.res + 7);
+    // Ki: a samurai's own blades build it with every hit (the specialist perk)
+    if (inv.cls === 'samurai' && !o.ability && ps.specialist && (ps.family === 'blade' || ps.family === 'heavy')) {
+      if (this.talent('singlestroke')) { if (crit) this.res = Math.min(100, this.res + 10); }
+      else this.res = Math.min(100, this.res + 7);
+    }
     p.combatT = 4;
+    if (crit) {
+      if (U.has('quickthread')) { this.quickStacks = Math.min(5, (this.quickT > this.time ? this.quickStacks || 0 : 0) + 1); this.quickT = this.time + 3; }
+      if (ps.setBonus.thornstalker >= 5 && !(this.thornstepT > this.time)) { this.thornstepT = this.time + 2; this.thornUsed = false; this.fx.burst(p.x, 0.3, p.z, 8, [0x7fd36a, 0x3a6a2a], 2); }
+    }
     if (!o.noProc && !e.dead) {
-      if (o.forceBurn || Math.random() * 100 < ps.burn || (ps.uniques.has('candlewick') && o.kind === 'bolt')) e.applyStatus && e.applyStatus('burn', 3, dmg * 0.15);
+      if (o.forceBurn || Math.random() * 100 < ps.burn || (U.has('candlewick') && o.kind === 'bolt') || (U.has('wickblade') && !o.ability)) e.applyStatus && e.applyStatus('burn', 3, dmg * 0.15 * (this.talent('cinderheart') ? 2 : 1));
       if (Math.random() * 100 < ps.chill) e.applyStatus && e.applyStatus('chill', 2.5);
-      if (!o.noShock && Math.random() * 100 < ps.shock) chainLightning(this, e.x, e.z, 0.5, 2, 4);
-      if (ps.uniques.has('rootcleaver') && Math.random() < 0.25) thornBurst(this, e.x, e.z, 0.7);
-      if (crit && ps.uniques.has('huntermoon')) e.applyStatus && e.applyStatus('mark', 4);
-      if (crit && ps.uniques.has('silentdawn')) p.cds[0] *= 0.6;
+      if (!o.noShock && Math.random() * 100 < ps.shock) { chainLightning(this, e.x, e.z, 0.5, 2, 4); if (this.talent('staticfocus')) this.res = Math.min(100, this.res + 3); }
+      if (U.has('rootcleaver') && Math.random() < 0.25) thornBurst(this, e.x, e.z, 0.7);
+      if (crit && U.has('huntermoon')) e.applyStatus && e.applyStatus('mark', 4);
+      if (crit && U.has('silentdawn') && p.cdMap.iaido) p.cdMap.iaido *= 0.6;
+      if (U.has('toadsignet') && (el === 'lightning' || heavy)) soak(this, e.x, e.z, 1.8, 3);
+      // Cinderwoven: abilities set foes alight; burning foes pulse fire (once per second)
+      if (o.ability && ps.setBonus.cinderwoven >= 5) {
+        if (S.burn > 0 && !(e.cinderT > this.time)) { e.cinderT = this.time + 1; blast(this, e.x, e.z, 1.3, 0.6, 0xff8a2a, { ability: false, burn: false, element: 'fire' }); }
+        e.applyStatus && e.applyStatus('burn', 2.5, dmg * 0.1);
+      }
+      // qualitative affixes (Relic, Mythic and Prismatic stat rolls)
+      if (ps.qual.has('resonance_echo') && !o.ability && !o.echo && !(e.echoT > this.time)) { e.echoT = this.time + 0.8; const tgt = e, m = o.mult ?? 1; setTimeout(() => { if (!tgt.dead && this.area) { this.fx.ring(tgt.x, tgt.z, 0.1, 0.7, 0xe040fb, 0.25); this.playerHit(tgt, { mult: m * 0.4, kind: 'echo', echo: true, kb: 1, dir: 0, noProc: true }); } }, 800); }
+      if (crit && ps.qual.has('prismatic_splinters') && !o.splinter) { for (let i = 0; i < 3; i++) this.spawn(new Projectile(this, { x: e.x, z: e.z, dir: Math.random() * 6.28, speed: 12, range: 5, mult: 0.35, kind: 'thorn', seek: { cone: 1.2, rate: 6, range: 5 }, color: [0xff5a8a, 0xffd700, 0x7ad8ff][i], noSplit: true, noCraft: true })); }
+      if (ps.qual.has('executioners_toll') && e.hp > 0 && e.hp < e.maxHp * 0.2 && !(e.tollT > this.time)) { e.tollT = this.time + 1; const n = Math.round(e.maxHp * (e.isBoss ? 0.03 : 0.15)); sfx('resonate'); this.fx.ring(e.x, e.z, 0.2, 1.2, 0xffd700, 0.4); e.onHit({ dmg: n, kind: 'toll', kb: 0, dir: 0, src: p }); this.ui.float(e.x, 1.4, e.z, 'TOLL ' + n, '#ffd700', true); }
     }
     return r;
   }
@@ -327,15 +384,15 @@ export class Game {
     this.hudDirty = true;
     while (inv.level < MAX_LEVEL && inv.xp >= xpNeed(inv.level)) {
       inv.xp -= xpNeed(inv.level); inv.level++; inv.sp++;
-      const C = CLASSES[inv.cls];
-      const unlocked = C.abilities.find(a => a.lvl === inv.level);
-      C.abilities.forEach((a, i) => { if (inv.level >= a.lvl && !inv.skills[i]) inv.skills[i] = 1; });
+      const before = new Set(Object.keys(inv.tree || {}));
       this.recalc(); inv.hp = inv.maxHp; this.res = 100;
+      const freeNew = treeOf(inv.cls).find(n => n.skill && n.free && !before.has(n.id) && inv.tree[n.id]);
+      const unlocked = freeNew ? { name: SKILLS[freeNew.skill].name, key: (inv.loadout.indexOf(freeNew.skill) + 1) || '—', desc: SKILLS[freeNew.skill].desc } : null;
       const p = this.player;
       this.fx.ring(p.x, p.z, 0.3, 3, 0xffd25e, 0.7); this.fx.burst(p.x, 0.5, p.z, 30, [0xffd25e, 0xffffff], 3, { g: -1 });
       sfx('fanfare'); this.pr.addFlash(0.25, 0xffd25e);
       this.ui.banner('LEVEL UP', 'Level ' + inv.level, 2.2);
-      this.ui.toast(unlocked ? 'New ability: ' + unlocked.name + ' [' + unlocked.key + ']' : '+1 Skill Point', unlocked ? unlocked.desc : 'Press I → Skills to spend it.', 3);
+      this.ui.toast(unlocked ? 'New ability: ' + unlocked.name + ' [' + unlocked.key + ']' : '+1 Skill Point', unlocked ? unlocked.desc : 'Press I → Skills to spend it in your skill tree.', 3);
       this.save();
     }
   }
@@ -356,13 +413,19 @@ export class Game {
     this.save();
     return true;
   }
-  canEquip(it) { return !it.cls || it.cls === this.inv.cls; }
-  equipItem(i) {
+  // Every class can wield every weapon; off-class weapons scale at 80% (see gear.js).
+  canEquip(it) { return !!it; }
+  isOffClass(it) { return !!(it && it.cls && it.cls !== this.inv.cls); }
+  // rings go to the first free ring finger (or replace ring 1)
+  equipSlotFor(it) { if (it.slot !== 'ring') return it.slot; const e = this.inv.equip; return !e.ring1 ? 'ring1' : !e.ring2 ? 'ring2' : (this.ringSwap = !this.ringSwap) ? 'ring1' : 'ring2'; }
+  equipItem(i, slotOverride) {
     const inv = this.inv, it = inv.bag[i];
     if (!it) return;
-    if (!this.canEquip(it)) { sfx('error'); this.ui.toast('Only a ' + CLASSES[it.cls].name + ' can use that.', 'Salvage it for pips.', 1.6); return; }
-    const old = inv.equip[it.slot];
-    inv.equip[it.slot] = it;
+    if (!this.canEquip(it)) { sfx('error'); return; }
+    const slot = slotOverride || this.equipSlotFor(it);
+    const old = inv.equip[slot];
+    inv.equip[slot] = it;
+    this.lastEquip = { slot, t: performance.now() };
     inv.bag.splice(i, 1);
     if (old) inv.bag.splice(i, 0, old);
     sfx('unlock');
@@ -393,9 +456,12 @@ export class Game {
   setTile(x, y, t) { this.area.tiles[y * this.area.w + x] = t; this.tilesDirty = true; }
   locked() { return this.cutscene || this.ui.talking || this.transitioning; }
   hitstop(t) { this.stopT = Math.max(this.stopT, t); }
-  addSurge(n) { if (this.pstats && this.pstats.uniques.has('firstchime')) n *= 2; const was = this.surge; this.surge = Math.min(100, this.surge + n); if (was < 100 && this.surge >= 100) { sfx('charged'); this.ui.toast('BELL SURGE ready!', 'Press R', 1.4); } this.hudDirty = true; }
+  addSurge(n) { if (this.pstats && this.pstats.uniques.has('firstchime')) n *= 2; if (this.pstats && this.pstats.surgeGain) n *= this.pstats.surgeGain; const was = this.surge; this.surge = Math.min(100, this.surge + n); if (was < 100 && this.surge >= 100) { sfx('charged'); this.ui.toast('BELL SURGE ready!', 'Press R', 1.4); } this.hudDirty = true; }
   addCoins(n) { this.inv.coins = Math.min(9999, this.inv.coins + n); this.hudDirty = true; }
-  heal(n, quiet) { if (n <= 0) return; const before = this.inv.hp; this.inv.hp = Math.min(this.inv.maxHp, this.inv.hp + n); if (!quiet && this.player && this.inv.hp - before >= 1) this.ui.float(this.player.x, 1.1, this.player.z, '+' + Math.round(this.inv.hp - before), '#7fd36a'); this.ui.hearts(!quiet); }
+  heal(n, quiet) { if (n <= 0) return; const before = this.inv.hp; const over = before + n - this.inv.maxHp;
+    // Vital Dewdrop (qualitative affix): meaningful overheal condenses into a dewdrop nearby
+    if (over > this.inv.maxHp * 0.08 && this.pstats.qual.has('vital_dewdrop') && this.player && !(this.dewT > this.time)) { this.dewT = this.time + 5; const a = Math.random() * 6.28; this.spawn(new Pickup(this, this.player.x + Math.cos(a) * 1.4, this.player.z + Math.sin(a) * 1.4, 'heart')); }
+    this.inv.hp = Math.min(this.inv.maxHp, this.inv.hp + n); if (!quiet && this.player && this.inv.hp - before >= 1) this.ui.float(this.player.x, 1.1, this.player.z, '+' + Math.round(this.inv.hp - before), '#7fd36a'); this.ui.hearts(!quiet); }
   gainHeartContainer(silent) {
     this.inv.vessels = (this.inv.vessels || 0) + 1; this.recalc(); this.inv.hp = this.inv.maxHp; this.ui.hearts(true);
     if (!silent) { sfx('fanfare'); this.ui.toast('Heart Vessel!', 'Your life grows by one heart.', 2.4); }
@@ -433,6 +499,7 @@ export class Game {
     if (!BUILDERS[profile.world.checkpoint.area]) throw new Error('This character needs an unavailable area. Original save retained.');
     restoreCharacter(this, profile);
     this.characterSession = new CharacterSession(this.saveProvider, profile);
+    this.isNight = worldPhase(this.time, this.flags.dayOffset || 0).isNight; // valid before the first frame
     ensureCraftState(this.inv);
     this.recalc(); this.inv.hp = this.inv.maxHp;
     return true;
@@ -444,7 +511,8 @@ export class Game {
     await this.load(profile.id);
   }
   async respec() {
-    respecInventory(this.inv, CLASSES[this.inv.cls].abilities);
+    respecTree(this.inv); // refunds every bought tree rank exactly once
+    respecInventory(this.inv, CLASSES[this.inv.cls].abilities); // stat points (skills already at base)
     this.recalc();
     return this.save();
   }
@@ -734,6 +802,8 @@ export class Game {
     this.gainXp(e.xpValue || 5);
     // death-triggered effects can chain, but only two links deep (no runaway proc loops)
     this.procDepth = this.procDepth || 0;
+    if (e.status && e.status.burn > 0 && this.talent('wildfire') && this.procDepth < 2) { this.procDepth++; try { fanFlames(this, e, e.status); } finally { this.procDepth--; } }
+    if (e.status && e.status.hex > 0 && this.talent('soulsiphon')) { this.res = Math.min(100, this.res + 8); this.fx.burst(e.x, 0.6, e.z, 8, 0xb88aff, 2, { g: -2 }); }
     if (ps.uniques.has('hexbloom') && this.procDepth < 2) { this.procDepth++; try { blast(this, e.x, e.z, 1.8, 0.9, 0x8b5cf6, { ability: true }); } finally { this.procDepth--; } }
     if (e.elite === 'Volatile') { this.fx.ring(e.x, e.z, 0.2, 2, 0xffb347, 0.4); const p = this.player; if (Math.hypot(p.x - e.x, p.z - e.z) < 2) p.hurt({ dmg: 2, x: e.x, z: e.z, src: e, kb: 6 }); }
     // crafting materials come from the fights you already have, not a separate gathering game
@@ -853,6 +923,7 @@ export class Game {
     this.fx.burst(p.x, 0.3, p.z, 40, [0xfff3b0, 0xffd25e, 0xffffff], 6);
     p.attackId++; p.hitSet.clear();
     this.hitArc(p, p.x, p.z, 0, 5.5, Math.PI, { mult: 4, kind: 'surge', kb: 13, id: p.attackId, ability: true });
+    if (this.pstats.uniques.has('tuningfork')) { p.reduceCooldowns(999); this.ui.toast('Every ability is ready', 'The Tuning Fork hums.', 1.2); }
     for (const e of this.entities) if (e instanceof O.Crate || e instanceof O.Torch || e instanceof O.LeafPile || e instanceof O.Pinwheel) { /* the toll is sound, not wind */ }
   }
   blockAhead(p, dir) {

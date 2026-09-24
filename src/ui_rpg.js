@@ -227,12 +227,7 @@ export function installRpgUI(UI) {
     const g = this.g, inv = g.inv;
     if (input.pressed('inventory') || input.pressed('pause')) { this.closeInventory(); input.consume('pause'); return true; }
     if (input.pressed('shield')) { this.invTab = this.invTab === 'bag' ? 'skills' : 'bag'; sfx('select'); this.renderInventory(); return true; }
-    if (this.invTab === 'skills') {
-      if (input.pressed('up')) { this.skSel = (this.skSel + 2) % 3; this.renderSkills(); }
-      if (input.pressed('down')) { this.skSel = (this.skSel + 1) % 3; this.renderSkills(); }
-      if (input.pressed('interact')) this.rankUp();
-      return true;
-    }
+    if (this.invTab === 'skills') { this.updateSkillsInput(input); return true; }
     let s = this.invSel, moved = false;
     if (s < 0) {
       if (input.pressed('left')) { s = Math.min(-1, s + 1); moved = true; }

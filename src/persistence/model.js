@@ -33,7 +33,9 @@ export function defaultInventory(cls = 'samurai') {
   return { cls, level: 1, xp: 0, sp: 0, skills: [1, 0, 0], equip: runtimeEquipment({}), bag: [], vessels: 0,
     hp: 60, maxHp: 60, coins: 0, keys: 0, bigkey: false, bellows: false, galeValve: false,
     potions: 2, maxPotions: 3, chimes: [], mats: { shard: 0, thornheart: 0, echo: 0, ember: 0, sailcloth: 0 },
-    sigils: {}, sigilsOwned: [], recipes: [], allocatedStats: {}, statPoints: 0 };
+    sigils: {}, sigilsOwned: [], recipes: [], allocatedStats: {}, statPoints: 0,
+    // Pass 5 (additive): skill-tree ranks, six-slot hotbar, carried-currency recovery, item locks
+    tree: {}, loadout: null, lockedItems: [] };
 }
 
 export function identifyItem(it, ownerCharacterId = null, source = 'loot') {
@@ -78,6 +80,14 @@ export function normalizeCharacter(input) {
   inv.skills.forEach(x => nonnegative(x, 'skill rank'));
   for (const key of ['mats', 'sigils', 'allocatedStats']) requireRecord(inv[key], key);
   Object.values(inv.allocatedStats).forEach(x => nonnegative(x, 'allocated stat'));
+  // Pass 5 fields: validated, never required (older saves simply lack them)
+  if (inv.tree === null || inv.tree === undefined) inv.tree = {};
+  requireRecord(inv.tree, 'skill tree');
+  Object.values(inv.tree).forEach(x => nonnegative(x, 'skill tree rank'));
+  if (inv.loadout !== null && inv.loadout !== undefined) {
+    if (!Array.isArray(inv.loadout) || inv.loadout.length > 6 || inv.loadout.some(x => x !== null && typeof x !== 'string')) throw new Error('Malformed ability loadout');
+  }
+  if (!Array.isArray(inv.lockedItems)) inv.lockedItems = [];
   inv.equip = equipment(inv.equip);
   const seen = new Set();
   const accept = it => {
