@@ -1,4 +1,4 @@
-// Developer Console UI & Obscure Activation System for Mossling.
+// Developer Console UI & Obscure Activation System for Mossling (Pass 2).
 // DEVELOPER TOOLING ONLY.
 //
 // OBSCURITY NOTE:
@@ -6,7 +6,7 @@
 // but it is obscurity, NOT cryptography or security. Never put secrets or API keys
 // in client code.
 
-import { DevCommands, COMMAND_DEFINITIONS } from './commands.js';
+import { DevCommands, COMMAND_DEFINITIONS, COMMAND_CATEGORIES } from './commands.js';
 
 export class DevConsole {
   constructor(game) {
@@ -29,21 +29,43 @@ export class DevConsole {
   }
 
   buildUI() {
-    // Inject console container into DOM
     this.el = document.createElement('div');
     this.el.id = 'dev-console';
     this.el.className = 'dev-console hidden';
 
     this.el.innerHTML = `
       <div class="dev-header">
-        <span class="dev-tag">[DEV TOOLING — TESTING ONLY]</span>
-        <span class="dev-hint">Press \` or Esc to close · Type /help for commands</span>
+        <span class="dev-tag">[DEVELOPER TEST FACILITY — PASS 2]</span>
+        <span class="dev-hint">Press \` or Esc to close · /help for categories</span>
+      </div>
+      <div class="dev-toolbar">
+        <button type="button" class="dev-btn" data-cmd="/devroom">⚡ Dev Room</button>
+        <button type="button" class="dev-btn" data-cmd="/god">🛡️ God Mode</button>
+        <button type="button" class="dev-btn" data-cmd="/noclip">👻 NoClip</button>
+        <button type="button" class="dev-btn" data-cmd="/heal">💚 Heal</button>
+        <button type="button" class="dev-btn" data-cmd="/giveall">📦 Give All</button>
+        <button type="button" class="dev-btn" data-cmd="/rollweapon">⚔️ Roll Weapon</button>
+        <button type="button" class="dev-btn" data-cmd="/clear">🧹 Clear Foes</button>
+        <button type="button" class="dev-btn" data-cmd="/perf">📊 Perf HUD</button>
+        <button type="button" class="dev-btn" data-cmd="/gamepad">🎮 Gamepad</button>
+      </div>
+      <div class="dev-categories">
+        <span class="dev-cat-label">Categories:</span>
+        <button type="button" class="dev-cat-btn" data-cmd="/help">ALL</button>
+        <button type="button" class="dev-cat-btn" data-cmd="/help character">CHAR</button>
+        <button type="button" class="dev-cat-btn" data-cmd="/help loot">LOOT</button>
+        <button type="button" class="dev-cat-btn" data-cmd="/help combat">COMBAT</button>
+        <button type="button" class="dev-cat-btn" data-cmd="/help world">WORLD</button>
+        <button type="button" class="dev-cat-btn" data-cmd="/help crafting">CRAFT</button>
+        <button type="button" class="dev-cat-btn" data-cmd="/help quest">QUEST</button>
+        <button type="button" class="dev-cat-btn" data-cmd="/help visual">VISUAL</button>
+        <button type="button" class="dev-cat-btn" data-cmd="/help performance">PERF</button>
       </div>
       <div class="dev-log" id="dev-console-log"></div>
       <div class="dev-autocomplete hidden" id="dev-console-auto"></div>
       <div class="dev-input-row">
         <span class="dev-prompt">/</span>
-        <input type="text" id="dev-console-input" class="dev-input" autocomplete="off" spellcheck="false" placeholder="Type dev command (e.g. help, god, noclip, devroom, rollweapon)..." />
+        <input type="text" id="dev-console-input" class="dev-input" autocomplete="off" spellcheck="false" placeholder="Type dev command (e.g. help, god, devroom, rollweapon, tp)..." />
         <button type="button" class="dev-send" id="dev-console-send">Run</button>
       </div>
     `;
@@ -55,24 +77,24 @@ export class DevConsole {
     this.sendBtn = document.getElementById('dev-console-send');
 
     // Initial greeting
-    this.log('Mossling Developer Console Initialized.', 'gold');
-    this.log('Type "/help" for all commands or "/devroom" to test weapons and combat.', 'dim');
+    this.log('Mossling Comprehensive Developer Testing Facility Active.', 'gold');
+    this.log('Type "/help" for category index or click quick shortcuts above.', 'dim');
   }
 
   bindEvents() {
     // Obscure activation keys:
     // 1. Backquote (`) / Tilde (~)
     // 2. Ctrl + Shift + D
+    // 3. Forward Slash (/)
     window.addEventListener('keydown', (e) => {
-      // Toggle console
-      if (e.code === 'Backquote' || (e.ctrlKey && e.shiftKey && e.code === 'KeyD')) {
+      const isSlashTrigger = e.key === '/' && !this.isOpen && document.activeElement?.tagName !== 'INPUT';
+      if (e.code === 'Backquote' || (e.ctrlKey && e.shiftKey && e.code === 'KeyD') || isSlashTrigger) {
         e.preventDefault();
         e.stopPropagation();
         this.toggle();
         return;
       }
 
-      // Close console on Escape
       if (this.isOpen && e.code === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
@@ -80,12 +102,10 @@ export class DevConsole {
       }
     }, true);
 
-    // Stop gameplay keys while console input is focused
     const stopPropagation = (e) => {
-      if (this.isOpen) {
-        e.stopPropagation();
-      }
+      if (this.isOpen) e.stopPropagation();
     };
+
     this.inputEl.addEventListener('keydown', (e) => {
       e.stopPropagation();
 
@@ -118,11 +138,23 @@ export class DevConsole {
     this.inputEl.addEventListener('input', () => this.updateAutocomplete());
     this.sendBtn.addEventListener('click', () => this.runCurrentInput());
 
+    // Toolbar buttons
+    this.el.querySelectorAll('.dev-btn, .dev-cat-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const cmd = btn.dataset.cmd;
+        if (cmd) {
+          this.log(`> ${cmd}`, 'cyan');
+          DevCommands.execute(this.game, cmd, (msg, type) => this.log(msg, type));
+          this.inputEl.focus();
+        }
+      });
+    });
+
     // Obscure mouse activation: Clicking 5 times rapidly on the bottom-right version footer
     let clickCount = 0;
     let lastClickTime = 0;
     window.addEventListener('click', (e) => {
-      // Check if click was in the bottom-right corner (last 60px)
       if (e.clientX > window.innerWidth - 80 && e.clientY > window.innerHeight - 60) {
         const now = Date.now();
         if (now - lastClickTime < 600) {
@@ -149,6 +181,7 @@ export class DevConsole {
     this.el.classList.remove('hidden');
     this.inputEl.value = '';
     this.inputEl.focus();
+    this.commandList = Object.keys(COMMAND_DEFINITIONS);
 
     // Lock game input so WASD / abilities don't fire
     if (this.game && this.game.input) {
@@ -164,7 +197,6 @@ export class DevConsole {
     this.autoEl.classList.add('hidden');
     this.inputEl.blur();
 
-    // Restore game input
     if (this.game && this.game.input) {
       this.game.input.paused = false;
     }
@@ -216,7 +248,7 @@ export class DevConsole {
       return;
     }
 
-    this.autoEl.innerHTML = matches.map(m => `<span class="dev-match">/${m}</span>`).join(' ');
+    this.autoEl.innerHTML = matches.slice(0, 10).map(m => `<span class="dev-match">/${m}</span>`).join(' ');
     this.autoEl.classList.remove('hidden');
   }
 
