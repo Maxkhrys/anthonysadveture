@@ -29,10 +29,11 @@ from the pause menu. **Continue** on the title screen resumes from your last che
 | Action | Keyboard / mouse | Gamepad |
 |---|---|---|
 | Move | WASD / arrow keys | Left stick / D-pad |
-| Basic attack (tap); charged attack (hold, then release) | J / left click | X |
-| Abilities | 1, 2, 3 | |
+| Aim | Mouse (pressing J switches to aiming where you face) | Right stick |
+| Basic attack (tap); charged attack (hold, then release) | Left click / J | X |
+| Abilities; hold Snare or Rain to see where it lands, release to cast | 1, 2, 3 | |
 | Guard: hold to block; tap *just* before a hit to **parry** | K / right click | LB / LT |
-| Roll (invulnerable) | Space / Shift | A |
+| Roll (invulnerable; standing still with a mouse = backstep) | Space / Shift | A |
 | Gustbellows: tap for a puff, **hold** for a gale | L | Y |
 | Talk / read / open / advance text | E / Enter | B |
 | Bag, equipment and skills | I | |
@@ -41,6 +42,96 @@ from the pause menu. **Continue** on the title screen resumes from your last che
 | Drink a Red Tonic | Q | Back |
 | Map, journal, gear, controls, settings | Esc / Tab | Start |
 | Music on/off | M | |
+
+## Pass 3: aim, fights, crafting, and a village that answers back
+
+**Aiming.** Movement and aim are separate.
+- The mouse is projected through the rendered camera onto the plane that shots fly on, so the reticle, the
+  weapon, the projectile path preview and the hit all agree. A cursor resting on an enemy locks onto it.
+- The right stick aims on a gamepad. Pressing J switches to a deliberate keyboard mode that aims where you face,
+  with a soft assist.
+- The Archer and Witch can walk one way and shoot another. A quick shot fires the moment you release. Holding
+  charges, and the aim keeps tracking the cursor while you charge.
+- The Witch's bolt "seeks" only as a stated, limited property: it bends at most about 20° toward a foe already
+  near the line you aimed.
+- Snare Trap and Rain of Arrows are placed at the cursor. Holding the key shows a range ring and the area; the
+  spot is clamped to range and checked for line of sight. Nothing is spent if the cast fails.
+- Chain Lightning starts on the enemy you point at.
+- Dodging follows your movement keys. Standing still with the mouse gives a backstep.
+- Guarding faces the aim. Attacking out of a guard uses your class's own attack.
+- Projectiles use a swept hit test, so fast arrows can't skip small targets, and walls and solid objects stop
+  them.
+
+**Fights.**
+- Normal difficulty hits about 30% harder than before. Story and Hard are still either side of it.
+- A single blow can never take more than 40% of your life on Normal (30% on Story, 55% on Hard), so there are no
+  unexplained one-shots.
+- A flashing **!** appears over anything winding up an attack. It is amber for heavy hitters: their blows break a
+  held guard, so parry them or roll.
+- Only enemies on screen may commit to attacks or fire shots.
+- Elites have *poise*: light hits no longer cancel their attacks.
+- A perfect parry opens any enemy. Your first blow after it is a guaranteed critical, and all your hits deal +50%
+  for a moment.
+- Back-to-back rolls get shorter invulnerability.
+- Healing is limited:
+  - **Bellstones** (in the village, at the Hollow's mouth, and before the Root Gate) refill your life and tonics
+    and become your checkpoint.
+  - Tonics take a short, committed sip.
+  - Passive recovery only brings you back up to 40% out of combat.
+  - Hearts drop less often.
+  - Life steal draws from a small pool that refills over time.
+- Dying shows who felled you and how hard the last blow hit. You wake at the last Bellstone with full health and
+  tonics. Gear, crafting and story progress are all kept.
+
+**Crafting at Posy's workbench.** A weapon (or an ability), plus one rare essence, plus a few Hush Shards, gives
+one modifier that changes *how you fight*.
+
+| Recipe | For | Effect |
+|---|---|---|
+| Thorn Rebuke | Samurai katana | A perfect parry bursts thorns, and your next swing looses a rooting thorn crescent |
+| Echo Fletching | Archer bow | A charged shot re-fires as a spectral echo along the same path 0.6 s later |
+| Ember Seeds | Witch staff/wand | A charged fireball plants three visibly swelling seeds that burst 1.2 s later |
+| Millwind Edge | any class | A charged attack also throws a gust (it knocks foes back, reflects spores and works wind puzzles) |
+| Returning Cut (sigil) | Samurai: Iaido Dash | An afterimage repeats the dash's cut 0.5 s later |
+| Echo Snare (sigil) | Archer: Snare Trap | The trap springs a second time |
+| Rime Bloom (sigil) | Witch: Frost Nova | Leaves a ring of rime; frozen foes shatter for +60% damage |
+
+- **Materials** come from normal play:
+  - Salvaging gear gives Hush Shards, and elites shed them too.
+  - Bramblemaw's first defeat gives a Thornheart plus an essence suited to your class.
+  - Barkhulks, Ember Imps, Volatile and Mirewraith elites, and Rift Champions drop essences.
+  - Oswin gives you Mill Sailcloth.
+- **Recipes are discovered** through the boss, Oswin, the Echo Door and the Root Hermit. Undiscovered ones show a
+  hint.
+- **Before you craft**, the workbench shows the requirements, what you have, the cost, class compatibility and
+  the resulting effect.
+- **Crafting is safe:**
+  - Every check runs before anything is taken, so a failed craft costs nothing, and crafting saves at once.
+  - An engraving can be moved to a better weapon for 3 shards and 25 pips.
+  - An engraved weapon can't be salvaged by accident.
+  - No recipe touches a Chime.
+- **Chain limits:** echoes never echo, seeds never plant seeds, and death-triggered effects chain at most two
+  links deep.
+- **Bosses:** Bramblemaw still ignores everything until you make it choke.
+
+**People and places.**
+- Tamsin, Posy and Oswin talk through short topic menus. Unread topics are marked. Once you've read a topic you
+  get its short version instead of the full exposition again. Greetings react to your quests, your crafting and
+  the chapter's progress, and the wording fits your class. You can click the choices or use the keyboard; Esc
+  says goodbye.
+- **The Still Mill pays off.** Oswin gives you his sailcloth and teaches Millwind Edge. A whetwheel yard with
+  flour sacks and bunting then appears by the mill, and its hum is drawn as rings you can see. Tamsin, Posy and
+  Fennel all notice.
+- **The Echo.** Once you carry the Verdant Chime, every Gustbellows gust repeats once, 1.5 s later, from where you
+  stood (a ghost marks the spot).
+  - In combat, foes are hit twice.
+  - As a puzzle: the **Echo Door** east of Rootwell Hollow has two short-lived pinwheels with a hedge between
+    them. The walk around the hedge takes longer than one pinwheel spins, so only an echoed gust keeps the first
+    one turning.
+  - The Echo Door is optional and any class can solve it. It holds a Hollow Echo, a Bellwright tablet and your
+    class's sigil recipe.
+- **Visible sound.** The Bellstone chime, the mill's hum, the echo, and every enemy's wind-up have something to
+  see as well as hear.
 
 ## Pass 2: RPG loot overhaul
 
@@ -201,7 +292,18 @@ If you mess up a puzzle room, step out and back in and it resets. A sign in the 
 
 ### Testing
 
-The whole Chapter I path was checked with scripted runs in headless Chromium, using real simulated key input. The
+`npm test` runs the browser regression checks in `tests/`. It needs Playwright and Chromium; `npm i -D playwright`
+works, and the runner also finds a global install. You can run one suite at a time: `node tests/run.mjs aim`.
+
+| Suite | What it checks |
+|---|---|
+| `aim` | Moving left while shooting right with the real mouse; retargeting mid-charge; the keyboard fallback; the Witch's limited seeking; ground-target range, preview, obstruction and no cost on failure; walls; swept hits on a tiny target; Chain Lightning targeting; guard→attack; dodge directions |
+| `balance` | A table of how many clean hits each class survives, per enemy, at levels 1, 5 and 10 with level-matched gear; fodder time-to-kill; difficulty ordering; recovery capped at 40%; the tonic sip; the life-steal cap; roll chaining; the off-screen rule; elite poise; the parry crit; guard breaks; Bellstone rest; the death recap; waking up |
+| `crafting` | The workbench flow; failed crafts taking nothing; no double crafts; persistence across a reload; class rules; moving an engraving; every recipe's effect; recursion guards; a strong build against a crowd compared with the same bow unmodified; Bramblemaw's armour still holding |
+| `village` | Topic menus, read state and class wording; the mill → recipe → village change chain; persistence; the Echo Door with and without the echo; the echo in combat |
+| `chapter` | **Work in progress, not passing yet.** The whole of Chapter I for each class, at normal health with level-4 gear, with a bot that aims with the mouse and counts its deaths. The bot currently leaves a dialogue box open after talking to Tamsin, which blocks the rest of its run. That is a harness bug, not a game bug. Until it's fixed, the Pass 1 route script (with extra health) remains the evidence for completing the chapter. |
+
+The Pass 1 notes below still apply. The whole Chapter I path was checked with scripted runs in headless Chromium, using real simulated key input. The
 scripts use a deterministic fixed-step hook, `window.__sim(frames, heldKeys)`, which is exposed in `src/main.js` for
 this purpose. The runs covered:
 

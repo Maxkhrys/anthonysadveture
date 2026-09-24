@@ -14,12 +14,14 @@ export const ITEM_INFO = {
   heart: { name: 'Heart Vessel', desc: 'Your maximum hearts increased by one!', color: 0xff4a5a },
   pips: { name: 'Pips', desc: '', color: 0xffd25e },
   potion: { name: 'Red Tonic', desc: 'Drink with Q to restore three hearts.', color: 0xe8424f },
+  echo: { name: 'Hollow Echo', desc: 'A sound that forgot to stop. Posy could work it into something.', color: 0x9ad8ff },
 };
 function itemModel(c) {
   switch (c.kind) {
     case 'key': return mesh([B(0.06, 0.3, 0.04, 0, 0, 0, 0xc0c0d0), B(0.16, 0.14, 0.04, 0, 0.3, 0, 0xc0c0d0), B(0.1, 0.05, 0.04, 0.06, 0.04, 0, 0xc0c0d0)], MAT_GLOW);
     case 'bigkey': return mesh([B(0.08, 0.4, 0.06, 0, 0, 0, 0x8a5a2a), B(0.26, 0.22, 0.06, 0, 0.4, 0, 0xffd25e), B(0.14, 0.06, 0.06, 0.08, 0.04, 0, 0xffd25e), B(0.1, 0.1, 0.07, 0, 0.48, 0, 0x7fd36a)], MAT_GLOW);
     case 'item': return mesh([B(0.32, 0.22, 0.2, 0, 0, 0, 0x9a6a3a), B(0.36, 0.05, 0.24, 0, 0.1, 0, 0xc08a4a), B(0.08, 0.08, 0.2, 0, 0.1, 0.2, 0xc0c0d0), B(0.3, 0.06, 0.06, 0, 0.26, -0.08, 0x7ad8ff), B(0.06, 0.06, 0.06, 0, 0.1, 0.32, 0xdff4ff)], MAT_GLOW);
+    case 'echo': return mesh([B(0.26, 0.26, 0.06, 0, 0.1, 0, 0x9ad8ff), B(0.14, 0.14, 0.07, 0, 0.1, 0, 0xffffff), B(0.36, 0.04, 0.04, 0, 0.1, 0, 0x9ad8ff)], MAT_GLOW);
     case 'heart': return mesh([B(0.18, 0.18, 0.1, -0.09, 0.14, 0, 0xff4a5a), B(0.18, 0.18, 0.1, 0.09, 0.14, 0, 0xff4a5a), B(0.26, 0.14, 0.1, 0, 0.04, 0, 0xff4a5a), B(0.1, 0.08, 0.1, 0, -0.04, 0, 0xff4a5a)], MAT_GLOW);
     default: return mesh([B(0.2, 0.2, 0.06, 0, 0, 0, 0xffd25e), B(0.12, 0.08, 0.06, 0, 0.2, 0, 0xffd25e)], MAT_GLOW);
   }
@@ -490,6 +492,103 @@ export class Sign extends Entity {
   }
   get prompt() { return 'Read'; }
   interact() { this.g.ui.say(null, this.text); }
+}
+// A Bellstone: a small bronze bell on a mossy plinth. Resting refills life and tonics and
+// makes it your checkpoint. Its chime is shown as rings, so the sound is visible too.
+export class Bellstone extends Entity {
+  constructor(g, d) {
+    super(g, d.x, d.z);
+    this.spawn = d.spawn; this.name = d.name; this.solid = true; this.hw = 0.3; this.hd = 0.3; this.interactable = true;
+    this.obj.add(mesh([B(0.6, 0.3, 0.6, 0, 0, 0, 0x6e6a7a), B(0.66, 0.08, 0.66, 0, 0.3, 0, 0x5a8a3a), B(0.08, 0.5, 0.08, -0.2, 0.35, 0, 0x7a5a3a), B(0.08, 0.5, 0.08, 0.2, 0.35, 0, 0x7a5a3a), B(0.5, 0.08, 0.1, 0, 0.84, 0, 0x7a5a3a)]));
+    this.bell = new THREE.Group(); this.bell.position.set(0, 0.8, 0);
+    this.bell.add(mesh([B(0.2, 0.18, 0.2, 0, -0.14, 0, 0xc89a3a), B(0.26, 0.06, 0.26, 0, -0.24, 0, 0xd8aa4a), B(0.05, 0.05, 0.05, 0, -0.3, 0, 0x8a6a2a)]));
+    this.obj.add(this.bell);
+    this.glow = mesh([B(0.12, 0.12, 0.12, 0, 0.55, 0, 0xfff3b0)], MAT_GLOW, false); this.obj.add(this.glow);
+    this.t = Math.random() * 5;
+  }
+  get prompt() { return 'Rest at the ' + this.name + ' Bellstone'; }
+  interact() {
+    const g = this.g;
+    g.rest(this);
+    this.swing = 1;
+    sfx('chime'); g.fx.ring(this.x, this.z, 0.3, 2.2, 0xfff3b0, 0.6); g.fx.ring(this.x, this.z, 0.2, 3.4, 0xffd25e, 0.9, 0.3);
+    g.fx.burst(this.x, 0.9, this.z, 16, [0xfff3b0, 0xffd25e], 2, { g: -1 });
+    g.ui.toast('Rested at the ' + this.name + ' Bellstone', 'Life and tonics restored · You will wake here if you fall.', 2.4);
+  }
+  update(dt) {
+    this.t += dt;
+    this.swing = Math.max(0, (this.swing || 0) - dt * 0.5);
+    this.bell.rotation.z = Math.sin(this.t * 9) * 0.5 * this.swing;
+    const here = this.g.checkpoint.spawn === this.spawn && this.g.checkpoint.area === this.g.area.id;
+    this.glow.visible = here || Math.sin(this.t * 2) > 0;
+    if (Math.random() < (here ? 0.12 : 0.04)) this.g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.5, y: 0.6, z: this.z + (Math.random() - 0.5) * 0.5, vy: 0.7, g: 0, color: 0xfff3b0, life: 0.8, size: 0.04 });
+  }
+}
+// Posy's workbench: where essences are worked into weapons and sigils.
+export class Workbench extends Entity {
+  constructor(g, d) {
+    super(g, d.x, d.z);
+    this.solid = true; this.hw = 0.45; this.hd = 0.3; this.interactable = true;
+    this.obj.add(mesh([B(0.9, 0.08, 0.55, 0, 0.42, 0, 0x9a6a3a), B(0.08, 0.42, 0.08, -0.38, 0.2, -0.2, 0x6a4a2a), B(0.08, 0.42, 0.08, 0.38, 0.2, -0.2, 0x6a4a2a), B(0.08, 0.42, 0.08, -0.38, 0.2, 0.2, 0x6a4a2a), B(0.08, 0.42, 0.08, 0.38, 0.2, 0.2, 0x6a4a2a),
+      B(0.3, 0.12, 0.16, -0.15, 0.52, 0, 0x5a5a6a), B(0.16, 0.06, 0.1, -0.3, 0.6, 0, 0x6a6a7a), B(0.04, 0.2, 0.04, 0.2, 0.56, 0.08, 0x8a6a3a), B(0.14, 0.06, 0.06, 0.2, 0.66, 0.08, 0x9a9aa8), B(0.12, 0.1, 0.12, 0.3, 0.51, -0.12, 0xc9a8ff)]));
+    this.t = 0;
+  }
+  get prompt() { return 'Use the workbench'; }
+  interact() { this.g.guide.event && this.g.guide.event('craft'); this.g.ui.openCraft(); }
+  update(dt) { this.t += dt; if (Math.random() < 0.03) this.g.fx.add({ x: this.x + 0.3, y: 0.6, z: this.z - 0.12, vy: 0.6, g: 0, color: 0xc9a8ff, life: 0.6, size: 0.04 }); }
+}
+// The Verdant Chime's echo: a ghost of Moss that repeats a gust from where it was made.
+export class GustEcho extends Entity {
+  constructor(g, x, z, facing, power, delay = 1.5) {
+    super(g, x, z); this.facing = facing; this.power = power; this.t = 0; this.delay = delay; this.alwaysUpdate = true;
+    const mat = new THREE.MeshBasicMaterial({ color: 0x9ad8ff, transparent: true, opacity: 0.4, depthWrite: false });
+    const ghost = new THREE.Group();
+    for (const [w, h, d, x0, y0] of [[0.34, 0.36, 0.3, 0, 0.3], [0.4, 0.34, 0.36, 0, 0.62], [0.12, 0.14, 0.3, 0.12, 0.42]]) { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); b.position.set(x0, y0, 0); ghost.add(b); }
+    ghost.rotation.y = facing; this.obj.add(ghost); this.ghost = ghost; this.mat = mat;
+    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.56, 24), new THREE.MeshBasicMaterial({ color: 0x9ad8ff, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false }));
+    this.ring.rotation.x = -Math.PI / 2; this.ring.position.y = 0.04; this.obj.add(this.ring);
+  }
+  update(dt) {
+    const g = this.g; this.t += dt;
+    const k = Math.min(1, this.t / this.delay);
+    this.ring.scale.setScalar(1.6 - k * 1.2); // closes in as the echo arrives
+    this.mat.opacity = 0.25 + 0.2 * Math.sin(this.t * 14);
+    if (this.t >= this.delay) {
+      g.fx.ring(this.x, this.z, 0.2, 1.4, 0x9ad8ff, 0.35); g.fx.ring(this.x, this.z, 0.1, 2.2, 0xdff4ff, 0.5, 0.2);
+      g.gust(this, this.power, false, true);
+      g.stats.echoes = (g.stats.echoes || 0) + 1;
+      this.remove();
+      return;
+    }
+    this.sync();
+  }
+}
+// Once the mill turns again: a whetwheel driven by the sails, flour sacks, bunting — and the
+// mill's hum, drawn as rings so it can be seen as well as heard.
+export class MillYard extends Entity {
+  constructor(g, d) {
+    super(g, d.x, d.z);
+    this.solid = true; this.hw = 0.45; this.hd = 0.3; this.interactable = true; this.t = 0;
+    this.obj.add(mesh([B(0.1, 0.7, 0.1, -0.35, 0.35, 0, 0x7a5a3a), B(0.1, 0.7, 0.1, 0.35, 0.35, 0, 0x7a5a3a), B(0.8, 0.08, 0.1, 0, 0.7, 0, 0x7a5a3a), B(0.5, 0.1, 0.3, 0, 0.05, 0, 0x6a4a2a)]));
+    this.wheel = new THREE.Group(); this.wheel.position.set(0, 0.45, 0);
+    this.wheel.add(mesh([B(0.1, 0.5, 0.5, 0, 0, 0, 0x9a9aa8), B(0.12, 0.3, 0.3, 0, 0, 0, 0xb8b8c8), B(0.6, 0.06, 0.06, 0, 0, 0, 0x5a4a3a)]));
+    this.obj.add(this.wheel);
+    const sacks = mesh([B(0.3, 0.32, 0.26, -1.2, 0.16, 0.9, 0xf2e2c0), B(0.3, 0.28, 0.26, -0.9, 0.14, 1.1, 0xe8d8b0), B(0.28, 0.26, 0.24, -1.05, 0.44, 1.0, 0xf2e2c0), B(0.1, 0.06, 0.1, -1.2, 0.34, 0.9, 0xc0a070)]);
+    this.obj.add(sacks);
+    const cols = [0xe8424f, 0xffd25e, 0x7ad8ff, 0x7fd36a];
+    const bunt = [B(0.06, 1.5, 0.06, -2, 0.75, -1.6, 0x7a5a3a), B(0.06, 1.5, 0.06, 2.4, 0.75, -1.6, 0x7a5a3a), B(4.4, 0.03, 0.03, 0.2, 1.45, -1.6, 0x5a4a3a)];
+    for (let i = 0; i < 9; i++) bunt.push(B(0.2, 0.22, 0.02, -1.8 + i * 0.5, 1.3, -1.6, cols[i % 4]));
+    this.obj.add(mesh(bunt));
+  }
+  get prompt() { return 'Look at the whetwheel'; }
+  interact() { this.g.ui.say(null, 'The mill\'s sails turn a whetwheel now. It sings a thin, bright note as it spins — half of a song the Dawnbell used to finish.'); }
+  update(dt) {
+    const g = this.g; this.t += dt;
+    this.wheel.rotation.x -= dt * 6;
+    if (Math.random() < 0.06) g.fx.add({ x: this.x + 0.25, y: 0.45, z: this.z + (Math.random() - 0.5) * 0.3, vx: 1.5, vy: 1.2, g: 6, color: 0xffd25e, life: 0.3, size: 0.03 });
+    this.humT = (this.humT || 0) - dt;
+    if (this.humT <= 0) { this.humT = 3.2; g.fx.ring(47, 51, 0.8, 2.6, 0xfff3cf, 1.2, 0.15); }
+  }
 }
 export class NPC extends Entity {
   constructor(g, d) {

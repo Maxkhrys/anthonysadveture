@@ -124,9 +124,12 @@ export class PixelRenderer {
     const back = new THREE.Vector3(0, Math.sin(PITCH), Math.cos(PITCH));
     const t = this.target.clone();
     this.shakeT += dt * 60;
+    this.shakeOff = this.shakeOff || new THREE.Vector3();
+    this.shakeOff.set(0, 0, 0);
     if (this.shake > 0.001) {
-      t.x += Math.sin(this.shakeT * 1.7) * this.shake * 0.25;
-      t.z += Math.cos(this.shakeT * 2.3) * this.shake * 0.25;
+      this.shakeOff.x = Math.sin(this.shakeT * 1.7) * this.shake * 0.25;
+      this.shakeOff.z = Math.cos(this.shakeT * 2.3) * this.shake * 0.25;
+      t.add(this.shakeOff);
       this.shake *= Math.pow(0.02, dt);
     }
     // snap to texel grid in the camera plane
@@ -161,9 +164,27 @@ export class PixelRenderer {
     r.render(this.postScene, this.postCam);
   }
 
-  // world -> screen pixels (CSS)
+  // world -> screen pixels (CSS). Uses the continuous (un-snapped) view the post pass
+  // actually shows, so it agrees exactly with screenToWorld.
   project(v) {
-    const p = v.clone().project(this.camera);
-    return { x: (p.x + 1) / 2 * innerWidth, y: (1 - p.y) / 2 * innerHeight };
+    const T = this.viewCenter(), u = this.unitsPerPx;
+    const dx = v.x - T.x, dy = v.y - T.y, dz = v.z - T.z;
+    const a = dx, b = dy * Math.cos(PITCH) - dz * Math.sin(PITCH);
+    const fx = a / (this.rw * u) + 0.5, fy = b / (this.rh * u) + 0.5;
+    const r = this.renderer.domElement.getBoundingClientRect();
+    return { x: r.left + fx * r.width, y: r.top + (1 - fy) * r.height };
+  }
+  viewCenter() { const t = this.target.clone(); if (this.shakeOff) t.add(this.shakeOff); return t; }
+  // screen pixels (CSS client coords) -> point on the horizontal plane y = h
+  screenToWorld(cx, cy, h = 0) {
+    const r = this.renderer.domElement.getBoundingClientRect();
+    const fx = (cx - r.left) / r.width, fy = 1 - (cy - r.top) / r.height;
+    const T = this.viewCenter(), u = this.unitsPerPx;
+    const ca = Math.cos(PITCH), sa = Math.sin(PITCH);
+    const du = (fx - 0.5) * this.rw * u, dv = (fy - 0.5) * this.rh * u;
+    // point on the camera plane through the target, then along the view ray (-back)
+    const Cx = T.x + du, Cy = T.y + dv * ca, Cz = T.z - dv * sa;
+    const lam = (Cy - h) / sa;
+    return { x: Cx, y: h, z: Cz - ca * lam };
   }
 }

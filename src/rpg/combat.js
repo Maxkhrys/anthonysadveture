@@ -4,19 +4,28 @@ import { Entity, move } from '../entities/entity.js';
 import { mesh, B, MAT_GLOW, MAT } from '../models.js';
 import { sfx } from '../engine/audio.js';
 import { RARITY, genItem } from './items.js';
+import { hasEngraving } from './crafting.js';
 
+import { angDiff } from '../engine/util.js';
+// closest approach of point (px,pz) to segment a->b: {t in [0,1], d}
+export function segT(ax, az, bx, bz, px, pz) {
+  const vx = bx - ax, vz = bz - az, l2 = vx * vx + vz * vz;
+  const t = l2 > 1e-9 ? Math.max(0, Math.min(1, ((px - ax) * vx + (pz - az) * vz) / l2)) : 0;
+  return { t, d: Math.hypot(ax + vx * t - px, az + vz * t - pz) };
+}
 const enemiesNear = (g, x, z, r) => g.entities.filter(e => e.isEnemy && !e.dead && Math.hypot(e.x - x, e.z - z) < r + (e.r || 0.3));
 
 // ---------------------------------------------------------------- projectiles
 export class Projectile extends Entity {
   constructor(g, o) {
     super(g, o.x, o.z);
-    Object.assign(this, { dir: o.dir, speed: o.speed ?? 14, range: o.range ?? 9, mult: o.mult ?? 1, kind: o.kind, pierce: o.pierce ?? 0, homing: o.homing ?? 0, aoe: o.aoe ?? 0, ability: !!o.ability, kb: o.kb ?? 3, color: o.color ?? 0xffffff, noSplit: o.noSplit });
+    Object.assign(this, { dir: o.dir, speed: o.speed ?? 14, range: o.range ?? 9, mult: o.mult ?? 1, kind: o.kind, pierce: o.pierce ?? 0, homing: o.homing ?? 0, seek: o.seek || null, dir0: o.dir, aoe: o.aoe ?? 0, ability: !!o.ability, kb: o.kb ?? 3, color: o.color ?? 0xffffff, noSplit: o.noSplit, noCraft: !!o.noCraft, root: o.root || 0, echo: !!o.echo });
     this.r = o.r ?? 0.18; this.moveMode = 'fly'; this.y = 0.45; this.hit = new Set(); this.dist = 0;
     const u = g.pstats.uniques;
     if (this.kind === 'arrow' || this.kind === 'power') {
       if (u.has('windwhisper')) { this.pierce = 99; this.kb = 7; }
-      this.m = mesh([B(0.04, 0.04, 0.6, 0, -0.02, 0, 0x8a6a3a), B(0.08, 0.06, 0.1, 0, -0.03, 0.3, 0xdfe8f0), B(0.1, 0.02, 0.12, 0, -0.01, -0.28, this.kind === 'power' ? 0xffd25e : 0xf0f0f0)], this.kind === 'power' ? MAT_GLOW : MAT, false);
+      const ec = this.echo ? 0x9ad8ff : null;
+      this.m = mesh([B(0.04, 0.04, 0.6, 0, -0.02, 0, ec || 0x8a6a3a), B(0.08, 0.06, 0.1, 0, -0.03, 0.3, ec || 0xdfe8f0), B(0.1, 0.02, 0.12, 0, -0.01, -0.28, ec || (this.kind === 'power' ? 0xffd25e : 0xf0f0f0))], this.kind === 'power' || this.echo ? MAT_GLOW : MAT, false);
       if (this.kind === 'power') this.m.scale.setScalar(1.5);
     } else if (this.kind === 'crescent') {
       this.m = mesh([B(1.4, 0.06, 0.18, 0, 0, 0, 0xffffff), B(0.9, 0.05, 0.14, 0, 0, 0.12, 0xff6a6a)], MAT_GLOW, false);
@@ -28,6 +37,25 @@ export class Projectile extends Entity {
   }
   update(dt) {
     const g = this.g;
+    // 'seek': an explicit, bounded bend toward a foe near the aimed line. It can never turn
+    // the shot more than seek.cone away from where the player aimed.
+    if (this.seek) {
+      const S = this.seek;
+      let best = null, bd = S.range;
+      for (const e of g.entities) {
+        if (!e.isEnemy || e.dead || this.hit.has(e)) continue;
+        const d = Math.hypot(e.x - this.x, e.z - this.z);
+        if (d >= bd) continue;
+        if (Math.abs(angDiff(this.dir0, Math.atan2(e.x - this.x, e.z - this.z))) > S.cone) continue;
+        bd = d; best = e;
+      }
+      if (best) {
+        const d = angDiff(this.dir, Math.atan2(best.x - this.x, best.z - this.z));
+        this.dir += Math.max(-S.rate * dt, Math.min(S.rate * dt, d));
+        const off = angDiff(this.dir0, this.dir);
+        if (Math.abs(off) > S.cone) this.dir = this.dir0 + Math.sign(off) * S.cone;
+      }
+    }
     if (this.homing) {
       let best = null, bd = 6;
       for (const e of g.entities) if (e.isEnemy && !e.dead && !this.hit.has(e)) { const d = Math.hypot(e.x - this.x, e.z - this.z); if (d < bd) { bd = d; best = e; } }
@@ -38,29 +66,40 @@ export class Projectile extends Entity {
       }
     }
     const step = this.speed * dt;
-    const wall = move(g, this, Math.sin(this.dir) * step, Math.cos(this.dir) * step);
+    const x0 = this.x, z0 = this.z;
+    let wall = move(g, this, Math.sin(this.dir) * step, Math.cos(this.dir) * step);
+    // solid objects (doors, crates, pillars, villagers) stop shots too
+    if (!wall && g.solidAt(this.x, this.z, this.r * 0.5)) wall = true;
     this.dist += step;
     this.obj.rotation.y = this.dir;
     if (this.kind !== 'arrow' && this.kind !== 'power' && this.kind !== 'crescent') this.m.rotation.x += dt * 12;
     if (Math.random() < 0.6) g.fx.add({ x: this.x, y: this.y, z: this.z, color: this.color, life: 0.25, size: this.kind === 'fireball' ? 0.1 : 0.05, g: 0 });
+    // swept test along this frame's whole path, so fast shots never skip small targets
+    const hits = [];
     for (const e of g.entities) {
       if (!e.isEnemy || e.dead || this.hit.has(e)) continue;
       if (e.moveMode === 'fly' && e.alt > 1.6) continue;
-      if (Math.hypot(e.x - this.x, e.z - this.z) > (e.r || 0.3) + this.r) continue;
+      const t = segT(x0, z0, this.x, this.z, e.x, e.z);
+      if (t.d > (e.r || 0.3) + this.r) continue;
+      hits.push([t.t, e]);
+    }
+    hits.sort((a, b) => a[0] - b[0]);
+    for (const [, e] of hits) {
       this.hit.add(e);
-      if (this.aoe) return this.explode();
+      if (this.aoe) { this.x = e.x; this.z = e.z; return this.explode(); }
       g.playerHit(e, { mult: this.mult, kind: this.kind, kb: this.kb, dir: this.dir, ability: this.ability });
       this.onImpact(e);
-      if (this.pierce-- <= 0) return this.pop();
+      if (this.pierce-- <= 0) { this.x = e.x; this.z = e.z; return this.pop(); }
     }
     // spores and pods can be shot back
-    for (const e of g.entities) if ((e.isProjectile && !e.friendly && e.reflect) && Math.hypot(e.x - this.x, e.z - this.z) < 0.35) { e.reflect(this.dir); return this.pop(); }
+    for (const e of g.entities) if ((e.isProjectile && !e.friendly && e.reflect) && segT(x0, z0, this.x, this.z, e.x, e.z).d < 0.35) { e.reflect(this.dir); return this.pop(); }
     if (wall || this.dist > this.range) { if (this.aoe) return this.explode(); return this.pop(); }
     this.sync();
     this.obj.position.y = this.y;
   }
   onImpact(e) {
     const g = this.g, u = g.pstats.uniques;
+    if (this.root && e.applyStatus) e.applyStatus('root', this.root);
     if ((this.kind === 'arrow' || this.kind === 'power') && u.has('sunshot')) { blast(g, e.x, e.z, 1.3, this.mult * 0.6, 0xff8a2a, { burn: true }); }
     if ((this.kind === 'arrow' || this.kind === 'power') && u.has('thornquill') && !this.noSplit) {
       for (const da of [-0.5, 0.5]) { const p = new Projectile(g, { x: this.x, z: this.z, dir: this.dir + da, speed: 12, range: 4, mult: this.mult * 0.4, kind: 'thorn', color: 0x7fd36a, noSplit: true }); p.hit = new Set([e]); g.spawn(p); }
@@ -70,9 +109,87 @@ export class Projectile extends Entity {
     const g = this.g;
     blast(g, this.x, this.z, this.aoe, this.mult, this.color, { burn: this.kind === 'fireball', ability: this.ability });
     if (this.kind === 'fireball' && g.pstats.uniques.has('starfall')) g.spawn(new Meteor(g, this.x, this.z, this.mult * 1.2));
+    if (this.kind === 'fireball' && !this.noCraft && hasEngraving(g, 'emberseeds')) {
+      const a0 = Math.random() * 6.28;
+      for (let i = 0; i < 3; i++) { const a = a0 + i * 2.094, x = this.x + Math.cos(a) * 1.1, z = this.z + Math.sin(a) * 1.1; g.spawn(new EmberSeed(g, g.shotClear(this.x, this.z, x, z) ? x : this.x, g.shotClear(this.x, this.z, x, z) ? z : this.z, this.mult * 0.7)); }
+    }
     this.remove();
   }
   pop() { this.g.fx.burst(this.x, this.y, this.z, 5, this.color, 1.5, { life: 0.25, size: 0.05 }); this.remove(); }
+}
+
+// ---------------------------------------------------------------- crafted effects
+// Echo Fletching: a spectral copy of a charged shot, re-fired along the original path.
+export class EchoShot extends Entity {
+  constructor(g, o) {
+    super(g, o.x, o.z); this.o = o; this.t = 0; this.delay = o.delay ?? 0.6;
+    this.obj.add(mesh([B(0.06, 0.06, 0.7, 0, 0, 0, 0x9ad8ff)], MAT_GLOW, false)); this.obj.rotation.y = o.dir; this.obj.position.y = 0.45;
+    this.alwaysUpdate = true;
+  }
+  update(dt) {
+    const g = this.g; this.t += dt;
+    if (Math.random() < 0.5) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.3, y: 0.45, z: this.z + (Math.random() - 0.5) * 0.3, g: 0, color: 0x9ad8ff, life: 0.3, size: 0.05 });
+    this.obj.scale.setScalar(1 + Math.sin(this.t * 30) * 0.1);
+    if (this.t >= this.delay) {
+      g.spawn(new Projectile(g, { ...this.o, mult: this.o.mult * 0.6, echo: true, noCraft: true, color: 0x9ad8ff }));
+      g.fx.ring(this.x, this.z, 0.1, 0.8, 0x9ad8ff, 0.25); sfx('swing');
+      this.remove();
+    }
+  }
+}
+// Ember Seeds: visible, swelling seeds that go off after a fixed delay.
+export class EmberSeed extends Entity {
+  constructor(g, x, z, mult) {
+    super(g, x, z); this.mult = mult; this.t = 0; this.fuse = 1.2;
+    this.seed = mesh([B(0.16, 0.12, 0.16, 0, 0.06, 0, 0xff8a2a), B(0.06, 0.1, 0.06, 0, 0.16, 0, 0x7fd36a)], MAT_GLOW, false); this.obj.add(this.seed);
+    this.alwaysUpdate = true;
+  }
+  update(dt) {
+    const g = this.g; this.t += dt;
+    const k = this.t / this.fuse;
+    this.seed.scale.setScalar(1 + k * 1.2 + Math.sin(this.t * (10 + k * 30)) * 0.12 * k);
+    if (Math.random() < 0.2 + k * 0.5) g.fx.add({ x: this.x, y: 0.2, z: this.z, vy: 1 + k, g: 0, color: k > 0.7 ? 0xffd25e : 0xff8a2a, life: 0.3, size: 0.05 });
+    if (this.t >= this.fuse) { blast(g, this.x, this.z, 1.4, this.mult, 0xff8a2a, { burn: true, ability: true }); this.remove(); }
+    this.sync();
+  }
+}
+// Returning Cut: the Iaido path is cut again by an afterimage.
+export class IaidoEcho extends Entity {
+  constructor(g, x0, z0, x1, z1, mult) {
+    super(g, x0, z0); Object.assign(this, { x0, z0, x1, z1, mult }); this.t = 0; this.hitSet = new Set(); this.alwaysUpdate = true;
+    this.ghost = mesh([B(0.3, 0.5, 0.2, 0, 0.3, 0, 0x9ad8ff)], MAT_GLOW, false); this.obj.add(this.ghost);
+  }
+  update(dt) {
+    const g = this.g; this.t += dt;
+    const k = Math.max(0, (this.t - 0.5) / 0.2);
+    this.ghost.visible = this.t < 0.5 ? Math.floor(this.t * 20) % 2 === 0 : true;
+    if (k > 0) {
+      const kk = Math.min(1, k), x = this.x0 + (this.x1 - this.x0) * kk, z = this.z0 + (this.z1 - this.z0) * kk;
+      this.x = x; this.z = z;
+      if (Math.random() < 0.9) g.fx.add({ x, y: 0.4, z, color: 0x9ad8ff, life: 0.3, size: 0.08, g: 0 });
+      for (const e of g.entities) {
+        if (!e.isEnemy || e.dead || this.hitSet.has(e)) continue;
+        if (segT(this.x0, this.z0, x, z, e.x, e.z).d > 1.0 + (e.r || 0.3)) continue;
+        this.hitSet.add(e);
+        g.playerHit(e, { mult: this.mult, kind: 'dash', kb: 4, dir: Math.atan2(this.x1 - this.x0, this.z1 - this.z0), ability: true });
+      }
+      if (k >= 1) { g.fx.arc(x, 0.35, z, Math.atan2(this.x1 - this.x0, this.z1 - this.z0), 1.2, 2.4, 0x9ad8ff, 0.18, 0.4); sfx('swing2'); this.remove(); return; }
+    }
+    this.sync();
+  }
+}
+// Rime Bloom: a lingering ring of frost around a Frost Nova.
+export class RimeField extends Entity {
+  constructor(g, x, z, r = 3.2, dur = 3) {
+    super(g, x, z); this.r = r; this.dur = dur; this.t = 0; this.tick = 0; this.alwaysUpdate = true;
+    g.fx.ring(x, z, r - 0.1, r, 0xdff4ff, dur, 0.02);
+  }
+  update(dt) {
+    const g = this.g; this.t += dt; this.tick -= dt;
+    for (let i = 0; i < 2; i++) { const a = Math.random() * 6.28, rr = Math.sqrt(Math.random()) * this.r; g.fx.add({ x: this.x + Math.cos(a) * rr, y: 0.05, z: this.z + Math.sin(a) * rr, vy: 0.3, g: 0, color: 0xdff4ff, life: 0.6, size: 0.05 }); }
+    if (this.tick <= 0) { this.tick = 0.25; for (const e of enemiesNear(g, this.x, this.z, this.r)) e.applyStatus && e.applyStatus('chill', 0.6); }
+    if (this.t > this.dur) this.remove();
+  }
 }
 
 export function blast(g, x, z, r, mult, color, o = {}) {
@@ -87,8 +204,8 @@ export function blast(g, x, z, r, mult, color, o = {}) {
 
 // ---------------------------------------------------------------- ability effects
 export class Trap extends Entity {
-  constructor(g, x, z, mult, rootT) {
-    super(g, x, z); this.mult = mult; this.rootT = rootT; this.t = 0;
+  constructor(g, x, z, mult, rootT, rearm = false) {
+    super(g, x, z); this.mult = mult; this.rootT = rootT; this.t = 0; this.rearm = rearm;
     this.obj.add(mesh([B(0.6, 0.06, 0.6, 0, 0, 0, 0x6a4a2a), B(0.5, 0.1, 0.08, 0, 0.05, 0.22, 0xc0c0d0), B(0.5, 0.1, 0.08, 0, 0.05, -0.22, 0xc0c0d0), B(0.12, 0.12, 0.12, 0, 0.06, 0, 0xffd25e)]));
     this.alwaysUpdate = false;
   }
@@ -96,10 +213,18 @@ export class Trap extends Entity {
     this.t += dt;
     if (this.t > 20) return this.remove();
     if (this.t < 0.35) return this.sync();
+    if (this.pending !== undefined) {
+      // Echo Snare: the same spot springs again a moment later
+      this.pending -= dt;
+      if (Math.random() < 0.4) this.g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.8, y: 0.1, z: this.z + (Math.random() - 0.5) * 0.8, vy: 1, g: 0, color: 0x9ad8ff, life: 0.4, size: 0.05 });
+      if (this.pending <= 0) { sfx('thud'); blast(this.g, this.x, this.z, 1.9, this.mult, 0x9ad8ff, { root: this.rootT, ability: true }); this.remove(); }
+      return;
+    }
     if (enemiesNear(this.g, this.x, this.z, 0.7).length) {
       sfx('thud');
       blast(this.g, this.x, this.z, 1.9, this.mult, 0xffd25e, { root: this.rootT, ability: true });
-      this.remove();
+      if (this.rearm) { this.pending = 1.0; this.g.fx.ring(this.x, this.z, 0.2, 1.9, 0x9ad8ff, 1.0, 0.05); }
+      else this.remove();
     }
   }
 }
@@ -153,10 +278,10 @@ export function frostNova(g, x, z, mult, freezeT) {
   sfx('extinguish'); sfx('parry');
   for (const e of enemiesNear(g, x, z, 3.2)) { g.playerHit(e, { mult, kind: 'frost', kb: 2, dir: Math.atan2(e.x - x, e.z - z), ability: true }); e.applyStatus && e.applyStatus('freeze', freezeT); }
 }
-export function chainLightning(g, x, z, mult, n, range = 7) {
+export function chainLightning(g, x, z, mult, n, range = 7, first = null) {
   let from = { x, z }, hit = new Set();
   for (let i = 0; i < n; i++) {
-    const t = g.entities.filter(e => e.isEnemy && !e.dead && !hit.has(e) && Math.hypot(e.x - from.x, e.z - from.z) < (i ? 4.5 : range)).sort((a, b) => Math.hypot(a.x - from.x, a.z - from.z) - Math.hypot(b.x - from.x, b.z - from.z))[0];
+    const t = i === 0 && first && !first.dead ? first : g.entities.filter(e => e.isEnemy && !e.dead && !hit.has(e) && Math.hypot(e.x - from.x, e.z - from.z) < (i ? 4.5 : range)).sort((a, b) => Math.hypot(a.x - from.x, a.z - from.z) - Math.hypot(b.x - from.x, b.z - from.z))[0];
     if (!t) break;
     hit.add(t);
     bolt(g, from.x, from.z, t.x, t.z);

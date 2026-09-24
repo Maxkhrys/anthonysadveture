@@ -169,6 +169,27 @@ export function buildOverworld() {
   g.deco('riftstone', 65, 55, 1, 1);
   g.def({ type: 'riftstone', x: 65.5, z: 56.4 });
   g.def({ type: 'board', x: 62.5, z: 64.3 });
+  g.def({ type: 'bellstone', x: 56.5, z: 60.5, spawn: 'village', name: 'Thimblewick' });
+  g.def({ type: 'workbench', x: 55.3, z: 64.8 });
+  g.def({ type: 'millyard', x: 50.5, z: 51.2 });
+
+  // The Echo Glade, east of Rootwell Hollow: two short-lived pinwheels with a hedge between.
+  // Walking around the hedge takes longer than one pinwheel spins, so only a gust that
+  // repeats itself (the Verdant Chime's echo) keeps the first one turning.
+  for (let z = 27; z <= 33; z++) for (let x = 27; x <= 37; x++) g.set(x, z, T.GRASS);
+  for (let x = 26; x <= 38; x++) g.set(x, 26, T.ROCK);
+  for (let z = 27; z <= 32; z++) g.set(32, z, T.TREE);
+  for (let z = 23; z <= 25; z++) { g.set(34, z, T.ROCK); g.set(38, z, T.ROCK); }
+  for (let x = 34; x <= 38; x++) g.set(x, 23, T.ROCK);
+  for (let z = 24; z <= 25; z++) for (let x = 35; x <= 37; x++) g.set(x, z, T.STONE);
+  g.set(36, 26, T.STONE);
+  g.def({ type: 'pinwheel', x: 29.5, z: 28.5, signal: 'echo.a', latch: false, time: 1.0 });
+  g.def({ type: 'pinwheel', x: 35.5, z: 28.5, signal: 'echo.b', latch: false, time: 1.0 });
+  g.def({ type: 'pingroup', a: 'echo.a', b: 'echo.b', signal: 'ow.echo' });
+  g.def({ type: 'door', id: 'echo-door', x: 36.5, z: 26.5, orient: 'h', kind: 'stone', signal: 'ow.echo', single: true });
+  g.def({ type: 'chest', id: 'echo-chest', x: 36.5, z: 24.5, contents: { kind: 'echo' } });
+  g.def({ type: 'sign', x: 27.5, z: 31.5, text: 'THE ECHO DOOR\nTwo pinwheels, a hedge between them. Carved in the stone:\n"What the wind says once, the Hollow says twice."' });
+  g.def({ type: 'sign', x: 35.5, z: 24.5, text: 'A Bellwright tablet:\n"We taught the Voices to repeat, so that no sound in Lanternreach would ever be lost.\nWe did not ask where the lost ones went. Now we know. They went to the Hush."' });
   g.deco('house', 55, 90, 3, 2, { roof: 0x5a8ab0, small: true });
   for (const [x, y] of [[47, 55], [48, 55], [47, 60], [48, 60], [67, 55], [68, 55], [67, 61], [68, 61]]) g.deco('fence', x, y, 1, 1);
   g.def({ type: 'sign', x: 70.5, z: 59.5, text: 'THIMBLEWICK\n"Small folk, loud bell."' });
@@ -319,7 +340,7 @@ const ROOMS = {
     '....O.....O....',
     '..1.........1..',
     '...............',
-    '...m...........',
+    '...m.......S...',
     '....O.....O....',
     '........1......',
     '.t...........t.',
@@ -395,7 +416,7 @@ const ROOMS = {
     '...O...5...O...',
     '...............',
     '...............',
-    '..t.m.......t..',
+    '..t.m.....S.t..',
     '...............',
     '...............'] },
   heart: { cell: [0, 1], name: 'Rootwell Hollow — Moat of Whispers', map: [
@@ -468,6 +489,7 @@ export function buildDungeon() {
         case 't': g.def({ type: 'torch', x: cx, z: cz, room: id }); break;
         case 'w': g.def({ type: 'pinwheel', x: cx, z: cz, signal: r.pinwheel, latch: true }); break;
         case 'm': g.def({ type: 'sign', x: cx, z: cz, text: MURALS[id], mural: true }); break;
+        case 'S': g.def({ type: 'bellstone', x: cx, z: cz, room: id, spawn: id === 'ent' ? 'entrance' : 'pre', name: id === 'ent' ? 'Hollow Mouth' : 'Root Gate' }); break;
         case 'r': g.def({ type: 'roots', x: cx, z: cz }); t = T.MOSS; break;
         case '*': { const ch = r.chests[chestI++]; g.def({ type: 'chest', x: cx, z: cz, room: id, ...ch }); break; }
         case '1': g.def({ type: 'enemy', kind: 'blot', x: cx, z: cz, room: id }); break;

@@ -15,17 +15,32 @@ export class Input {
     this.state = {}; this.prev = {};
     this.mx = 0; this.mz = 0;
     this.usingPad = false;
+    // aiming: the last-used source wins ('mouse', 'pad' or 'keys')
+    this.aimSrc = 'keys'; this.mouseX = innerWidth / 2; this.mouseY = innerHeight / 2; this.onCanvas = false;
+    this.padAim = null; // {x,z} unit vector from the right stick
+    this.aimPref = 'auto';
     addEventListener('keydown', e => {
       if (['Tab', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
       this.keys.add(e.code); this.taps.add(e.code); this.usingPad = false;
+      // attacking from the keyboard (J) is an intentional switch to keyboard aiming
+      if (e.code === 'KeyJ' && this.aimPref !== 'mouse') this.aimSrc = 'keys';
     });
     addEventListener('keyup', e => this.keys.delete(e.code));
     addEventListener('blur', () => { this.keys.clear(); this.mouse.clear(); });
     const cv = document.getElementById('game');
-    cv.addEventListener('mousedown', e => { this.mouse.add(e.button); this.mtaps.add(e.button); e.preventDefault(); });
+    cv.addEventListener('mousedown', e => { this.mouse.add(e.button); this.mtaps.add(e.button); this.mouseAt(e); if (this.aimPref !== 'keys') this.aimSrc = 'mouse'; e.preventDefault(); });
+    addEventListener('mousemove', e => {
+      const moved = Math.hypot(e.clientX - this.mouseX, e.clientY - this.mouseY);
+      this.mouseAt(e);
+      if (moved > 3 && this.aimPref !== 'keys') this.aimSrc = 'mouse';
+    });
+    cv.addEventListener('mouseleave', () => { this.onCanvas = false; });
+    cv.addEventListener('mouseenter', () => { this.onCanvas = true; });
     addEventListener('mouseup', e => this.mouse.delete(e.button));
     cv.addEventListener('contextmenu', e => e.preventDefault());
   }
+  mouseAt(e) { this.mouseX = e.clientX; this.mouseY = e.clientY; this.onCanvas = true; }
+  get mouseAim() { return this.aimSrc === 'mouse' && this.aimPref !== 'keys'; }
   update() {
     this.prev = this.state;
     const s = {};
@@ -36,8 +51,11 @@ export class Input {
     this.taps.clear(); this.mtaps.clear();
     let mx = (s.right ? 1 : 0) - (s.left ? 1 : 0), mz = (s.down ? 1 : 0) - (s.up ? 1 : 0);
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    this.padAim = null;
     for (const p of pads) {
       if (!p) continue;
+      const rx = p.axes[2] || 0, rz = p.axes[3] || 0, rl = Math.hypot(rx, rz);
+      if (rl > 0.35) { this.padAim = { x: rx / rl, z: rz / rl }; this.aimSrc = 'pad'; this.usingPad = true; }
       const ax = p.axes[0] || 0, az = p.axes[1] || 0;
       if (Math.hypot(ax, az) > 0.25) { mx = ax; mz = az; this.usingPad = true; }
       const b = i => p.buttons[i] && p.buttons[i].pressed;

@@ -2,6 +2,7 @@
 import { sfx, duckMusic } from './engine/audio.js';
 import { T } from './world/tiles.js';
 import { installRpgUI } from './ui_rpg.js';
+import { installCraftUI } from './ui_craft.js';
 import { SettingsPanel } from './settings.js';
 
 const $ = id => document.getElementById(id);
@@ -142,15 +143,23 @@ export class UI {
     if (this.choice) {
       if (input.pressed('left') || input.pressed('up')) { this.choice.i = (this.choice.i + this.choice.opts.length - 1) % this.choice.opts.length; sfx('select'); this.renderChoices(); }
       if (input.pressed('right') || input.pressed('down')) { this.choice.i = (this.choice.i + 1) % this.choice.opts.length; sfx('select'); this.renderChoices(); }
-      if (input.pressed('interact')) { const o = this.choice.opts[this.choice.i]; this.choice = null; this.typing = null; this.dialogQ.length = 0; this.dialogCb = null; el.classList.add('hidden'); duckMusic(false); o.cb && o.cb(); }
+      if (input.pressed('interact')) this.pick(this.choice.i);
+      else if (input.pressed('pause')) { input.consume('pause'); this.pick(this.choice.opts.length - 1); } // Esc: the last option (Goodbye / Not now)
       return true;
     }
     if (input.pressed('interact') || input.pressed('attack')) { sfx('select'); this.next(); }
     return true;
   }
+  pick(i) {
+    const el = $('dialog'), o = this.choice && this.choice.opts[i];
+    if (!o) return;
+    this.choice = null; this.typing = null; this.dialogQ.length = 0; this.dialogCb = null; el.classList.add('hidden'); duckMusic(false); sfx('select');
+    o.cb && o.cb();
+  }
   renderChoices() {
     const c = $('dialog').querySelector('.choices');
-    c.innerHTML = this.choice.opts.map((o, i) => `<span class="${i === this.choice.i ? 'on' : ''}">${o.label}</span>`).join('');
+    c.innerHTML = this.choice.opts.map((o, i) => `<span class="${i === this.choice.i ? 'on' : ''}" data-i="${i}">${o.label}</span>`).join('');
+    c.querySelectorAll('span').forEach(s => { s.onclick = () => this.pick(+s.dataset.i); s.onmouseenter = () => { if (this.choice) { this.choice.i = +s.dataset.i; this.renderChoices(); } }; });
   }
   ask(who, text, opts) { this.lines([[who, text, opts]]); }
 
@@ -272,3 +281,4 @@ export class UI {
   }
 }
 installRpgUI(UI);
+installCraftUI(UI);

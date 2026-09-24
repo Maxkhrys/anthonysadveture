@@ -3,11 +3,19 @@ import { Input } from './engine/input.js';
 import { initAudio, playMusic, toggleMusic, sfx } from './engine/audio.js';
 import { Game, defaultInv } from './game.js';
 import { SettingsPanel } from './settings.js';
+import * as ITEMS from './rpg/items.js';
+import * as CRAFT from './rpg/crafting.js';
+import * as COMBAT from './rpg/combat.js';
+import { Boss } from './entities/boss.js';
 
 const $ = id => document.getElementById(id);
 const TIPS = [
-  'Tap <b>K</b> just before an enemy strikes to <b>parry</b> — heavy foes stagger and take double damage.',
-  'Elite monsters glow with a coloured aura. They hit harder, but always drop gear.',
+  'Tap <b>K</b> just before an enemy strikes to <b>parry</b> — the next blow is a guaranteed critical.',
+  'An <b style="color:#ffa02a">orange !</b> means a heavy blow: a held guard will break. Parry it or roll.',
+  'Elite monsters glow with a coloured aura. Light hits won\'t stop their attacks — but they always drop gear.',
+  'Bellstones refill your life and tonics, and you wake at the last one if you fall. Nothing is lost.',
+  'Salvage gear for <b>Hush Shards</b>, then take a rare essence to Posy\'s workbench.',
+  'Hold <b>2</b> (Snare) or <b>3</b> (Rain) to see where it will land. Release to cast.',
   'Gear with a <b style="color:#6fdc5a">▲</b> in your bag is an upgrade over what you are wearing.',
   'Gilded chests always hold Rare gear or better. Check your map for gold ◆ markers.',
   'Crates slide until they hit something — and fill any pit they fall into.',
@@ -31,7 +39,7 @@ window.__sim = (frames, keys = [], dt = 1 / 30) => {
   }
   input.keys = new Set();
 };
-window.__start = (fresh, cls) => start(fresh, fresh ? (cls || 'samurai') : undefined);
+window.__start = (fresh, cls) => { if (mode === 'play') mode = 'title'; start(fresh, fresh ? (cls || 'samurai') : undefined); };
 
 const menu = [];
 let sel = 0, titleSettings = null;
@@ -40,7 +48,7 @@ function buildMenu() {
   if (Game.hasSave()) menu.push({ label: 'Continue', act: () => start(false) });
   menu.push({ label: 'New Adventure', act: () => start(true) });
   menu.push({ label: 'Settings', act: () => openTitleSettings() });
-  menu.push({ label: 'How to Play', act: () => { sfx('select'); game.ui.say(null, 'MOVE: WASD · ATTACK: J (hold to charge) · GUARD: K (tap to parry) · ROLL: Space\nABILITIES: 1, 2, 3 · TOOL: L · INTERACT: E · BAG: I · TONIC: Q · SURGE: R · MENU: Esc\n\nExplore Lanternreach, level up, collect gear from monsters and chests, and bring the Dawnbell\'s voices home.'); } });
+  menu.push({ label: 'How to Play', act: () => { sfx('select'); game.ui.say(null, 'MOVE: WASD · AIM: mouse · ATTACK: click or J (hold to charge) · GUARD: K / right click (tap to parry) · ROLL: Space\nABILITIES: 1, 2, 3 · TOOL: L · INTERACT: E · BAG: I · TONIC: Q · SURGE: R · MENU: Esc\n\nWatch for the *!* over an enemy: it is about to strike. Rest at Bellstones to refill tonics. Bring essences to Posy\'s workbench.'); } });
 }
 function renderMenu() {
   $('title-menu').innerHTML = menu.map((m, i) => `<div class="${i === sel ? 'on' : ''}" data-i="${i}">${m.label}</div>`).join('');
@@ -61,7 +69,7 @@ async function boot() {
   input = new Input();
   progress(25, 'Carving Mosslings…'); await tick();
   game = new Game(pr, input);
-  window.__game = game;
+  window.__game = game; window.__items = ITEMS; window.__craft = CRAFT; window.__combat = COMBAT; window.__Boss = Boss; // test hooks
   progress(45, 'Growing Whisperwood…'); await tick();
   game.loadArea('overworld', 'start');
   game.cutscene = true;
@@ -152,7 +160,7 @@ function frame(now) {
   }
   if (mode === 'play') {
     const shopOpen = !$('shop').classList.contains('hidden');
-    if (input.pressed('pause') && !shopOpen && !game.ui.invOpen && !game.dead && !game.ui.talking) { mode = 'pause'; game.ui.openPause(); sfx('select'); return; }
+    if (input.pressed('pause') && !shopOpen && !game.ui.invOpen && !game.ui.craftOpen && !game.dead && !game.ui.talking) { mode = 'pause'; game.ui.openPause(); sfx('select'); return; }
     game.update(dt);
   }
 }

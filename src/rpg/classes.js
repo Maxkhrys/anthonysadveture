@@ -66,7 +66,7 @@ export function computeStats(inv) {
   s.resRegenRate = C.resRegen * (1 + s.resRegen / 100);
   s.crit = Math.min(75, s.crit);
   s.cdr = Math.min(40, s.cdr);
-  s.dr = 100 / (100 + s.armor * 2.2); // damage multiplier after armour
+  s.dr = 100 / (100 + s.armor * 1.8); // damage multiplier after armour
   return s;
 }
 

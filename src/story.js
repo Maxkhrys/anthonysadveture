@@ -2,6 +2,7 @@
 import { sfx, playMusic } from './engine/audio.js';
 import { dropPips } from './entities/common.js';
 import { genItem, RARITY, itemIcon } from './rpg/items.js';
+import { gainMat, learn } from './rpg/crafting.js';
 
 export class Story {
   constructor(g) { this.g = g; }
@@ -12,6 +13,7 @@ export class Story {
     const f = this.f, g = this.g;
     if (g.area && g.area.rift) return `Hush Rift · Floor ${g.area.floor}: clear each room and defeat the Champion.`;
     if (g.area && g.area.id === 'dungeon' && !f.bossDead) {
+      if (f.bossKilled) return 'Take the Verdant Chime from its pedestal.';
       if (!g.inv.bellows) return 'Explore Rootwell Hollow. Something here hums with wind.';
       if (!g.inv.bigkey) return 'Use the Gustbellows to push deeper. Find the Thornwood Key.';
       return 'Open the Root Gate and face what guards the Verdant Chime.';
@@ -33,6 +35,8 @@ export class Story {
     if (f.q_camp === 1) m.push({ x: 96, z: 28, color: '#e8424f', pulse: true });
     if (f.q_pier === 1) m.push({ x: 60, z: 92, color: '#7ad8ff', pulse: true });
     if (f.q_mill === 1 && !f.windmill) m.push({ x: 47, z: 51, color: '#fff3cf', pulse: true });
+    if (this.g.inv.chimes.includes('verdant') && !f['chest:echo-chest']) m.push({ x: 32.5, z: 29.5, color: '#9ad8ff' });
+    if (this.g.inv.mats && (this.g.inv.mats.thornheart || this.g.inv.mats.echo || this.g.inv.mats.ember || this.g.inv.mats.sailcloth)) m.push({ x: 55.3, z: 64.8, color: '#c9a8ff', pulse: true });
     const g = this.g;
     if (g.area && g.area.id === 'overworld') for (const e of g.entities) if (e.constructor.name === 'LootChest' && !e.opened) m.push({ x: e.x, z: e.z, color: ['#c89a5a', '#c0c0d0', '#ffd25e'][e.tier] });
     return m;
@@ -70,7 +74,7 @@ export class Story {
         ], () => {
           g.cutscene = false; g.camFocus = null;
           g.startIntroFight();
-          g.ui.toast('J / Click: Attack  ·  K: Guard  ·  Space: Roll', '1-3: Abilities  ·  Hold J: Charged attack  ·  Follow the GUIDE (top left)', 6);
+          g.ui.toast('Mouse: aim  ·  Click / J: attack  ·  K: guard  ·  Space: roll', '1-3: abilities  ·  Hold to charge  ·  A red ! means an attack is coming', 6);
         }), 900);
       });
     }, 700);
@@ -83,35 +87,161 @@ export class Story {
   }
 
   // ------------------------------------------------ conversations
+  // Short authored talks: a greeting that reacts to what you've done, then a few topics.
+  // Unread topics are marked •; once read, a topic gives its short version instead.
+  converse(npc, greet, topics, onEnd) {
+    const g = this.g, f = this.f, ui = g.ui;
+    const avail = topics.filter(t => !t.when || t.when());
+    let first = true;
+    const menu = () => {
+      const text = first ? (typeof greet === 'function' ? greet() : greet) : 'Anything else?';
+      first = false;
+      const opts = avail.filter(t => !t.once || !f['topic:' + npc.id + ':' + t.id]).map(t => {
+        const read = !!f['topic:' + npc.id + ':' + t.id];
+        return { label: (read || t.act ? '' : '• ') + t.label, cb: () => {
+          const lines = typeof t.lines === 'function' ? t.lines(read) : (read && t.short ? t.short : t.lines);
+          f['topic:' + npc.id + ':' + t.id] = true;
+          if (t.act) return t.act();
+          ui.lines(lines.map(l => Array.isArray(l) ? l : [npc.name, l]), () => { if (t.then) t.then(); g.save(); menu(); });
+        } };
+      });
+      opts.push({ label: 'Goodbye', cb: () => { onEnd && onEnd(); } });
+      ui.ask(npc.name, text, opts);
+    };
+    menu();
+  }
+  // class-aware words
+  get cw() {
+    const c = this.g.inv.cls;
+    return {
+      samurai: { tool: 'blade', pet: 'little blade', heir: 'your grandfather\'s katana', style: 'You cut like wind through barley.' },
+      archer: { tool: 'bow', pet: 'sharp-eye', heir: 'your mother\'s hunting bow', style: 'You loose arrows like a flock of swifts.' },
+      witch: { tool: 'staff', pet: 'little witch', heir: 'old Nettle\'s acorn staff', style: 'You hex like a thundercloud in a teacup.' },
+    }[c] || { tool: 'blade', pet: 'little one', heir: 'that old heirloom', style: '' };
+  }
   talk(npc) {
-    const g = this.g, f = this.f, ui = g.ui, s = this.stage;
+    const g = this.g, f = this.f, ui = g.ui, s = this.stage, cw = this.cw, inv = g.inv;
     const L = (arr, cb) => ui.lines(arr.map(t => Array.isArray(t) ? t : [npc.name, t]), cb);
+    const crafted = inv.equip.weapon && inv.equip.weapon.craft;
     switch (npc.id) {
-      case 'tamsin':
+      case 'tamsin': {
         if (s === 0 && !f.introFought) return L(['Hushlings at the south path! Hurry, Moss!']);
         if (s === 0) return L([
-          'You fought like a bell-ringer thrice your size! Now listen well.',
-          'The Dawnbell sings with three *Voices* — three Chimes, each forged by the old Bellwrights. Together they keep the Hush asleep.',
-          'Last night, all three Voices left the bell. Not stolen… it was as if they *walked away*.',
+          `You fought like a bell-ringer thrice your size! ${cw.style}`,
+          'Now listen. The Dawnbell sings with three *Voices* — three Chimes the old Bellwrights forged. Together they keep the Hush asleep.',
+          'Last night all three left the bell. Not stolen… it was as if they *walked away*.',
           'I can feel the *Verdant Chime* humming from the west — deep in Whisperwood, inside *Rootwell Hollow*.',
-          'Take the west road. And Moss — the Hush drops pips like any honest creature. Spend them at Posy\'s stall by the plaza.',
+          'Take the west road. Rest at any *Bellstone* you find: it will mend you and remember you. And spend your pips at Posy\'s stall.',
         ], () => { f.stage = 1; g.gainXp(40); g.ui.updateHud(); g.save(); ui.toast('New objective', 'Rootwell Hollow — west through Whisperwood. (Esc: map)', 3); });
-        if (s === 1) return L(['Rootwell Hollow lies west, where the road dives into Whisperwood. Follow the old path.', f.q_camp ? 'And be careful. The Hush has grown bolder since the bell fell quiet.' : 'Captain Brisk at the east gate could use a hand too, if you\'ve pips to earn.']);
         if (s === 2) return this.ringBell();
-        return L(['One Voice returned. Can you hear it? The forest is breathing again.', 'The Ember Chime burns somewhere past *Cinderpeak Pass*, and the Tide Chime sleeps beneath *Lake Mirrow*.', 'When all three sing, the *Chime Gate* will open. And then… we will learn why they left.']);
-      case 'posy':
-        if (!f.metPosy) { f.metPosy = true; return L(['Welcome to the Bramble & Bolt! Tonics, whetstones, heart vessels — all fair priced in pips.'], () => this.shop()); }
-        return this.shop();
-      case 'oswin':
-        if (!f.q_mill) return L(['My mill\'s gone still since the Hush came. Not a breath of wind in her sails.', 'If you ever find a way to make a proper *gale*, you come blow her back to life. I\'ll make it worth your while.'], () => { f.q_mill = 1; ui.updateHud(); ui.toast('Side quest: The Still Mill', '', 2); });
-        if (f.q_mill === 1 && f.windmill) return L(['She\'s TURNING! Listen to her creak! Here, take these — 80 pips, and my eternal gratitude.'], () => { f.q_mill = 2; g.addCoins(80); g.gainXp(80); sfx('pipbig'); ui.toast('Side quest complete!', '+80 pips · +80 XP', 2); g.save(); });
-        if (f.q_mill === 1) return L([g.inv.bellows ? 'That bellows of yours… could it puff hard enough? Try holding it longer, build up a real gale.' : 'A proper gale is what she needs. Not your huffing and puffing, little one.']);
-        return L(['Flour\'s flowing again. The whole village smells like bread. Thank you, Moss.']);
+        const greet = () => {
+          if (s === 1 && f.q_mill === 2 && !f['said:tamsin:mill']) { f['said:tamsin:mill'] = true; return 'Did you hear it? Oswin\'s mill, *humming*. First honest sound this village has made in days. You did that.'; }
+          if (s === 1) return `Rootwell Hollow lies west, ${cw.pet}. The Hush grows bolder the longer the bell is quiet.`;
+          if (crafted && !f['said:tamsin:craft']) { f['said:tamsin:craft'] = true; return `Posy tells me you've been at her bench. That ${cw.tool} of yours hums now. Mind it doesn't hum louder than you.`; }
+          return 'One Voice home. Listen — the forest is breathing again. What\'s on your mind?';
+        };
+        return this.converse(npc, greet, [
+          { id: 'bell', label: 'The Dawnbell', lines: [
+            'It doesn\'t just ring, you know. It *remembers*. Every sound Thimblewick makes, the bell keeps, and gives back at dawn.',
+            'Since the Voices left, things have been going quiet. The birds. The mill. Old Hobb\'s snoring, which I don\'t miss.',
+            'Sounds that aren\'t remembered don\'t simply vanish, Moss. They go *somewhere*.',
+          ], short: ['The bell remembers every sound we make. Without its Voices, sounds are slipping away.'] },
+          { id: 'hush', label: 'The Hush', lines: [
+            'The Hush is what sound leaves behind when it\'s lost. Ink and quiet, given teeth.',
+            `It hates anything that rings — and that ${cw.tool} of yours rings plenty. That's why they come at you.`,
+            'Watch them before they strike. They draw breath first; you\'ll see it. Strike when they\'ve spent it.',
+          ], short: ['They draw breath before they strike. Wait for it, then answer.'] },
+          { id: 'heir', label: 'About my ' + cw.tool, lines: [
+            `That's ${cw.heir}. It was too big for its first owner too, once.`,
+            inv.cls === 'samurai' ? 'Your grandfather didn\'t win fights by swinging hardest. He won them by *not* being where the other fellow swung.' : inv.cls === 'archer' ? 'Your mother could split a falling leaf from the bell tower. She said the trick was to aim where it would be, not where it was.' : 'Old Nettle used to say a hex is only a promise the world hasn\'t noticed yet. Then she\'d set her hat on fire.',
+          ], short: [`${cw.heir[0].toUpperCase() + cw.heir.slice(1)}. Look after it and it will look after you.`] },
+          { id: 'rest', label: 'Bellstones', lines: [
+            'Every Bellstone was cast from the Dawnbell\'s own bronze. Touch one and it mends you, refills your tonics — and remembers you.',
+            'Fall, and you\'ll wake at the last one that knew your name. Nothing you carry is lost.',
+          ], short: ['Rest at Bellstones. They mend you and remember you.'] },
+          { id: 'vision', label: 'The vision', when: () => s >= 3, lines: [
+            'The Bellwrights *hid* the Voices. On purpose. And now something has called them out again.',
+            '"Never let the Last Toll ring," you said she whispered. I have read every book in this village, Moss. Not one of them mentions a Last Toll.',
+            'Which means someone made very sure they wouldn\'t.',
+          ], short: ['The Bellwrights hid the Voices on purpose. We need to know why.'] },
+          { id: 'next', label: 'What now?', when: () => s >= 3, lines: [
+            'The Ember Chime burns past *Cinderpeak Pass*; the Tide Chime sleeps beneath *Lake Mirrow*. Both roads are shut for now.',
+            f.q_mill === 2 ? 'Meanwhile the mill sings, the camp — well. Help where you can. Posy\'s bench might teach that ' + cw.tool + ' some new tricks.' : 'Meanwhile, Oswin\'s mill still stands silent. Perhaps that bellows of yours could help.',
+          ] },
+        ]);
+      }
+      case 'posy': {
+        const greet = () => {
+          if (!f.metPosy) { f.metPosy = true; return inv.cls === 'samurai' ? 'A samurai! Welcome to the Bramble & Bolt. My whetstones are trembling with excitement.' : inv.cls === 'archer' ? 'An archer! Welcome to the Bramble & Bolt. Fletching\'s on the left, please don\'t test it on the pigeons.' : 'A witch! Welcome to the Bramble & Bolt. Nothing on the shelves is cursed. Probably.'; }
+          if (crafted && !f['said:posy:' + crafted]) { f['said:posy:' + crafted] = true; return 'Is that my engraving? Oh, look at it *sing*. Don\'t tell Oswin, but that\'s my best work.'; }
+          if (inv.mats && (inv.mats.thornheart || inv.mats.echo || inv.mats.ember || inv.mats.sailcloth)) return 'I can *smell* essence on you. Bring it to the bench and we\'ll make something loud.';
+          return 'Back again! Tonics, gear, or a little work at the bench?';
+        };
+        return this.converse(npc, greet, [
+          { id: 'shop', label: 'Trade', act: () => this.shop() },
+          { id: 'bench', label: 'Use the workbench', act: () => g.ui.openCraft() },
+          { id: 'craft', label: 'How does crafting work?', lines: [
+            'Simple! A weapon, one *rare essence*, and a pinch of *Hush Shards*. You get shards by salvaging gear — X in your bag.',
+            'The essence decides what your weapon *does*. Not just hit harder — do something different. A bow that echoes. A staff that plants embers.',
+            'I only work with what you bring. And I never, ever touch a Chime. Tamsin would have my ears.',
+          ], short: ['Weapon + essence + shards. The essence changes what it does. Salvage gear for shards.'] },
+          { id: 'essence', label: 'Where do essences come from?', lines: [
+            'A *Thornheart* beats inside whatever guards Rootwell Hollow — and Barkhulks carry little ones.',
+            '*Hollow Echoes* hang about where the Bellwrights built things. There\'s an old door east of the Hollow that nobody\'s ever opened.',
+            '*Ember Motes* fall off Ember Imps near Cinderpeak, and those twitchy, glowing Volatile brutes.',
+            f.q_mill === 2 ? 'And Oswin\'s *sailcloth*, of course. Flour and wind — best binding I\'ve ever used.' : 'Oswin swears his old mill sails would make a fine binding, if the mill ever turned again.',
+          ], short: ['Thornhearts from the Hollow\'s guardian and Barkhulks. Echoes near Bellwright ruins. Embers from Imps and Volatile elites.'] },
+          { id: 'gossip', label: 'Any news?', lines: () => [
+            f.q_camp === 2 ? 'Captain Brisk has been telling everyone he cleared the Hush camp himself. I told him I saw you do it. He\'s sulking.' :
+              f.q_mill === 2 ? 'Bread! Real bread, from Oswin\'s flour. I sold three loaves before breakfast.' :
+                'Fennel tried to sell me a "genuine Hush tooth." It was a pebble. I gave him a pip for effort.',
+          ] },
+        ]);
+      }
+      case 'oswin': {
+        if (!f.q_mill) return this.converse(npc, 'Hm? Oh. Hello, Moss. Mind the millstones. Not that they\'re going anywhere.', [
+          { id: 'mill', label: 'Why is the mill still?', lines: [
+            'She\'s gone still since the Hush came. Not a breath of wind in her sails, even on a blustery day.',
+            'She used to *hum*, you know. One long, low note, right in tune with the Dawnbell. When the bell went quiet, so did she.',
+            'If you ever find a way to make a proper *gale*, you come blow her back to life. I\'ll make it worth your while.',
+          ], then: () => { f.q_mill = 1; ui.updateHud(); ui.toast('Side quest: The Still Mill', 'Oswin needs a gale for his windmill.', 2.4); } },
+        ]);
+        if (f.q_mill === 1 && f.windmill) return L([
+          'She\'s TURNING! Listen to her — she\'s *humming* again! Half the note, but it\'s there!',
+          `Here. Eighty pips, and something better: my spare sailcloth. Posy's been begging for it for years — says it binds wind to a ${cw.tool}.`,
+          'Take it to her bench. I\'ll show you the trick of it: a *Millwind* edge. Every big swing throws a gale, same as your bellows.',
+          'And look — I\'ve hooked the sails to a whetwheel. The whole yard\'s awake!',
+        ], () => {
+          f.q_mill = 2; g.addCoins(80); g.gainXp(80); sfx('pipbig');
+          gainMat(g, 'sailcloth', 1, npc.x, npc.z);
+          learn(g, 'millwind');
+          const d = g.area.defs.find(d => d.type === 'millyard'); if (d) g.spawnDef(d);
+          g.fx.ring(47, 51, 0.8, 3.2, 0xfff3cf, 1.4, 0.15); g.pr.addFlash(0.2, 0xfff3cf);
+          ui.toast('Side quest complete: The Still Mill', '+80 pips · +80 XP · Mill Sailcloth · recipe: Millwind Edge', 3.5);
+          g.save();
+        });
+        if (f.q_mill === 1) return L([inv.bellows ? 'That bellows of yours… could it puff hard enough? *Hold* it longer. Build a real gale, then let her have it.' : 'A proper gale is what she needs. Not your huffing and puffing, little one.']);
+        return this.converse(npc, () => f['said:oswin:hello'] ? 'Flour\'s flowing. Bread\'s baking. What can I do for you?' : (f['said:oswin:hello'] = true, 'Listen to her hum! The whole village smells of bread. Thank you, Moss.'), [
+          { id: 'song', label: 'The mill\'s song', lines: [
+            'She hums again, but only *half* the note. The other half always came from the bell.',
+            'My gran said the Bellwrights built this mill to sing along with it. Everything old in this valley sings along with it, if you listen.',
+          ], short: ['Half the note. The other half belongs to the bell.'] },
+          { id: 'millwind', label: 'The Millwind edge', lines: [
+            'Wind\'s just air that\'s decided where it\'s going. The sailcloth teaches your weapon to decide too.',
+            'Put it on at Posy\'s bench. Then every *charged* strike throws a gust: knocks the Hush back, spins a pinwheel, snuffs a candle. Handy when your bellows is busy.',
+          ], short: ['Charged strikes throw a gust. Posy\'s bench does the work.'] },
+          { id: 'sail', label: 'Another sailcloth? (60 pips)', when: () => (inv.mats.sailcloth || 0) === 0, act: () => {
+            if (inv.coins < 60) { sfx('error'); return L(['Sixty pips, Moss. Sails don\'t grow on trees. Well. The wood does.']); }
+            inv.coins -= 60; gainMat(g, 'sailcloth', 1, npc.x, npc.z); ui.updateHud(); g.save();
+            L(['Here. Cut from the old spring sail. Don\'t let Posy charge you twice for the stitching.']);
+          } },
+        ]);
+      }
       case 'brisk':
-        if (s < 1) return L(['Ho, Moss. Hushlings at the south path, they say. Show \'em that sword!']);
+        if (s < 1) return L([`Ho, Moss. Hushlings at the south path, they say. Show 'em that ${cw.tool}!`]);
         if (!f.q_camp) return L(['The Hush has dug a camp across the *north bridge*, east of the river. Tents, stakes, the lot.', 'I\'ve got two guards and one of them\'s asleep. Clear that camp and the guard purse is yours: *150 pips*.'], () => { f.q_camp = 1; ui.updateHud(); ui.toast('Side quest: Bounty — Hush Camp', 'Marked on your map.', 2.4); });
         if (f.q_camp === 1 && g.signal('camp.clear')) return L(['You cleared the WHOLE camp? By yourself? …Don\'t tell the other guards. Here\'s your bounty.'], () => { f.q_camp = 2; dropPips(g, g.player.x, g.player.z + 0.6, 150); g.gainXp(250); g.dropGear(g.player.x, g.player.z + 0.8, { level: g.inv.level + 1, floor: 3, bonus: 1 }); ui.toast('Bounty complete!', '+150 pips · +250 XP · a gift from the armoury', 2.5); g.save(); });
-        if (f.q_camp === 1) return L(['The Hush camp is across the north bridge. Watch for the big armoured ones — a well-timed shield can knock them off balance.']);
+        if (f.q_camp === 1) return L(['The Hush camp is across the north bridge. The big armoured ones swing *slow and heavy* — a plain guard won\'t hold. Time a parry, or get out of the way.']);
         return L(['The roads are safer thanks to you. Mostly.']);
       case 'ada':
         if (!f.q_pier) return L(['A great stone came rolling down in last night\'s rumble. Right onto my pier path!', 'Too heavy for these old arms. You\'re small but stubborn — *walk into it* and push it out of the way?'], () => { f.q_pier = 1; ui.updateHud(); ui.toast('Side quest: Ada\'s Pier', 'Push the stone off the path.', 2.4); });
@@ -122,21 +252,27 @@ export class Story {
         const hints = [
           'Grandpa says the stone door in the north woods only opens for the *wind*. There\'s a pinwheel next to it!',
           'Beetles have hard shells in front. You gotta get *behind* them. Or knock \'em on their backs!',
-          'If you hold your sword before you swing, you can do a SPIN! Whoosh!',
-          'Big armoured Hush? Raise your shield *just* as they hit — they\'ll stumble. I saw a guard do it once!',
+          'When a Hush gets a red *!* over its head it\'s about to bite. Roll away — or guard right as it lunges!',
+          'The big armoured ones get an *orange* !. Grandpa says don\'t just hold your shield up. Tap it *right* when they swing!',
           'When your *Bell Surge* bar glows, press R. BONNNG!',
-          'Leaf piles sometimes hide pips. But leaves are stubborn. Swords don\'t move them!',
+          f.q_mill === 2 ? 'The mill hums now! I can hear it from my bed. It\'s only half a song, though. Where\'s the other half?' : 'Leaf piles sometimes hide pips. But leaves are stubborn. Swords don\'t move them!',
+          inv.chimes.length ? 'There\'s a door east of the Hollow with TWO pinwheels. I tried running between them. I fell over.' : 'Did you know there\'s a Bellstone right by the well? Grown-ups touch it for luck.',
         ];
         f.fennelI = ((f.fennelI ?? -1) + 1) % hints.length;
         return L([hints[f.fennelI]]);
       }
       case 'hermit':
-        if (!f.bossDead) return L([
+        if (!f.bossKilled) return L([
           'Mm. A Mossling, at the Hollow\'s mouth. The roots told me you\'d come.',
           'Inside, the Hollow shifts its breath. Wind will be your friend there — and remember: *what falls into a hole becomes floor.*',
           'And if a room tangles you up, step out and come back. The Hollow forgives.',
         ]);
-        return L(['You carry the Verdant Voice. I hear it. It is… sad, isn\'t it? Like a song that ended too early.', 'The Bellwrights did not lose the Voices, child. They *hid* them. Ask yourself what they were afraid of.']);
+        return L([
+          'You carry the Verdant Voice. I hear it. It is… sad, isn\'t it? Like a song that ended too early.',
+          'Listen to it when you use your bellows. It repeats you. That is what the Voices were *for*.',
+          'East of here, the Bellwrights left a door that only a repeated wind can open.',
+          inv.cls === 'witch' ? 'And little witch — frost remembers, too. Let your Frost Nova linger, and the Hollow\'s thorn-heart will teach it to *bloom*. Posy will know how.' : 'The Bellwrights did not lose the Voices, child. They *hid* them. Ask yourself what they were afraid of.',
+        ], () => { if (inv.cls === 'witch') learn(g, 'rimebloom'); });
     }
   }
 
@@ -248,13 +384,14 @@ export class Story {
         [null, 'You got the *Verdant Chime*!\nThe first Voice of the Dawnbell. It hums a note like new leaves.'],
         [null, 'As you lift it, the Chime *sings* — and for a moment you see a vision:'],
         [null, 'Three Bellwrights on a mountaintop, prising the Voices from a great bell. One of them is weeping.\n"~Never let the Last Toll ring~," she whispers. "~Not until it must.~"'],
-        [null, 'The vision fades. The Hollow\'s roots curl upward, lifting you toward the light…'],
+        [null, 'The vision fades. The Chime keeps humming — and when you squeeze your bellows, it *answers*: the same gust, blown again a breath later, from where you stood.'],
+        [null, 'The Hollow\'s roots curl upward, lifting you toward the light…'],
       ], () => {
         g.endHold();
         this.f.stage = 2; this.f.bossDead = true;
         g.heal(99);
         g.save();
-        g.warpTo('overworld', 'dungeon', () => { g.ui.toast('Return the Verdant Chime to Thimblewick', 'Follow the gold marker on your map (Esc).', 4); });
+        g.warpTo('overworld', 'dungeon', () => { g.ui.toast('Return the Verdant Chime to Thimblewick', 'Follow the gold marker on your map (Esc). Your gusts now echo.', 4); });
       });
     }, 1400);
   }
@@ -293,6 +430,8 @@ export class Story {
     if (f.q_camp) h += q('Bounty: Hush Camp', f.q_camp === 2, g.signal('camp.clear') ? 'Camp cleared. Collect the bounty from Captain Brisk.' : 'Clear the Hush camp across the north bridge.');
     for (const b of (f.bounties || [])) h += q('Bounty: ' + b.name, b.have >= b.n, b.have >= b.n ? 'Complete! Claim it at the Bounty Board.' : `${b.have}/${b.n} — ${b.where}`);
     if (f.q_pier) h += q('Ada\'s Pier', f.q_pier === 2, this.pierDone() ? 'Path cleared. Tell Fisher Ada.' : 'Push the fallen stone off the pier path, south of the village.');
+    if (f.q_mill === 2) h += q('The Humming Mill', true, 'The mill turns and hums again. Oswin gave you his sailcloth and the Millwind recipe — Posy\'s workbench can put it on any weapon.');
+    if (g.inv.chimes.includes('verdant')) h += q('The Echo Door', !!f['chest:echo-chest'], f['chest:echo-chest'] ? 'Opened. The Bellwrights taught the Voices to repeat.' : 'East of Rootwell Hollow, two pinwheels with a hedge between them. Your gusts echo now…');
     const rum = [];
     if (!f['chest:grotto-chest']) rum.push('A stone door in the north of Whisperwood only opens for the wind.');
     if (!f['chest:ruin-chest']) rum.push('Sand has swallowed a courtyard in the Sunscald Reach.');

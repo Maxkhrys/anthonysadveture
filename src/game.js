@@ -21,6 +21,9 @@ import { GearDrop, LootChest, thornBurst, blast, chainLightning } from './rpg/co
 import { flashObj } from './entities/common.js';
 import { loadSettings, applySettings } from './settings.js';
 import { Guide } from './guide.js';
+import { AimView } from './aim.js';
+import { ensureCraftState, gainMat, learn } from './rpg/crafting.js';
+import { tileBlocks } from './entities/entity.js';
 
 const SAVE_KEY = 'mossling-save-v2';
 export const BAG_SIZE = 30;
@@ -28,7 +31,8 @@ const BUILDERS = { overworld: buildOverworld, dungeon: buildDungeon, grotto: bui
 
 export function defaultInv() {
   return { cls: 'samurai', level: 1, xp: 0, sp: 0, skills: [1, 0, 0], equip: { weapon: null, helm: null, armor: null, charm: null }, bag: [], vessels: 0,
-    hp: 60, maxHp: 60, coins: 0, keys: 0, bigkey: false, bellows: false, galeValve: false, potions: 2, maxPotions: 3, chimes: [] };
+    hp: 60, maxHp: 60, coins: 0, keys: 0, bigkey: false, bellows: false, galeValve: false, potions: 2, maxPotions: 3, chimes: [],
+    mats: { shard: 0, thornheart: 0, echo: 0, ember: 0, sailcloth: 0 }, sigils: {}, sigilsOwned: [], recipes: [] };
 }
 
 export class Game {
@@ -62,6 +66,7 @@ export class Game {
     this.liquidTime = { value: 0 };
     this.res = 100;
     this.guide = new Guide(this);
+    this.aimView = new AimView(this);
     applySettings(loadSettings(), this);
     this.recalc();
   }
@@ -81,7 +86,17 @@ export class Game {
     if (this.player && this.player.m.setWeapon) this.player.m.setWeapon(inv.equip.weapon);
     this.hudDirty = true;
   }
-  diffMult() { return { story: 0.6, normal: 1, hard: 1.45 }[this.settings.difficulty] || 1; }
+  // incoming damage multiplier and the largest share of max life one blow may take
+  diffMult() { return { story: 0.7, normal: 1.3, hard: 1.8 }[this.settings.difficulty] || 1.3; }
+  hitCap() { return { story: 0.3, normal: 0.4, hard: 0.55 }[this.settings.difficulty] || 0.4; }
+  nameOf(e) {
+    if (e.displayName) return e.displayName;
+    if (e.isBoss) return 'Bramblemaw';
+    if (e.boss) return 'Bramblemaw\'s spore pod';
+    if (e.constructor && e.constructor.name === 'RootSpike') return 'Bramblemaw\'s root spike';
+    const k = e.kind || (e.src && e.src.kind);
+    return { blot: 'a Blotling', seedling: 'a Seedling', beetle: 'a Thornback', puffer: 'a Spore Puffer', wisp: 'a Hushwisp', knight: 'a Hush Knight', ...Object.fromEntries(Object.entries(MONSTER_NAMES).map(([a, b]) => [a, 'a ' + b])) }[k] || (e.from ? this.nameOf(e.from) : e.src ? this.nameOf(e.src) : 'the Hush');
+  }
   zoneLevel(x, z) {
     const a = this.area;
     if (!a) return 1;
@@ -203,8 +218,15 @@ export class Game {
     if (o.ability) dmg *= 1 + ps.abilityDmg / 100;
     if (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2) dmg *= 1.4;
     if (e.status && e.status.mark > 0) dmg *= 1.25;
+    // Rime Bloom: a frozen foe shatters under the next blow
+    if (e.status && e.status.freeze > 0 && inv.sigils && inv.sigils[0] === 'rimebloom' && inv.cls === 'witch') {
+      dmg *= 1.6; e.status.freeze = 0; this.fx.burst(e.x, 0.5, e.z, 14, [0xdff4ff, 0xffffff], 3.5); sfx('parry');
+    }
+    // riposte: a parried foe is wide open — the first blow is a guaranteed crit, and all hits land harder
+    let riposte = false;
+    if (e.parried > 0) { dmg *= 1.5; if (!e.riposted) { e.riposted = true; riposte = true; } }
     if (ps.uniques.has('candlewick') && e.status && e.status.burn > 0) dmg *= 1.2;
-    const crit = Math.random() * 100 < ps.crit;
+    const crit = riposte || Math.random() * 100 < ps.crit;
     if (crit) dmg *= 1 + ps.critDmg / 100;
     dmg *= e.dmgTaken || 1;
     dmg = Math.max(1, Math.round(dmg));
@@ -213,7 +235,13 @@ export class Game {
     this.guide.event('attack');
     e.hpShow = 3;
     if (!o.quiet || crit) this.ui.float(e.x, 1.0 + (e.eliteScale ? 0.3 : 0), e.z, (crit ? '' : '') + dmg + (crit ? '!' : ''), crit ? '#ffd25e' : '#ffffff', crit);
-    if (ps.lifesteal || (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2)) this.heal(dmg * ((ps.lifesteal || 0) + (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2 ? 6 : 0)) / 100, true);
+    // life steal draws from a small pool that refills over time: strong, but it can't make a
+    // crowd-clearing build immortal
+    if (!o.noProc && (ps.lifesteal || (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2))) {
+      const want = dmg * ((ps.lifesteal || 0) + (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2 ? 6 : 0)) / 100;
+      const got = Math.min(want, this.lsPool || 0);
+      if (got > 0) { this.lsPool -= got; this.heal(got, true); }
+    }
     if (inv.cls === 'samurai' && !o.ability) this.res = Math.min(100, this.res + 7);
     p.combatT = 4;
     if (!o.noProc && !e.dead) {
@@ -276,10 +304,13 @@ export class Game {
   salvageItem(i) {
     const inv = this.inv, it = inv.bag[i];
     if (!it) return;
+    if (it.craft) { sfx('error'); this.ui.toast('That weapon carries an engraving.', 'Move the engraving at the workbench first, or equip and salvage it later.', 2); return; }
     inv.bag.splice(i, 1);
     const v = Math.max(1, Math.round(it.value * 0.35));
+    const sh = [0, 1, 2, 4, 8][it.r] || 0;
     this.addCoins(v); sfx('pip');
-    this.ui.toast('Salvaged ' + it.name, '+' + v + ' pips', 1.2);
+    if (sh) { ensureCraftState(inv); inv.mats.shard += sh; }
+    this.ui.toast('Salvaged ' + it.name, '+' + v + ' pips' + (sh ? ` · +${sh} Hush Shard${sh > 1 ? 's' : ''}` : ''), 1.2);
   }
   dropGear(x, z, o = {}) {
     const it = genItem({ level: o.level || this.inv.level, cls: Math.random() < 0.75 ? this.inv.cls : null, mf: this.pstats.mf, floor: o.floor || 0, bonus: o.bonus || 0 });
@@ -301,10 +332,15 @@ export class Game {
     if (!silent) { sfx('fanfare'); this.ui.toast('Heart Vessel!', 'Your life grows by one heart.', 2.4); }
     this.save();
   }
+  canDrink() {
+    const inv = this.inv;
+    if (inv.potions <= 0) { sfx('error'); this.ui.toast('No tonics left.', 'Rest at a Bellstone to refill them.', 1.4); return false; }
+    if (inv.hp >= inv.maxHp) { sfx('error'); this.ui.toast('Already at full health.', '', 1); return false; }
+    return true;
+  }
   drinkPotion() {
     const inv = this.inv;
-    if (inv.potions <= 0) { sfx('error'); this.ui.toast('No tonics left.', 'Posy sells them in Thimblewick.', 1.4); return; }
-    if (inv.hp >= inv.maxHp) { sfx('error'); this.ui.toast('Already at full health.', '', 1); return; }
+    if (inv.potions <= 0) return;
     inv.potions--; this.heal(inv.maxHp * 0.45); sfx('potion');
     this.fx.burst(this.player.x, 0.6, this.player.z, 16, [0xff6a7a, 0xffffff], 2, { g: -1 });
     this.hudDirty = true;
@@ -318,6 +354,7 @@ export class Game {
     try {
       const s = JSON.parse(localStorage.getItem(SAVE_KEY));
       this.inv = Object.assign(defaultInv(), s.inv); this.flags = s.flags || {}; this.checkpoint = s.checkpoint || this.checkpoint;
+      ensureCraftState(this.inv); // saves from before crafting simply start with empty pouches
       this.playTime = s.playTime || 0; this.stats = s.stats || {};
       this.recalc(); this.inv.hp = this.inv.maxHp;
       return true;
@@ -396,6 +433,9 @@ export class Game {
       case 'riftstone': e = new O.Sign(this, { ...d, text: '' }); e.obj.visible = false; e.solid = false; e.interact = () => this.story.riftStone(); Object.defineProperty(e, 'prompt', { get: () => 'Touch the Rift Stone' }); break;
       case 'board': e = new O.Sign(this, { ...d, text: '' }); e.interact = () => this.story.board(); Object.defineProperty(e, 'prompt', { get: () => 'Bounties' }); e.obj.visible = false; e.solid = false; break;
       case 'npc': e = new O.NPC(this, d); break;
+      case 'bellstone': e = new O.Bellstone(this, d); break;
+      case 'workbench': e = new O.Workbench(this, d); break;
+      case 'millyard': if (f.q_mill !== 2) return; e = new O.MillYard(this, d); break;
       case 'bell': e = new O.Bell(this, d); break;
       case 'gate': e = new O.Gate(this, d); break;
       case 'windmill': e = new O.Windmill(this, d); break;
@@ -465,13 +505,29 @@ export class Game {
   onPlayerDeath() {
     sfx('hurt');
     this.ui.bossBar(null);
+    this.stats.deaths = (this.stats.deaths || 0) + 1;
+    const h = this.player.lastHit;
+    const rest = { village: 'the Thimblewick Bellstone', entrance: 'the Hollow\'s entrance Bellstone', pre: 'the Bellstone before the Root Gate', dungeon: 'the Hollow\'s mouth' }[this.checkpoint.spawn] || 'your last rest';
+    const el = document.querySelector('#gameover .recap');
+    if (el) el.innerHTML = (h ? `Felled by <b>${h.by}</b>${h.lvl ? ' (Lv ' + h.lvl + ')' : ''} — the last blow took <b>${h.n}</b> health.<br>` : '') + `You will wake at ${rest} with full health and tonics. Gear, crafting and story progress are kept.`;
     setTimeout(() => { this.dead = true; this.ui.show('gameover', true); }, 1300);
   }
   revive() {
     this.dead = false; this.ui.show('gameover', false);
     this.inv.hp = this.inv.maxHp;
+    this.inv.potions = this.inv.maxPotions;
     this.surge = 0;
     this.warpTo(this.checkpoint.area, this.checkpoint.spawn);
+  }
+  // Bellstones: rest points that refill life and tonics and become the checkpoint
+  rest(stone) {
+    const inv = this.inv;
+    inv.hp = inv.maxHp; inv.potions = inv.maxPotions; this.res = 100;
+    this.checkpoint = { area: this.area.id, spawn: stone.spawn };
+    this.flags['rested:' + stone.spawn] = true;
+    this.guide.event('rest');
+    this.ui.hearts(true); this.hudDirty = true;
+    this.save();
   }
 
   // ------------------------------------------------ rooms
@@ -538,6 +594,14 @@ export class Game {
       this.spawnChime();
       if (!this.flags.bossHeart) { this.flags.bossHeart = true; const h = new Pickup(this, b.x - 2, b.z + 2.5, 'heartfull'); this.spawn(h); }
       this.gainXp(350);
+      // the guardian's heart, plus an essence suited to your class (first kill only, saved at once)
+      if (!this.flags.bossMats) {
+        this.flags.bossMats = true;
+        gainMat(this, 'thornheart', 1, b.x, b.z + 2);
+        gainMat(this, { samurai: 'thornheart', archer: 'echo', witch: 'ember' }[this.inv.cls], 1, b.x, b.z + 2);
+        gainMat(this, 'shard', 6);
+        learn(this, { samurai: 'thornrebuke', archer: 'echofletch', witch: 'emberseeds' }[this.inv.cls]);
+      }
       this.dropGear(b.x - 1, b.z + 2, { level: 6, floor: 3, bonus: 1 }); this.dropGear(b.x + 1, b.z + 2, { level: 6, floor: 2, bonus: 0.6 }); this.dropGear(b.x, b.z + 2.5, { level: 5, floor: 2 });
       this.save();
     }, 1200);
@@ -551,8 +615,16 @@ export class Game {
     if (e.def && this.area.id === 'overworld') (this.respawnQ || (this.respawnQ = [])).push({ def: e.def, t: this.time + 70 + Math.random() * 40 });
     this.story.bountyEvent(e.elite ? ['kill', e.kind, 'elite'] : ['kill', e.kind]);
     this.gainXp(e.xpValue || 5);
-    if (ps.uniques.has('hexbloom')) blast(this, e.x, e.z, 1.8, 0.9, 0x8b5cf6, { ability: true });
+    // death-triggered effects can chain, but only two links deep (no runaway proc loops)
+    this.procDepth = this.procDepth || 0;
+    if (ps.uniques.has('hexbloom') && this.procDepth < 2) { this.procDepth++; try { blast(this, e.x, e.z, 1.8, 0.9, 0x8b5cf6, { ability: true }); } finally { this.procDepth--; } }
     if (e.elite === 'Volatile') { this.fx.ring(e.x, e.z, 0.2, 2, 0xffb347, 0.4); const p = this.player; if (Math.hypot(p.x - e.x, p.z - e.z) < 2) p.hurt({ dmg: 2, x: e.x, z: e.z, src: e, kb: 6 }); }
+    // crafting materials come from the fights you already have, not a separate gathering game
+    if (e.elite) gainMat(this, 'shard', 1 + (Math.random() < 0.5 ? 1 : 0));
+    if (e.champion && Math.random() < 0.5) gainMat(this, 'echo', 1, e.x, e.z);
+    if (e.kind === 'treant' && Math.random() < 0.3) gainMat(this, 'thornheart', 1, e.x, e.z);
+    if ((e.kind === 'imp' && Math.random() < 0.1) || (e.elite === 'Volatile' && Math.random() < 0.4)) gainMat(this, 'ember', 1, e.x, e.z);
+    if (e.kind === 'wraith' && e.elite && Math.random() < 0.3) gainMat(this, 'echo', 1, e.x, e.z);
     const lvl = e.level || this.inv.level;
     if (e.elite) { this.dropGear(e.x, e.z, { level: lvl, floor: 2, bonus: 0.6 }); if (Math.random() < 0.4) this.dropGear(e.x, e.z, { level: lvl, floor: 1 }); }
     else if (Math.random() < ({ knight: 0.6, beetle: 0.14, puffer: 0.12 }[e.kind] ?? 0.08) * (1 + ps.mf / 200)) this.dropGear(e.x, e.z, { level: lvl, floor: e.kind === 'knight' ? 1 : 0 });
@@ -592,6 +664,30 @@ export class Game {
     }
     return best;
   }
+  // how far a shot travels from (x,z) along dir before a wall or solid object stops it
+  shotLen(x, z, dir, max) {
+    const sx = Math.sin(dir), sz = Math.cos(dir), probe = { moveMode: 'fly' };
+    for (let k = 0.1; k < max; k += 0.1) {
+      const px = x + sx * k, pz = z + sz * k;
+      if (tileBlocks(this, Math.floor(px), Math.floor(pz), probe)) return Math.max(0, k - 0.1);
+      if (this.solidAt(px, pz, 0.05)) return Math.max(0, k - 0.1);
+    }
+    return max;
+  }
+  solidAt(x, z, r) {
+    for (const s of this.solids) {
+      if (s.dead || !s.solid || s.isEnemy || s.isPlayer || s.passShots) continue;
+      if (Math.abs(s.x - x) < s.hw + r && Math.abs(s.z - z) < s.hd + r) return s;
+    }
+    return null;
+  }
+  shotClear(x0, z0, x1, z1) { const d = Math.hypot(x1 - x0, z1 - z0); return this.shotLen(x0, z0, Math.atan2(x1 - x0, z1 - z0), d) >= d - 0.12; }
+  // is a world point inside the visible view (with a margin in world units)?
+  onScreen(x, z, margin = 0) {
+    const pr = this.pr, T = pr.target, u = pr.unitsPerPx;
+    const a = x - T.x, b = -(z - T.z) * Math.sin(PITCH);
+    return Math.abs(a) < pr.rw * u / 2 - margin && Math.abs(b) < pr.rh * u / 2 - margin;
+  }
   lineClear(x0, z0, x1, z1) {
     const d = Math.hypot(x1 - x0, z1 - z0), n = Math.ceil(d / 0.25);
     const ex = Math.floor(x1), ez = Math.floor(z1);
@@ -604,7 +700,13 @@ export class Game {
     }
     return true;
   }
-  gust(p, power) {
+  gust(p, power, fromWeapon, isEcho) {
+    // The Verdant Chime echoes the Gustbellows: 1.5 s later the same gust blows again from the
+    // same spot, in the same direction. One echo waits at a time and echoes never echo.
+    if (!fromWeapon && !isEcho && this.inv.chimes.includes('verdant') && !this.entities.some(e => e instanceof O.GustEcho && !e.dead)) {
+      this.spawn(new O.GustEcho(this, p.x, p.z, p.facing, power));
+      if (!this.flags.echoTip) { this.flags.echoTip = true; this.ui.toast('Your gust will echo…', 'The Verdant Chime repeats it from where you stood, 1.5 s later.', 3); }
+    }
     const valve = this.inv.galeValve ? 1.4 : 1;
     const range = (power === 2 ? 7 : 4.5) * valve;
     const half = power === 2 ? 0.5 : 0.36;
@@ -683,6 +785,7 @@ export class Game {
           case 'heart': this.gainHeartContainer(true); break;
           case 'pips': this.addCoins(n); break;
           case 'potion': inv.potions = Math.min(inv.maxPotions, inv.potions + 1); break;
+          case 'echo': gainMat(this, 'echo', 1); learn(this, { samurai: 'returningcut', archer: 'echosnare', witch: 'rimebloom' }[inv.cls]); break;
         }
         this.ui.updateHud(); this.save();
       });
@@ -753,8 +856,9 @@ export class Game {
     this.liquidTime.value = this.time;
     const input = this.input;
     this.ui.update(dt);
-    if (this.dead) { if (input.pressed('interact')) this.revive(); this.render(dt); return; }
+    if (this.dead) { this.aimView.hide(); if (input.pressed('interact')) this.revive(); this.render(dt); return; }
     if (this.ui.updateShop(input)) { this.render(dt); return; }
+    if (this.ui.updateCraft(input)) { this.render(dt); return; }
     if (this.ui.updateInventory(input)) { this.render(dt); return; }
     if (input.pressed('inventory') && !this.locked() && !this.dead) { this.ui.openInventory(); this.render(dt); return; }
     const talking = this.ui.updateDialog(dt, input);
@@ -785,6 +889,8 @@ export class Game {
     this.entities = this.entities.filter(e => !e.dead);
     // solids cache for next frame
     this.solids = this.entities.filter(e => e.solid && Math.abs(e.x - p.x) < 24 && Math.abs(e.z - p.z) < 20);
+    const lsCap = this.inv.maxHp * 0.05;
+    this.lsPool = Math.min(lsCap, (this.lsPool || 0) + lsCap * dt);
     this.updateRoom();
     clipUniform.value = this.room ? this.room.z1 - 1 : 1e9;
     this.regionT = (this.regionT || 0) - dt;
@@ -798,6 +904,7 @@ export class Game {
     this.ui.updateFloats(dt);
     this.guide.tick(dt);
     this.worldTick(dt);
+    this.aimView.update();
     if (this.held) { this.held.rotation.y += dt * 2; this.held.position.y = 1.35 + Math.sin(this.time * 3) * 0.05; }
     this.render(dt);
   }
