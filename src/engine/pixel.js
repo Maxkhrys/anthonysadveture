@@ -79,7 +79,7 @@ export class PixelRenderer {
   resize() {
     const w = innerWidth, h = innerHeight;
     this.renderer.setSize(w, h, false);
-    const scale = Math.max(2, Math.round(h / 330));
+    const scale = this.forceScale || Math.max(2, Math.round(h / (this.targetH || 330)));
     this.scale = scale;
     const rw = Math.ceil(w / scale) + 2, rh = Math.ceil(h / scale) + 2;
     this.rw = rw; this.rh = rh;
@@ -106,7 +106,7 @@ export class PixelRenderer {
 
   setViewHeight(v) { if (Math.abs(v - this.viewHeight) > 1e-3) { this.viewHeight = v; this.updateProjection(); } }
 
-  addShake(a) { this.shake = Math.max(this.shake, a); }
+  addShake(a) { this.shake = Math.max(this.shake, a * (this.shakeScale ?? 1)); }
   addFlash(a, color = 0xffffff) { this.flash = Math.max(this.flash, a); this.flashColor.set(color); }
 
   render(scene, dt) {

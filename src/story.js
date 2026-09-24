@@ -32,6 +32,8 @@ export class Story {
     if (f.q_camp === 1) m.push({ x: 96, z: 28, color: '#e8424f', pulse: true });
     if (f.q_pier === 1) m.push({ x: 60, z: 92, color: '#7ad8ff', pulse: true });
     if (f.q_mill === 1 && !f.windmill) m.push({ x: 47, z: 51, color: '#fff3cf', pulse: true });
+    const g = this.g;
+    if (g.area && g.area.id === 'overworld') for (const e of g.entities) if (e.constructor.name === 'LootChest' && !e.opened) m.push({ x: e.x, z: e.z, color: ['#c89a5a', '#c0c0d0', '#ffd25e'][e.tier] });
     return m;
   }
   labels() {
@@ -67,7 +69,7 @@ export class Story {
         ], () => {
           g.cutscene = false; g.camFocus = null;
           g.startIntroFight();
-          g.ui.toast('J / Click: Sword  ·  K / Right-click: Shield', 'Space: Roll  ·  Hold J: Spin attack', 6);
+          g.ui.toast('J / Click: Attack  ·  K: Guard  ·  Space: Roll', '1-3: Abilities  ·  Hold J: Charged attack  ·  Follow the GUIDE (top left)', 6);
         }), 900);
       });
     }, 700);

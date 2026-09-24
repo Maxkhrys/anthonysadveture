@@ -11,6 +11,7 @@
 </head>
 <body>
 <canvas id="game"></canvas>
+<div id="loading"><div class="ld-logo">MOSSLING</div><div class="ld-sub">The Silent Bell</div><div class="ld-bar"><div class="ld-fill"></div></div><div class="ld-step">Waking the world…</div><div class="ld-tip"></div></div>
 <div id="ui">
   <div id="hud" class="hidden">
     <div id="vitals">
@@ -29,6 +30,7 @@
     </div>
     <div id="keys"></div>
     <div id="chimes"></div>
+    <div id="guide" class="hidden"><div class="gd-h">GUIDE <span>(toggle in Settings)</span></div><div class="gd-list"></div></div>
     <div id="area-name"></div>
     <div id="objective"></div>
     <canvas id="minimap" width="140" height="100"></canvas>
@@ -44,11 +46,12 @@
   <div id="title" class="screen">
     <div class="logo"><div class="sub">a tiny adventure in a very big world</div><h1>MOSSLING</h1><h2>The Silent Bell</h2></div>
     <div class="menu" id="title-menu"></div>
+    <div id="title-settings" class="panel hidden"></div>
     <div class="foot">WASD move · J attack · K shield · Space roll · L tool · E interact · R surge · Q tonic · Esc menu</div>
   </div>
   <div id="pause" class="screen hidden">
     <div class="panel">
-      <div class="tabs"><span data-tab="map" class="on">Map</span><span data-tab="quests">Journal</span><span data-tab="gear">Gear</span><span data-tab="controls">Controls</span></div>
+      <div class="tabs"><span data-tab="map" class="on">Map</span><span data-tab="quests">Journal</span><span data-tab="gear">Gear</span><span data-tab="controls">Controls</span><span data-tab="settings">Settings</span></div>
       <div class="tab-body" id="tab-map"><canvas id="bigmap" width="560" height="400"></canvas></div>
       <div class="tab-body hidden" id="tab-quests"></div>
       <div class="tab-body hidden" id="tab-gear"></div>
@@ -66,6 +69,7 @@
           <tr><td>Toggle music</td><td>M</td></tr>
         </table>
       </div>
+      <div class="tab-body hidden" id="tab-settings"></div>
       <div class="pause-foot">Esc to resume · <a id="btn-save">Save now</a> · <a id="btn-title">Quit to title</a></div>
     </div>
   </div>

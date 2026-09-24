@@ -1,15 +1,17 @@
 // Fully synthesized sound: every effect and tune is generated with WebAudio at runtime.
 let ctx = null, master, sfxBus, musBus, noiseBuf;
+const VOL = { master: 0.7, music: 0.22, sfx: 0.55 };
+export function setVolumes(m, mu, s) { VOL.master = 0.7 * m; VOL.music = 0.22 * mu; VOL.sfx = 0.55 * s; if (ctx) { master.gain.value = VOL.master; musBus.gain.value = VOL.music; sfxBus.gain.value = VOL.sfx; } }
 let musicOn = true;
 const N = n => 440 * Math.pow(2, (n - 69) / 12);
 
 export function initAudio() {
   if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
   ctx = new (window.AudioContext || window.webkitAudioContext)();
-  master = ctx.createGain(); master.gain.value = 0.7; master.connect(ctx.destination);
+  master = ctx.createGain(); master.gain.value = VOL.master; master.connect(ctx.destination);
   const comp = ctx.createDynamicsCompressor(); comp.connect(master);
-  sfxBus = ctx.createGain(); sfxBus.gain.value = 0.55; sfxBus.connect(comp);
-  musBus = ctx.createGain(); musBus.gain.value = 0.22; musBus.connect(comp);
+  sfxBus = ctx.createGain(); sfxBus.gain.value = VOL.sfx; sfxBus.connect(comp);
+  musBus = ctx.createGain(); musBus.gain.value = VOL.music; musBus.connect(comp);
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
   const d = noiseBuf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -162,4 +164,4 @@ export function toggleMusic() {
   if (cur && ctx) cur.gain.gain.setTargetAtTime(musicOn ? 1 : 0, ctx.currentTime, 0.2);
   return musicOn;
 }
-export function duckMusic(on) { if (musBus && ctx) musBus.gain.setTargetAtTime(on ? 0.06 : 0.22, ctx.currentTime, 0.2); }
+export function duckMusic(on) { if (musBus && ctx) musBus.gain.setTargetAtTime(on ? VOL.music * 0.3 : VOL.music, ctx.currentTime, 0.2); }

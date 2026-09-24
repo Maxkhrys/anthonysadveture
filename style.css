@@ -184,3 +184,29 @@ html,body{margin:0;height:100%;background:#0d0a14;overflow:hidden;font-family:va
 .ccard .st i{display:block;height:8px;background:var(--gold);border:1px solid #000}
 .ccard ul{padding-left:16px;margin:6px 0 0;font-size:12px;color:#c9b8e8}
 .cs-foot{margin-top:18px;color:var(--paper2)}
+/* loading */
+#loading{position:fixed;inset:0;z-index:50;background:radial-gradient(ellipse at 50% 45%,#2a1f3d,#0d0a14);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .6s}
+#loading.done{opacity:0;pointer-events:none}
+.ld-logo{font-size:72px;letter-spacing:8px;color:#fff3cf;text-shadow:4px 4px 0 #1b1426;font-weight:700}
+.ld-sub{font-size:24px;color:var(--gold);letter-spacing:4px;margin-bottom:34px}
+.ld-bar{width:min(420px,80vw);height:16px;border:2px solid #000;box-shadow:0 0 0 2px #d9b36a;background:#1b1426}
+.ld-fill{height:100%;width:0;background:linear-gradient(90deg,#7fd36a,#ffd25e);transition:width .25s}
+.ld-step{margin-top:10px;font-size:15px;color:var(--paper2)}
+.ld-tip{position:absolute;bottom:40px;max-width:640px;text-align:center;font-size:15px;color:#cdbb95;padding:0 16px}
+.ld-tip b{color:var(--gold)}
+/* settings */
+.setrow{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border:2px solid transparent;font-size:16px}
+.setrow.on{border-color:var(--gold);background:#ffffff0d}
+.setrow .val{color:var(--gold);min-width:150px;text-align:right;cursor:pointer;user-select:none}
+.setrow .val:before{content:'◀ ';opacity:.5}.setrow .val:after{content:' ▶';opacity:.5}
+.setnote{font-size:12px;color:#a99;margin-top:8px}
+#title-settings{min-width:min(560px,94vw);margin-top:-10px}
+#title-settings h3{margin:0 0 8px;color:var(--gold)}
+/* guide */
+#guide{position:absolute;right:18px;top:176px;width:250px;background:#1b1426d9;border:2px solid #000;box-shadow:0 0 0 2px #7fd36a;padding:6px 10px;font-size:13px}
+.gd-h{color:#7fd36a;font-size:12px;letter-spacing:2px;margin-bottom:4px}.gd-h span{color:#777;letter-spacing:0;font-size:10px}
+.gd-item{padding:2px 0;color:#e8dcc0}.gd-item.done{color:#6a6a6a;text-decoration:line-through}.gd-item.cur{color:#fff}
+.gd-item.cur:before{content:'▶ ';color:#7fd36a}
+.gd-item kbd{background:#e8dcc0;color:#1b1426;padding:0 4px;font-family:var(--font);font-size:11px}
+#loot-feed{top:128px}
+#guide{left:18px;right:auto;top:122px}

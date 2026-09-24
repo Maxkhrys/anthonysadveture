@@ -18,6 +18,8 @@ import { CLASSES, computeStats, xpNeed, MAX_LEVEL } from './rpg/classes.js';
 import { genItem, starterWeapon, RARITY, itemPower } from './rpg/items.js';
 import { GearDrop, LootChest, thornBurst, blast, chainLightning } from './rpg/combat.js';
 import { flashObj } from './entities/common.js';
+import { loadSettings, applySettings } from './settings.js';
+import { Guide } from './guide.js';
 
 const SAVE_KEY = 'mossling-save-v2';
 export const BAG_SIZE = 30;
@@ -58,7 +60,8 @@ export class Game {
     this.playerLamp = new THREE.PointLight(0xffe0b0, 0, 5, 1.5); this.scene.add(this.playerLamp);
     this.liquidTime = { value: 0 };
     this.res = 100;
-    this.settings = { difficulty: 'normal' };
+    this.guide = new Guide(this);
+    applySettings(loadSettings(), this);
     this.recalc();
   }
 
@@ -125,6 +128,7 @@ export class Game {
     dmg = Math.max(1, Math.round(dmg));
     const r = e.onHit({ dmg, kind: o.kind, kb: o.kb, dir: o.dir, src: o.src || p, crit });
     if (r !== 'hit') return r;
+    this.guide.event('attack');
     e.hpShow = 3;
     if (!o.quiet || crit) this.ui.float(e.x, 1.0 + (e.eliteScale ? 0.3 : 0), e.z, (crit ? '' : '') + dmg + (crit ? '!' : ''), crit ? '#ffd25e' : '#ffffff', crit);
     if (ps.lifesteal || (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2)) this.heal(dmg * ((ps.lifesteal || 0) + (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2 ? 6 : 0)) / 100, true);
@@ -168,6 +172,7 @@ export class Game {
     sfx(it.r >= 2 ? 'pipbig' : 'pip');
     const up = it.cls && it.cls !== inv.cls ? '' : (itemPower(it) > itemPower(inv.equip[it.slot]) ? ' ▲' : '');
     this.ui.lootToast(it, up);
+    this.guide.event('loot');
     this.stats.items = (this.stats.items || 0) + 1;
     if (!this.flags.tutLoot) { this.flags.tutLoot = true; setTimeout(() => this.ui.toast('You found gear!', 'Press I to open your bag and equip it.', 3.5), 600); }
     this.hudDirty = true;
@@ -183,6 +188,7 @@ export class Game {
     inv.bag.splice(i, 1);
     if (old) inv.bag.splice(i, 0, old);
     sfx('unlock');
+    this.guide.event('equip');
     this.recalc();
   }
   salvageItem(i) {
@@ -278,6 +284,7 @@ export class Game {
     this.region = null;
     this.updateRegion(true);
     this.ui.updateHud();
+    this.guide.render();
     this.bell = this.entities.find(e => e instanceof O.Bell);
     if (area.id === 'dungeon' && this.flags.bossKilled && !this.inv.chimes.includes('verdant')) this.spawnChime();
   }
@@ -466,7 +473,7 @@ export class Game {
     const a = new O.Arena(this, { id: 'intro', x: 58.5, z: 70, radius: 99 }, [
       [['blot', -2, 1], ['blot', 2, 1], ['blot', 0, 3]],
       [['blot', -3, 0], ['blot', 3, 0], ['blot', -1, 3], ['blot', 1, 3]],
-    ], { title: 'HUSHLINGS!', victory: 'Thimblewick is safe… for now.', onClear: () => this.story.introWon() });
+    ], { title: 'HUSHLINGS!', victory: 'Thimblewick is safe… for now.', onClear: () => { this.story.introWon(); const p = this.player; this.spawn(new GearDrop(this, p.x, p.z + 1.2, genItem({ level: 2, cls: this.inv.cls, slot: 'weapon', rarity: 1 }))); this.spawn(new GearDrop(this, p.x + 1, p.z + 1, genItem({ level: 2, slot: 'armor', rarity: 1 }))); } });
     a.alwaysUpdate = true;
     this.spawn(a);
   }
@@ -700,6 +707,7 @@ export class Game {
     this.fx.update(dt, this.cam);
     this.ui.updateVitals();
     this.ui.updateFloats(dt);
+    this.guide.tick(dt);
     if (this.held) { this.held.rotation.y += dt * 2; this.held.position.y = 1.35 + Math.sin(this.time * 3) * 0.05; }
     this.render(dt);
   }

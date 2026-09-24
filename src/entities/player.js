@@ -134,6 +134,7 @@ export class Player extends Entity {
       g.res -= A.cost;
       this.cds[i] = A.cd * (1 - 0.06 * (rank - 1)) * (1 - g.pstats.cdr / 100);
       this.useAbility(A.id, abilityRankMult(rank), rank);
+      g.guide.event('ability');
       g.stats.abilities = (g.stats.abilities || 0) + 1;
       return true;
     }
@@ -206,8 +207,8 @@ export class Player extends Entity {
         if (!locked) {
           if (inp.pressed('attack')) { this.basicAttack(); break; }
           if (this.tryAbility()) break;
-          if (inp.pressed('roll') && this.rollCd <= 0) { this.rollDir = mlen > 0.1 ? Math.atan2(mx, mz) : this.facing; this.facing = this.rollDir; this.setState('roll'); sfx('roll'); break; }
-          if (inp.down('shield')) { this.setState('block'); this.blockT = 0; break; }
+          if (inp.pressed('roll') && this.rollCd <= 0) { g.guide.event('roll'); this.rollDir = mlen > 0.1 ? Math.atan2(mx, mz) : this.facing; this.facing = this.rollDir; this.setState('roll'); sfx('roll'); break; }
+          if (inp.down('shield')) { this.setState('block'); this.blockT = 0; g.guide.event('guard'); break; }
           if (inp.pressed('item') && inv.bellows) { this.setState('item'); this.itemT = 0; break; }
           if (inp.pressed('interact')) g.interact();
         }
@@ -256,7 +257,7 @@ export class Player extends Entity {
         if (mlen > 0.1) this.facing = angleLerp(this.facing, Math.atan2(mx, mz), Math.min(1, dt * 8)); else if (t) this.facing = angleLerp(this.facing, Math.atan2(t.x - this.x, t.z - this.z), Math.min(1, dt * 8));
         if (this.aimT >= 0.6 && this.aimT - dt < 0.6) sfx('charged');
         if (this.aimT >= 0.6 && Math.random() < 0.4) g.fx.add({ x: this.x + Math.sin(this.facing) * 0.5, y: 0.5, z: this.z + Math.cos(this.facing) * 0.5, vy: 0.5, g: 0, color: this.cls === 'archer' ? 0xffd25e : 0xff8a2a, life: 0.3, size: 0.05 });
-        if (!inp.down('attack') || locked) { this.fireBasic(this.aimT >= 0.6); this.setState('cast'); }
+        if (!inp.down('attack') || locked) { if (this.aimT >= 0.6) g.guide.event('charge'); this.fireBasic(this.aimT >= 0.6); this.setState('cast'); }
         break;
       }
       case 'cast': speed = 1.5; if (this.st > 0.2) this.setState('move'); break;
@@ -294,7 +295,7 @@ export class Player extends Entity {
         if (this.chargeT >= 0.7 && this.chargeT - dt < 0.7) { sfx('charged'); g.fx.burst(this.x, 0.6, this.z, 10, 0xfff3b0, 1.5, { g: 0 }); }
         if (this.chargeT >= 0.7 && Math.random() < 0.4) g.fx.add({ x: this.x + Math.sin(this.facing + 0.8) * 0.4, y: 0.5 + Math.random() * 0.3, z: this.z + Math.cos(this.facing + 0.8) * 0.4, vy: 1, g: 0, color: 0xfff3b0, life: 0.3, size: 0.05 });
         if (!inp.down('attack') || locked) {
-          if (this.chargeT >= 0.7) { this.setState('spin'); this.attackId++; this.hitSet.clear(); sfx('spin'); g.fx.arc(this.x, 0.3, this.z, 0, 1.9, 0, 0xfff3b0, 0.3, 0.6, true); g.fx.ring(this.x, this.z, 0.5, 2.2, 0xfff3b0, 0.3, 0.2); }
+          if (this.chargeT >= 0.7) { g.guide.event('charge'); this.setState('spin'); this.attackId++; this.hitSet.clear(); sfx('spin'); g.fx.arc(this.x, 0.3, this.z, 0, 1.9, 0, 0xfff3b0, 0.3, 0.6, true); g.fx.ring(this.x, this.z, 0.5, 2.2, 0xfff3b0, 0.3, 0.2); }
           else this.setState('move');
         }
         break;

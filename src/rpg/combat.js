@@ -244,6 +244,7 @@ export class LootChest extends Entity {
       g.gainXp(10 + this.tier * 15);
     }, 250);
     g.stats.chests = (g.stats.chests || 0) + 1;
+    g.guide.event('chest');
   }
   update(dt) {
     this.t += dt;

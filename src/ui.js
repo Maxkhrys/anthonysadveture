@@ -2,6 +2,7 @@
 import { sfx, duckMusic } from './engine/audio.js';
 import { T } from './world/tiles.js';
 import { installRpgUI } from './ui_rpg.js';
+import { SettingsPanel } from './settings.js';
 
 const $ = id => document.getElementById(id);
 
@@ -183,7 +184,8 @@ export class UI {
   // ---------------- pause / maps
   tab(name) {
     document.querySelectorAll('#pause .tabs span').forEach(s => s.classList.toggle('on', s.dataset.tab === name));
-    ['map', 'quests', 'gear', 'controls'].forEach(t => $('tab-' + t).classList.toggle('hidden', t !== name));
+    ['map', 'quests', 'gear', 'controls', 'settings'].forEach(t => $('tab-' + t).classList.toggle('hidden', t !== name));
+    if (name === 'settings') { this.setPanel = this.setPanel || new SettingsPanel($('tab-settings'), this.g); this.setPanel.render(); }
     this.curTab = name;
     if (name === 'map') this.drawBigMap();
     if (name === 'quests') $('tab-quests').innerHTML = this.g.story.journal();
@@ -191,9 +193,10 @@ export class UI {
   }
   openPause() { this.show('pause', true); this.tab(this.curTab || 'map'); }
   updatePause(input) {
-    const tabs = ['map', 'quests', 'gear', 'controls'];
-    if (input.pressed('right')) { this.tab(tabs[(tabs.indexOf(this.curTab) + 1) % 4]); sfx('select'); }
-    if (input.pressed('left')) { this.tab(tabs[(tabs.indexOf(this.curTab) + 3) % 4]); sfx('select'); }
+    const tabs = ['map', 'quests', 'gear', 'controls', 'settings'];
+    if (this.curTab === 'settings') { if (input.pressed('shield') || input.pressed('roll')) { this.tab('controls'); sfx('select'); } else this.setPanel.update(input); return; }
+    if (input.pressed('right')) { this.tab(tabs[(tabs.indexOf(this.curTab) + 1) % 5]); sfx('select'); }
+    if (input.pressed('left')) { this.tab(tabs[(tabs.indexOf(this.curTab) + 4) % 5]); sfx('select'); }
   }
   tileColor(t) {
     switch (t) {
