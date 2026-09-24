@@ -137,3 +137,24 @@ export class BossTrigger extends Entity {
     d.start(g, d);
   }
 }
+
+// The toll rack by the bell tower: hung when the Bellwright's Score comes home.
+export class TollRack extends Entity {
+  constructor(g, d) {
+    super(g, d.x, d.z);
+    this.solid = true; this.hw = 0.9; this.hd = 0.25; this.t = 0;
+    this.obj.add(mesh([B(0.1, 1.5, 0.1, -0.9, 0, 0, 0x6a4a2a), B(0.1, 1.5, 0.1, 0.9, 0, 0, 0x6a4a2a), B(1.95, 0.1, 0.12, 0, 1.45, 0, 0x7a5a3a), B(0.5, 0.2, 0.3, -0.9, 1.5, 0, 0xc0503a), B(0.5, 0.2, 0.3, 0.9, 1.5, 0, 0xc0503a)]));
+    this.bells = [];
+    for (let i = 0; i < 5; i++) {
+      const b = new THREE.Group(); b.position.set(-0.64 + i * 0.32, 1.42, 0);
+      const s = 0.7 + (4 - i) * 0.08;
+      b.add(mesh([B(0.02, 0.14, 0.02, 0, -0.14, 0, 0x2a2a2a), B(0.18 * s, 0.16 * s, 0.18 * s, 0, -0.14 - 0.16 * s, 0, i % 2 ? 0xc89a4a : 0xe0b860), B(0.22 * s, 0.03, 0.22 * s, 0, -0.16 - 0.16 * s, 0, 0xe8c878)]));
+      this.obj.add(b); this.bells.push(b);
+    }
+    this.sync();
+  }
+  update(dt) {
+    this.t += dt;
+    this.bells.forEach((b, i) => { b.rotation.z = Math.sin(this.t * 1.7 + i) * 0.08; });
+  }
+}

@@ -48,6 +48,7 @@ export function installRpgUI(UI) {
   // ---------------- floating numbers & enemy bars
   P.float = function (x, y, z, text, color, big, small) {
     if (this.g.settings && this.g.settings.numbers === false && !small) return;
+    if (this.g.settings && this.g.settings.combatText === false && small && /[A-Z]{3}/.test(text)) return;
     const el = document.createElement('div');
     el.className = 'flt' + (big ? ' crit' : '') + (small ? ' small' : '');
     el.textContent = text; el.style.color = color;

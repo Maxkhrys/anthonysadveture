@@ -24,6 +24,8 @@ export class FX {
   }
   clear() { this.p.length = 0; for (const a of this.arcs) this.scene.remove(a.m); this.arcs.length = 0; for (const r of this.rings) { this.scene.remove(r.m); r.m.material.dispose(); } this.rings.length = 0; }
   add(o) {
+    // Effects density setting: thins decorative particles (rings and telegraphs are separate)
+    if (this.density < 1 && Math.random() > this.density) return;
     if (this.p.length >= MAX) this.p.shift();
     this.p.push({ x: o.x, y: o.y ?? 0.3, z: o.z, vx: o.vx ?? 0, vy: o.vy ?? 0, vz: o.vz ?? 0, life: o.life ?? 0.6, max: o.life ?? 0.6,
       size: o.size ?? 0.08, color: new THREE.Color(o.color ?? 0xffffff), g: o.g ?? 6, drag: o.drag ?? 1.5, shrink: o.shrink ?? true, floor: o.floor ?? 0, stretch: o.stretch ?? 0, grow: o.grow ?? 0, wob: o.wob ?? 0, ph: Math.random() * 6, soft: !!o.soft });

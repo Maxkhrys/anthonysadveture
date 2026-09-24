@@ -773,6 +773,7 @@ export class Arena extends Entity {
       this.wave++;
       if (this.wave >= this.waves.length) return this.finish();
       g.ui.banner(this.opts.title || 'AMBUSH', `Wave ${this.wave + 1} of ${this.waves.length}`, 1.4);
+      this.opts.onWave && this.opts.onWave(this.wave);
       for (const [kind, ox, oz, tag] of this.waves[this.wave]) {
         const e = g.spawnEnemy(kind, this.cxr + ox, this.czr + oz, { aggro: 30, eliteChance: this.opts.eliteChance });
         if (e) { e.arena = this; if (tag === 'champion') g.makeChampion(e); }

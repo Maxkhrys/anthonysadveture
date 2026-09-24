@@ -190,6 +190,7 @@ export function buildOverworld() {
   g.def({ type: 'board', x: 62.5, z: 64.3 });
   g.def({ type: 'bellstone', x: 56.5, z: 60.5, spawn: 'village', name: 'Thimblewick' });
   g.def({ type: 'workbench', x: 55.3, z: 64.8 });
+  g.def({ type: 'tollrack', x: 53.5, z: 56.5 }); // appears once the Silent Toll is finished
   g.def({ type: 'millyard', x: 50.5, z: 51.2 });
 
   // The Echo Glade, east of Rootwell Hollow: two short-lived pinwheels with a hedge between.

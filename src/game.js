@@ -6,7 +6,7 @@ import { FX } from './fx.js';
 import { PITCH } from './engine/pixel.js';
 import { UI } from './ui.js';
 import { Story } from './story.js';
-import { sfx, playMusic } from './engine/audio.js';
+import { sfx, playMusic, playTone } from './engine/audio.js';
 import { angDiff, clamp } from './engine/util.js';
 import { Player } from './entities/player.js';
 import { makeEnemy } from './entities/enemies.js';
@@ -31,7 +31,7 @@ import { ensureCraftState, gainMat, learn } from './rpg/crafting.js';
 import { tileBlocks } from './entities/entity.js';
 import { buildDevRoom } from './world/devroom.js';
 import { buildConservatory } from './world/conservatory.js';
-import { HangingBell, BellSequence, CrackedGlass, BossTrigger } from './entities/objects5.js';
+import { HangingBell, BellSequence, CrackedGlass, BossTrigger, TollRack } from './entities/objects5.js';
 import { Seamkeeper, CrownedToad } from './entities/bosses5.js';
 import { MATS, recipeById } from './rpg/crafting.js';
 import { DevConsole } from './dev/console.js';
@@ -228,6 +228,11 @@ export class Game {
     if (L > 0.6 && r < 0.3 && Math.random() < 0.06) { const c = [0xffd25e, 0xf06a8a, 0x9ad8ff, 0xffffff][Math.floor(Math.random() * 4)]; this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 22, y: 0.4 + Math.random() * 0.6, z: this.cam.z + (Math.random() - 0.5) * 16, vx: (Math.random() - 0.5) * 0.8, vz: (Math.random() - 0.5) * 0.6, vy: 0.05, g: 0, drag: 0, color: c, life: 4, size: 0.07, wob: 3, shrink: false }); }
     // Whisperwood sheds leaves
     if (reg === 'Whisperwood' && Math.random() < 0.25) this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 24, y: 2.5 + Math.random(), z: this.cam.z + (Math.random() - 0.5) * 18, vx: 0.4, vy: -0.35, g: 0, drag: 0, color: Math.random() < 0.5 ? 0xc8742a : 0x8aa83a, life: 6, size: 0.06, wob: 1.5, shrink: false });
+    // once the Silent Toll is hung, Thimblewick rings the old toll at every dusk and dawn
+    if (this.flags.tollHung && reg === 'Thimblewick') {
+      this.tollT = (this.tollT ?? 6) - dt;
+      if (this.tollT <= 0) { this.tollT = warm > 0.3 ? 9 : 26; playTone(57); setTimeout(() => playTone(64), 500); setTimeout(() => playTone(69), 1000); this.fx.ring(53.5, 56.5, 0.3, 3, 0xffd25e, 1.2, 1.3); }
+    }
     // chimney smoke (only near the camera)
     this.smokeT = (this.smokeT || 0) - dt;
     if (this.smokeT <= 0 && a.chimneys) {
@@ -632,7 +637,7 @@ export class Game {
       case 'riftportal': e = new RiftPortal(this, d); break;
       case 'riftstone': e = new O.Sign(this, { ...d, text: '' }); e.obj.visible = false; e.solid = false; e.interact = () => this.story.riftStone(); Object.defineProperty(e, 'prompt', { get: () => 'Touch the Rift Stone' }); break;
       case 'board': e = new O.Sign(this, { ...d, text: '' }); e.interact = () => this.story.board(); Object.defineProperty(e, 'prompt', { get: () => 'Bounties' }); e.obj.visible = false; e.solid = false; break;
-      case 'npc': e = new O.NPC(this, d); break;
+      case 'npc': e = new O.NPC(this, d.id === 'oswin' && f.tollHung ? { ...d, x: 54.5, z: 58.4 } : d); break;
       case 'bellstone': e = new O.Bellstone(this, d); break;
       case 'workbench': e = new O.Workbench(this, d); break;
       case 'millyard': if (f.q_mill !== 2) return; e = new O.MillYard(this, d); break;
@@ -661,6 +666,7 @@ export class Game {
       case 'custom_entity': if (d.factory) e = d.factory(this); break;
       // ---- Pass 5
       case 'hangbell': e = new HangingBell(this, d); break;
+      case 'tollrack': if (!f.tollHung) return; e = new TollRack(this, d); break;
       case 'bellseq': e = new BellSequence(this, d); break;
       case 'crackedglass': e = new CrackedGlass(this, d); break;
       case 'conservatoryarena': e = new O.Arena(this, { id: d.id, room: d.room }, [
@@ -944,11 +950,28 @@ export class Game {
     const a = new O.Arena(this, { id: 'intro', x: 58.5, z: 70, radius: 99 }, [
       [['blot', -2, 1], ['blot', 2, 1], ['blot', 0, 3]],
       [['blot', -3, 0], ['blot', 3, 0], ['blot', -1, 3], ['blot', 1, 3]],
-    ], { title: 'HUSHLINGS!', victory: 'Thimblewick is safe… for now.', onClear: () => { this.story.introWon(); const p = this.player; this.spawn(new GearDrop(this, p.x, p.z + 1.2, genItem({ level: 2, cls: this.inv.cls, slot: 'weapon', rarity: 1 }))); this.spawn(new GearDrop(this, p.x + 1, p.z + 1, genItem({ level: 2, slot: 'armor', rarity: 1 }))); } });
+      // the lesson at the end: a shell that shrugs off taps. Charge, or strike after a parry.
+      [['porcelain', 0, 3], ['blot', -3, 2], ['blot', 3, 2]],
+    ], { title: 'HUSHLINGS!', victory: 'Thimblewick is safe… for now.', onWave: w => { if (w === 2) setTimeout(() => this.ui.toast('A Porcelain Guard!', { samurai: 'Its glaze turns light cuts. Hold J for a spin — or parry (K) and strike.', archer: 'Its glaze turns light arrows. Hold J for a charged shot to crack it.', witch: 'Its glaze turns bolts. Hold J for a fireball to crack it.' }[this.inv.cls], 4.5), 400); }, onClear: () => { this.story.introWon(); this.revealWorld(); const p = this.player; this.spawn(new GearDrop(this, p.x, p.z + 1.2, genItem({ level: 2, cls: this.inv.cls, slot: 'weapon', rarity: 1 }))); this.spawn(new GearDrop(this, p.x + 1, p.z + 1, genItem({ level: 2, slot: 'armor', rarity: 1 }))); } });
     a.alwaysUpdate = true;
     this.spawn(a);
   }
 
+  // After the first fight: a short look at what's out there, then back to Moss
+  revealWorld() {
+    if (this.flags.revealed) return;
+    this.flags.revealed = true;
+    const shots = [
+      [{ x: 45.5, z: 42 }, 'THE CRACKED CONSERVATORY', 'Something inside keeps mending the glass'],
+      [{ x: 22, z: 34 }, 'WHISPERWOOD', 'Rootwell Hollow breathes beneath the roots'],
+      [{ x: 74.5, z: 15 }, 'THE CHIME GATE', 'Three Voices sealed it'],
+    ];
+    setTimeout(() => {
+      this.cutscene = true; this.ui.show('letterbox', true); this.camZoom = 1.35;
+      shots.forEach(([f, big, small], i) => setTimeout(() => { this.camFocus = f; this.ui.banner(small, big, 2); sfx('chime'); }, i * 2300));
+      setTimeout(() => { this.camFocus = null; this.camZoom = 1; this.cutscene = false; this.ui.show('letterbox', false); }, shots.length * 2300 + 300);
+    }, 2200);
+  }
   // ------------------------------------------------ combat helpers
   hitArc(src, x, z, facing, range, halfAng, opts) {
     for (const e of this.entities) {
