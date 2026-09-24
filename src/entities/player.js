@@ -46,7 +46,7 @@ export class Player extends Entity {
     this.rollCd = 0;
     // three separate directions: where we move (input), where we aim, where we dodge
     this.aimDir = 0; this.aimPt = { x, z }; this.aimSrc = 'keys'; this.aimLock = null; this.dodgeDir = 0;
-    this.targeting = null; this.chargeTime = 0.6;
+    this.targeting = null; this.chargeTime = 0.6; this.rollIframes = 0.28;
   }
   get aiming() { return this.aimSrc === 'mouse' || this.aimSrc === 'pad'; }
   // Resolve the aim for this frame from the mouse (through the rendered camera), the right
@@ -126,6 +126,9 @@ export class Player extends Entity {
     return best;
   }
   startRoll(mx, mz, mlen) {
+    // back-to-back rolls get shorter invulnerability, so rolling is a timing tool, not a shield
+    this.rollChain = this.g.time - (this.lastRollEnd ?? -9) < 0.35 ? (this.rollChain || 0) + 1 : 0;
+    this.rollIframes = this.rollChain >= 2 ? 0.12 : 0.28;
     // dodge follows the stick/keys; with no movement, a mouse/pad player backsteps away from the aim
     this.dodgeDir = mlen > 0.1 ? Math.atan2(mx, mz) : this.aiming ? this.aimDir + Math.PI : this.facing;
     this.rollDir = this.dodgeDir; this.facing = this.rollDir; this.targeting = null;
@@ -138,10 +141,10 @@ export class Player extends Entity {
   hurt(h) {
     const g = this.g;
     if (this.invuln > 0 || this.state === 'dead' || this.state === 'fall' || g.cutscene) return false;
-    if (this.state === 'roll' && this.st < 0.3) return false;
+    if (this.state === 'roll' && this.st < this.rollIframes) return false;
     const fromAng = Math.atan2(h.x - this.x, h.z - this.z);
     if (this.state === 'block' && !h.unblockable && Math.abs(angDiff(this.facing, fromAng)) < 1.4) {
-      const window = 0.22;
+      const window = 0.2;
       if (this.blockT < window) {
         sfx('parry'); g.hitstop(0.12); g.pr.addFlash(0.25, 0xfff3b0);
         g.fx.sparks(this.x + Math.sin(fromAng) * 0.4, 0.4, this.z + Math.cos(fromAng) * 0.4, fromAng, 16, 0xfff3b0);
@@ -151,27 +154,44 @@ export class Player extends Entity {
         g.stats.parries = (g.stats.parries || 0) + 1;
         return 'parry';
       }
-      sfx('block');
       g.fx.sparks(this.x + Math.sin(fromAng) * 0.35, 0.35, this.z + Math.cos(fromAng) * 0.35, fromAng, 6);
+      if (h.heavy) {
+        // heavy blows break a plain guard: parry them, or get out of the way
+        sfx('clang'); g.pr.addShake(0.5); g.hitstop(0.06);
+        this.knock(fromAng + Math.PI, 7);
+        this.takeDamage(h.dmg * 0.55, h.src && h.src.level, h.src);
+        g.fx.ring(this.x, this.z, 0.2, 1.1, 0xff8a5a, 0.3);
+        g.ui.float(this.x, 1.5, this.z, 'GUARD BROKEN', '#ffb38a', false);
+        if (this.state !== 'dead') { this.setState('hurt'); this.st = -0.25; this.invuln = 0.4; }
+        return 'guardbreak';
+      }
+      sfx('block');
       this.knock(fromAng + Math.PI, 3.5);
-      this.takeDamage(h.dmg * 0.25, h.src && h.src.level);
+      this.takeDamage(h.dmg * 0.25, h.src && h.src.level, h.src);
       return 'block';
     }
-    this.takeDamage(h.dmg * ((h.src && h.src.dmgMul) || 1), h.src && h.src.level);
+    this.takeDamage(h.dmg * ((h.src && h.src.dmgMul) || 1), h.src && h.src.level, h.src);
     this.knock(fromAng + Math.PI, h.kb ?? 6);
+    if (this.state === 'dead') return 'hit';
     this.setState('hurt');
-    this.invuln = 1.0;
+    this.targeting = null;
+    this.invuln = 0.65;
     sfx('hurt'); g.pr.addShake(0.6); g.hitstop(0.06);
     flashObj(this.obj, 0.12, 0xff5a5a);
     g.fx.burst(this.x, 0.5, this.z, 8, [0xff5a5a, 0xffffff], 2.5);
     return 'hit';
   }
   // raw = damage in legacy "half-heart" units; scaled by the attacker's level and our armour
-  takeDamage(raw, lvl) {
+  takeDamage(raw, lvl, src) {
     const inv = this.inv, g = this.g;
     const L = lvl || g.zoneLevel(this.x, this.z);
-    const n = Math.max(1, Math.round(raw * unitAt(L) * 1.05 * g.pstats.dr * g.diffMult()));
+    // enemies hit a little harder per level than the base unit, to keep pace with the armour
+    // and life that gear adds along the way
+    let n = Math.max(1, Math.round(raw * unitAt(L) * (1 + 0.05 * (L - 1)) * 1.05 * g.pstats.dr * g.diffMult()));
+    // no unexplained one-shots: a single blow can take at most a set share of your life
+    n = Math.min(n, Math.ceil(inv.maxHp * g.hitCap()));
     inv.hp = Math.max(0, inv.hp - n);
+    this.lastHit = { by: src ? g.nameOf(src) : 'a fall', lvl: src && src.level, n, raw };
     this.combatT = 4;
     g.ui.float(this.x, 1.1, this.z, '-' + n, '#ff6a6a', false);
     g.ui.hearts(true);
@@ -288,7 +308,10 @@ export class Player extends Entity {
     this.combatT = Math.max(0, (this.combatT || 0) - dt);
     // resource & regen
     g.res = Math.min(100, g.res + ps.resRegenRate * dt);
-    const regen = ps.regen + (ps.uniques.has('mossheart') ? inv.maxHp * (this.combatT > 0 ? 0.005 : 0.02) : 0) + (this.combatT > 0 ? 0 : inv.maxHp * 0.004);
+    // Passive recovery never replaces tonics: out of combat you catch your breath back up to
+    // 40% of your life; gear regen and the Mossheart still work, at a reduced rate in a fight.
+    const breath = this.combatT > 0 || inv.hp >= inv.maxHp * 0.4 ? 0 : inv.maxHp * 0.01;
+    const regen = ps.regen * (this.combatT > 0 ? 0.5 : 1) + (ps.uniques.has('mossheart') ? inv.maxHp * (this.combatT > 0 ? 0.004 : 0.012) : 0) + breath;
     if (inv.hp > 0 && inv.hp < inv.maxHp && regen > 0) { inv.hp = Math.min(inv.maxHp, inv.hp + regen * dt); this.regenAcc = (this.regenAcc || 0) + dt; if (this.regenAcc > 0.5) { this.regenAcc = 0; g.ui.hearts(); } }
     const aspd = ps.wspd;
     this.updateAim();
@@ -321,7 +344,7 @@ export class Player extends Entity {
     }
 
     if (!locked) {
-      if (inp.pressed('potion')) g.drinkPotion();
+      if (inp.pressed('potion') && (s === 'move' || s === 'cast' || s === 'block') && g.canDrink()) { this.setState('drink'); this.drank = false; }
       if (inp.pressed('surge') && g.surge >= 100 && s !== 'surge') { this.setState('surge'); this.invuln = 0.9; sfx('roll'); }
     }
 
@@ -454,7 +477,7 @@ export class Player extends Entity {
         const sp = 10.5 * (1 - k * 0.6);
         vx = Math.sin(this.rollDir) * sp; vz = Math.cos(this.rollDir) * sp;
         if (Math.random() < 0.5) g.fx.dust(this.x, this.z, 1);
-        if (this.st >= 0.34) { this.setState('move'); this.rollCd = 0.12; }
+        if (this.st >= 0.34) { this.setState('move'); this.rollCd = 0.12; this.lastRollEnd = g.time; }
         break;
       }
       case 'block': {
@@ -482,6 +505,12 @@ export class Player extends Entity {
         break;
       }
       case 'itemrecover': speed = 1; if (this.st > 0.22) this.setState('move'); break;
+      case 'drink': { // a committed sip: slow, can't attack or roll until it's down
+        speed = 1.4;
+        if (!this.drank && this.st > 0.35) { this.drank = true; g.drinkPotion(); }
+        if (this.st > 0.6) this.setState('move');
+        break;
+      }
       case 'hurt': {
         speed = 0;
         if (this.st > 0.28) this.setState('move');
@@ -623,6 +652,7 @@ export class Player extends Entity {
       case 'tempest': m.body.rotation.y = -this.st * 30; m.armR.rotation.x = -1.5; m.armR.rotation.z = 1.4; m.armL.rotation.z = -1.2; break;
       case 'oni': { const k = Math.min(1, this.st / 0.35); if (this.st < 0.35) { m.armR.rotation.x = -3.0 * k; m.armL.rotation.x = -3.0 * k; m.body.rotation.x = -0.25 * k; m.body.position.y = k * 0.25; } else { m.armR.rotation.x = -0.6; m.armL.rotation.x = -0.6; m.body.rotation.x = 0.5; } break; }
       case 'hurt': m.body.rotation.x = -0.4; m.head.rotation.x = -0.3; break;
+      case 'drink': { const k = Math.min(1, this.st / 0.3); m.armR.rotation.x = -2.2 * k; m.head.rotation.x = -0.35 * k; break; }
       case 'dead': m.body.rotation.z = Math.min(1.5, this.st * 4); m.body.position.y = 0.1; break;
       case 'hold': m.armR.rotation.x = -3.0; m.armL.rotation.x = -3.0; m.armR.rotation.z = -0.2; m.armL.rotation.z = 0.2; m.head.rotation.x = -0.2; break;
       case 'surge': {

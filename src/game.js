@@ -84,7 +84,17 @@ export class Game {
     if (this.player && this.player.m.setWeapon) this.player.m.setWeapon(inv.equip.weapon);
     this.hudDirty = true;
   }
-  diffMult() { return { story: 0.6, normal: 1, hard: 1.45 }[this.settings.difficulty] || 1; }
+  // incoming damage multiplier and the largest share of max life one blow may take
+  diffMult() { return { story: 0.7, normal: 1.3, hard: 1.8 }[this.settings.difficulty] || 1.3; }
+  hitCap() { return { story: 0.3, normal: 0.4, hard: 0.55 }[this.settings.difficulty] || 0.4; }
+  nameOf(e) {
+    if (e.displayName) return e.displayName;
+    if (e.isBoss) return 'Bramblemaw';
+    if (e.boss) return 'Bramblemaw\'s spore pod';
+    if (e.constructor && e.constructor.name === 'RootSpike') return 'Bramblemaw\'s root spike';
+    const k = e.kind || (e.src && e.src.kind);
+    return { blot: 'a Blotling', seedling: 'a Seedling', beetle: 'a Thornback', puffer: 'a Spore Puffer', wisp: 'a Hushwisp', knight: 'a Hush Knight', ...Object.fromEntries(Object.entries(MONSTER_NAMES).map(([a, b]) => [a, 'a ' + b])) }[k] || (e.from ? this.nameOf(e.from) : e.src ? this.nameOf(e.src) : 'the Hush');
+  }
   zoneLevel(x, z) {
     const a = this.area;
     if (!a) return 1;
@@ -206,8 +216,11 @@ export class Game {
     if (o.ability) dmg *= 1 + ps.abilityDmg / 100;
     if (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2) dmg *= 1.4;
     if (e.status && e.status.mark > 0) dmg *= 1.25;
+    // riposte: a parried foe is wide open — the first blow is a guaranteed crit, and all hits land harder
+    let riposte = false;
+    if (e.parried > 0) { dmg *= 1.5; if (!e.riposted) { e.riposted = true; riposte = true; } }
     if (ps.uniques.has('candlewick') && e.status && e.status.burn > 0) dmg *= 1.2;
-    const crit = Math.random() * 100 < ps.crit;
+    const crit = riposte || Math.random() * 100 < ps.crit;
     if (crit) dmg *= 1 + ps.critDmg / 100;
     dmg *= e.dmgTaken || 1;
     dmg = Math.max(1, Math.round(dmg));
@@ -216,7 +229,13 @@ export class Game {
     this.guide.event('attack');
     e.hpShow = 3;
     if (!o.quiet || crit) this.ui.float(e.x, 1.0 + (e.eliteScale ? 0.3 : 0), e.z, (crit ? '' : '') + dmg + (crit ? '!' : ''), crit ? '#ffd25e' : '#ffffff', crit);
-    if (ps.lifesteal || (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2)) this.heal(dmg * ((ps.lifesteal || 0) + (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2 ? 6 : 0)) / 100, true);
+    // life steal draws from a small pool that refills over time: strong, but it can't make a
+    // crowd-clearing build immortal
+    if (!o.noProc && (ps.lifesteal || (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2))) {
+      const want = dmg * ((ps.lifesteal || 0) + (ps.uniques.has('onigrin') && inv.hp < inv.maxHp / 2 ? 6 : 0)) / 100;
+      const got = Math.min(want, this.lsPool || 0);
+      if (got > 0) { this.lsPool -= got; this.heal(got, true); }
+    }
     if (inv.cls === 'samurai' && !o.ability) this.res = Math.min(100, this.res + 7);
     p.combatT = 4;
     if (!o.noProc && !e.dead) {
@@ -304,10 +323,15 @@ export class Game {
     if (!silent) { sfx('fanfare'); this.ui.toast('Heart Vessel!', 'Your life grows by one heart.', 2.4); }
     this.save();
   }
+  canDrink() {
+    const inv = this.inv;
+    if (inv.potions <= 0) { sfx('error'); this.ui.toast('No tonics left.', 'Rest at a Bellstone to refill them.', 1.4); return false; }
+    if (inv.hp >= inv.maxHp) { sfx('error'); this.ui.toast('Already at full health.', '', 1); return false; }
+    return true;
+  }
   drinkPotion() {
     const inv = this.inv;
-    if (inv.potions <= 0) { sfx('error'); this.ui.toast('No tonics left.', 'Posy sells them in Thimblewick.', 1.4); return; }
-    if (inv.hp >= inv.maxHp) { sfx('error'); this.ui.toast('Already at full health.', '', 1); return; }
+    if (inv.potions <= 0) return;
     inv.potions--; this.heal(inv.maxHp * 0.45); sfx('potion');
     this.fx.burst(this.player.x, 0.6, this.player.z, 16, [0xff6a7a, 0xffffff], 2, { g: -1 });
     this.hudDirty = true;
@@ -399,6 +423,7 @@ export class Game {
       case 'riftstone': e = new O.Sign(this, { ...d, text: '' }); e.obj.visible = false; e.solid = false; e.interact = () => this.story.riftStone(); Object.defineProperty(e, 'prompt', { get: () => 'Touch the Rift Stone' }); break;
       case 'board': e = new O.Sign(this, { ...d, text: '' }); e.interact = () => this.story.board(); Object.defineProperty(e, 'prompt', { get: () => 'Bounties' }); e.obj.visible = false; e.solid = false; break;
       case 'npc': e = new O.NPC(this, d); break;
+      case 'bellstone': e = new O.Bellstone(this, d); break;
       case 'bell': e = new O.Bell(this, d); break;
       case 'gate': e = new O.Gate(this, d); break;
       case 'windmill': e = new O.Windmill(this, d); break;
@@ -468,13 +493,28 @@ export class Game {
   onPlayerDeath() {
     sfx('hurt');
     this.ui.bossBar(null);
+    this.stats.deaths = (this.stats.deaths || 0) + 1;
+    const h = this.player.lastHit;
+    const rest = { village: 'the Thimblewick Bellstone', entrance: 'the Hollow\'s entrance Bellstone', pre: 'the Bellstone before the Root Gate', dungeon: 'the Hollow\'s mouth' }[this.checkpoint.spawn] || 'your last rest';
+    const el = document.querySelector('#gameover .recap');
+    if (el) el.innerHTML = (h ? `Felled by <b>${h.by}</b>${h.lvl ? ' (Lv ' + h.lvl + ')' : ''} — the last blow took <b>${h.n}</b> health.<br>` : '') + `You will wake at ${rest} with full health and tonics. Gear, crafting and story progress are kept.`;
     setTimeout(() => { this.dead = true; this.ui.show('gameover', true); }, 1300);
   }
   revive() {
     this.dead = false; this.ui.show('gameover', false);
     this.inv.hp = this.inv.maxHp;
+    this.inv.potions = this.inv.maxPotions;
     this.surge = 0;
     this.warpTo(this.checkpoint.area, this.checkpoint.spawn);
+  }
+  // Bellstones: rest points that refill life and tonics and become the checkpoint
+  rest(stone) {
+    const inv = this.inv;
+    inv.hp = inv.maxHp; inv.potions = inv.maxPotions; this.res = 100;
+    this.checkpoint = { area: this.area.id, spawn: stone.spawn };
+    this.flags['rested:' + stone.spawn] = true;
+    this.ui.hearts(true); this.hudDirty = true;
+    this.save();
   }
 
   // ------------------------------------------------ rooms
@@ -554,7 +594,9 @@ export class Game {
     if (e.def && this.area.id === 'overworld') (this.respawnQ || (this.respawnQ = [])).push({ def: e.def, t: this.time + 70 + Math.random() * 40 });
     this.story.bountyEvent(e.elite ? ['kill', e.kind, 'elite'] : ['kill', e.kind]);
     this.gainXp(e.xpValue || 5);
-    if (ps.uniques.has('hexbloom')) blast(this, e.x, e.z, 1.8, 0.9, 0x8b5cf6, { ability: true });
+    // death-triggered effects can chain, but only two links deep (no runaway proc loops)
+    this.procDepth = this.procDepth || 0;
+    if (ps.uniques.has('hexbloom') && this.procDepth < 2) { this.procDepth++; try { blast(this, e.x, e.z, 1.8, 0.9, 0x8b5cf6, { ability: true }); } finally { this.procDepth--; } }
     if (e.elite === 'Volatile') { this.fx.ring(e.x, e.z, 0.2, 2, 0xffb347, 0.4); const p = this.player; if (Math.hypot(p.x - e.x, p.z - e.z) < 2) p.hurt({ dmg: 2, x: e.x, z: e.z, src: e, kb: 6 }); }
     const lvl = e.level || this.inv.level;
     if (e.elite) { this.dropGear(e.x, e.z, { level: lvl, floor: 2, bonus: 0.6 }); if (Math.random() < 0.4) this.dropGear(e.x, e.z, { level: lvl, floor: 1 }); }
@@ -812,6 +854,8 @@ export class Game {
     this.entities = this.entities.filter(e => !e.dead);
     // solids cache for next frame
     this.solids = this.entities.filter(e => e.solid && Math.abs(e.x - p.x) < 24 && Math.abs(e.z - p.z) < 20);
+    const lsCap = this.inv.maxHp * 0.05;
+    this.lsPool = Math.min(lsCap, (this.lsPool || 0) + lsCap * dt);
     this.updateRoom();
     clipUniform.value = this.room ? this.room.z1 - 1 : 1e9;
     this.regionT = (this.regionT || 0) - dt;

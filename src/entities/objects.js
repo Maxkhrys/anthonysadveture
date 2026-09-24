@@ -491,6 +491,37 @@ export class Sign extends Entity {
   get prompt() { return 'Read'; }
   interact() { this.g.ui.say(null, this.text); }
 }
+// A Bellstone: a small bronze bell on a mossy plinth. Resting refills life and tonics and
+// makes it your checkpoint. Its chime is shown as rings, so the sound is visible too.
+export class Bellstone extends Entity {
+  constructor(g, d) {
+    super(g, d.x, d.z);
+    this.spawn = d.spawn; this.name = d.name; this.solid = true; this.hw = 0.3; this.hd = 0.3; this.interactable = true;
+    this.obj.add(mesh([B(0.6, 0.3, 0.6, 0, 0, 0, 0x6e6a7a), B(0.66, 0.08, 0.66, 0, 0.3, 0, 0x5a8a3a), B(0.08, 0.5, 0.08, -0.2, 0.35, 0, 0x7a5a3a), B(0.08, 0.5, 0.08, 0.2, 0.35, 0, 0x7a5a3a), B(0.5, 0.08, 0.1, 0, 0.84, 0, 0x7a5a3a)]));
+    this.bell = new THREE.Group(); this.bell.position.set(0, 0.8, 0);
+    this.bell.add(mesh([B(0.2, 0.18, 0.2, 0, -0.14, 0, 0xc89a3a), B(0.26, 0.06, 0.26, 0, -0.24, 0, 0xd8aa4a), B(0.05, 0.05, 0.05, 0, -0.3, 0, 0x8a6a2a)]));
+    this.obj.add(this.bell);
+    this.glow = mesh([B(0.12, 0.12, 0.12, 0, 0.55, 0, 0xfff3b0)], MAT_GLOW, false); this.obj.add(this.glow);
+    this.t = Math.random() * 5;
+  }
+  get prompt() { return 'Rest at the ' + this.name + ' Bellstone'; }
+  interact() {
+    const g = this.g;
+    g.rest(this);
+    this.swing = 1;
+    sfx('chime'); g.fx.ring(this.x, this.z, 0.3, 2.2, 0xfff3b0, 0.6); g.fx.ring(this.x, this.z, 0.2, 3.4, 0xffd25e, 0.9, 0.3);
+    g.fx.burst(this.x, 0.9, this.z, 16, [0xfff3b0, 0xffd25e], 2, { g: -1 });
+    g.ui.toast('Rested at the ' + this.name + ' Bellstone', 'Life and tonics restored · You will wake here if you fall.', 2.4);
+  }
+  update(dt) {
+    this.t += dt;
+    this.swing = Math.max(0, (this.swing || 0) - dt * 0.5);
+    this.bell.rotation.z = Math.sin(this.t * 9) * 0.5 * this.swing;
+    const here = this.g.checkpoint.spawn === this.spawn && this.g.checkpoint.area === this.g.area.id;
+    this.glow.visible = here || Math.sin(this.t * 2) > 0;
+    if (Math.random() < (here ? 0.12 : 0.04)) this.g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.5, y: 0.6, z: this.z + (Math.random() - 0.5) * 0.5, vy: 0.7, g: 0, color: 0xfff3b0, life: 0.8, size: 0.04 });
+  }
+}
 export class NPC extends Entity {
   constructor(g, d) {
     super(g, d.x, d.z);

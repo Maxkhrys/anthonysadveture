@@ -169,6 +169,7 @@ export function buildOverworld() {
   g.deco('riftstone', 65, 55, 1, 1);
   g.def({ type: 'riftstone', x: 65.5, z: 56.4 });
   g.def({ type: 'board', x: 62.5, z: 64.3 });
+  g.def({ type: 'bellstone', x: 56.5, z: 60.5, spawn: 'village', name: 'Thimblewick' });
   g.deco('house', 55, 90, 3, 2, { roof: 0x5a8ab0, small: true });
   for (const [x, y] of [[47, 55], [48, 55], [47, 60], [48, 60], [67, 55], [68, 55], [67, 61], [68, 61]]) g.deco('fence', x, y, 1, 1);
   g.def({ type: 'sign', x: 70.5, z: 59.5, text: 'THIMBLEWICK\n"Small folk, loud bell."' });
@@ -319,7 +320,7 @@ const ROOMS = {
     '....O.....O....',
     '..1.........1..',
     '...............',
-    '...m...........',
+    '...m.......S...',
     '....O.....O....',
     '........1......',
     '.t...........t.',
@@ -395,7 +396,7 @@ const ROOMS = {
     '...O...5...O...',
     '...............',
     '...............',
-    '..t.m.......t..',
+    '..t.m.....S.t..',
     '...............',
     '...............'] },
   heart: { cell: [0, 1], name: 'Rootwell Hollow — Moat of Whispers', map: [
@@ -468,6 +469,7 @@ export function buildDungeon() {
         case 't': g.def({ type: 'torch', x: cx, z: cz, room: id }); break;
         case 'w': g.def({ type: 'pinwheel', x: cx, z: cz, signal: r.pinwheel, latch: true }); break;
         case 'm': g.def({ type: 'sign', x: cx, z: cz, text: MURALS[id], mural: true }); break;
+        case 'S': g.def({ type: 'bellstone', x: cx, z: cz, room: id, spawn: id === 'ent' ? 'entrance' : 'pre', name: id === 'ent' ? 'Hollow Mouth' : 'Root Gate' }); break;
         case 'r': g.def({ type: 'roots', x: cx, z: cz }); t = T.MOSS; break;
         case '*': { const ch = r.chests[chestI++]; g.def({ type: 'chest', x: cx, z: cz, room: id, ...ch }); break; }
         case '1': g.def({ type: 'enemy', kind: 'blot', x: cx, z: cz, room: id }); break;

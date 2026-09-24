@@ -26,9 +26,12 @@ export class Enemy extends Entity {
     this.walkT = Math.random() * 10;
   }
   get p() { return this.g.player; }
+  remove() { if (this.warnMk && this.warnMk.parent) this.warnMk.parent.remove(this.warnMk); this.warnMk = null; super.remove(); }
   setState(s) { this.state = s; this.st = 0; }
   takeToken() {
     if (this.token) return true;
+    // nobody commits to an attack from off-screen
+    if (!this.g.onScreen(this.x, this.z, 0.4)) return false;
     if (this.g.tokens >= (this.g.bossActive ? 2 : 3)) return false;
     this.g.tokens++; this.token = true; return true;
   }
@@ -59,7 +62,7 @@ export class Enemy extends Entity {
     g.pr.addShake(heavy ? 0.35 : 0.15);
     const kb = (h.kb ?? 4) * (this.poise && !heavy ? 0.15 : 1) * (this.kbMul ?? 1);
     this.kx = Math.sin(h.dir) * kb; this.kz = Math.cos(h.dir) * kb;
-    if (!this.poise || heavy) { this.stagger = heavy ? 0.5 : 0.28; this.onStagger && this.onStagger(); this.dropToken(); if (this.state === 'windup' || this.state === 'attack') this.setState('recover'); }
+    if ((!this.poise && !this.elite) || heavy) { this.stagger = heavy ? 0.5 : 0.28; this.onStagger && this.onStagger(); this.dropToken(); if (this.state === 'windup' || this.state === 'attack') this.setState('recover'); }
     if (this.hp <= 0) this.die(h);
     return 'hit';
   }
@@ -97,7 +100,7 @@ export class Enemy extends Entity {
     this.g.ui.float(this.x, 0.9, this.z, '' + n, color, false, true);
     if (this.hp <= 0) this.die({ dir: 0 });
   }
-  onParried() { this.stagger = 1.2; this.dropToken(); this.setState('recover'); this.parried = 1.4; flashObj(this.obj, 0.15, 0xfff3b0); }
+  onParried() { this.stagger = 1.2; this.dropToken(); this.setState('recover'); this.parried = 1.4; this.riposted = false; flashObj(this.obj, 0.15, 0xfff3b0); this.g.ui.float(this.x, 1.3, this.z, 'OPEN!', '#fff3b0', false); }
 
   update(dt) {
     const g = this.g;
@@ -114,6 +117,7 @@ export class Enemy extends Entity {
       if (this.iceBlock) this.iceBlock.visible = S.freeze > 0;
       if (this.dead) return;
     }
+    this.warn(dt);
     if (this.elite === 'Vampiric' && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.02 * dt);
     if (this.aura) this.aura.rotation.z += dt * 2;
     const frozen = S && (S.freeze > 0 || S.root > 0);
@@ -175,6 +179,25 @@ export class Enemy extends Entity {
       return p.hurt({ dmg, x: this.x, z: this.z, src: this, ...opts });
     }
     return false;
+  }
+  // A '!' above anything winding up — the visible half of the wind-up sound. Heavy hitters
+  // (poised enemies and elites) show a larger amber mark: those blows break a plain guard.
+  warn(dt) {
+    const on = this.state === 'windup' || this.state === 'burrow';
+    if (on && !this.warnMk) {
+      const heavy = this.poise || this.elite;
+      const col = heavy ? 0xffa02a : 0xff4a4a;
+      this.warnMk = mesh([B(0.08, 0.22, 0.06, 0, 0.14, 0, col), B(0.08, 0.07, 0.06, 0, -0.04, 0, col)], MAT_GLOW, false);
+      this.warnMk.scale.setScalar(heavy ? 1.5 : 1);
+      this.warnMk.renderOrder = 5;
+      this.g.world.add(this.warnMk);
+    }
+    if (this.warnMk) {
+      if (!on || this.dead) { if (this.warnMk.parent) this.warnMk.parent.remove(this.warnMk); this.warnMk = null; return; }
+      const es = this.eliteScale || 1;
+      this.warnMk.position.set(this.x, 0.95 * es + (this.alt || 0) + (this.kind === 'knight' || this.kind === 'treant' || this.kind === 'golem' ? 0.6 : 0) + Math.abs(Math.sin(this.g.time * 12)) * 0.06, this.z);
+      this.warnMk.visible = Math.floor(this.st * 12) % 3 !== 0 || this.st > 0.25;
+    }
   }
   telegraph(t) {
     // eyes flash red during windup
@@ -359,7 +382,7 @@ export class Puffer extends Enemy {
       case 'aim': {
         if (!this.playerVisible()) { this.setState('idle'); return [0, 0]; }
         this.facing = angleLerp(this.facing, this.angleTo(p), Math.min(1, dt * 6));
-        if (this.cool <= 0 && d < 8) { this.setState('windup'); return [0, 0]; }
+        if (this.cool <= 0 && d < 8 && this.g.onScreen(this.x, this.z, 0.5)) { this.setState('windup'); return [0, 0]; }
         if (d < 3) { const a = this.angleTo(p) + Math.PI; return [Math.sin(a) * this.speed, Math.cos(a) * this.speed]; }
         return [0, 0];
       }
@@ -452,7 +475,7 @@ export class Knight extends Enemy {
     this.surgeGain = 5;
     this.cool = 1;
   }
-  modifyHit() { return this.parried > 0 ? 2 : 1; }
+  modifyHit() { return 1; }
   onGust(dir, power) { super.onGust(dir, power); if (power === 2) { this.stagger = 1.0; } else this.stagger = 0; }
   think(dt) {
     const p = this.p;
@@ -484,7 +507,7 @@ export class Knight extends Enemy {
           if (this.st < 0.02) {
             const fx = this.x + Math.sin(this.facing) * 1.1, fz = this.z + Math.cos(this.facing) * 1.1;
             this.g.fx.ring(fx, fz, 0.3, 2.0, 0xff5a8a, 0.35); this.g.pr.addShake(0.5); this.g.fx.dust(fx, fz, 10);
-            if (Math.hypot(p.x - fx, p.z - fz) < 1.8 + p.r) p.hurt({ dmg: 2, x: fx, z: fz, src: this, kb: 8 });
+            if (Math.hypot(p.x - fx, p.z - fz) < 1.8 + p.r) p.hurt({ dmg: 2.5, x: fx, z: fz, src: this, kb: 8, heavy: true });
           }
         }
         if (this.st > 0.45) { this.setState('recover'); this.dropToken(); this.cool = 1.2 + Math.random(); }

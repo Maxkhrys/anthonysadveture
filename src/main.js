@@ -3,6 +3,7 @@ import { Input } from './engine/input.js';
 import { initAudio, playMusic, toggleMusic, sfx } from './engine/audio.js';
 import { Game, defaultInv } from './game.js';
 import { SettingsPanel } from './settings.js';
+import * as ITEMS from './rpg/items.js';
 
 const $ = id => document.getElementById(id);
 const TIPS = [
@@ -61,7 +62,7 @@ async function boot() {
   input = new Input();
   progress(25, 'Carving Mosslings…'); await tick();
   game = new Game(pr, input);
-  window.__game = game;
+  window.__game = game; window.__items = ITEMS;
   progress(45, 'Growing Whisperwood…'); await tick();
   game.loadArea('overworld', 'start');
   game.cutscene = true;
