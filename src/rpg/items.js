@@ -1,3 +1,4 @@
+import { identifyItem, reinforcementMultiplier } from '../persistence/model.js';
 // Item database and random loot generation.
 // Damage is expressed in "power": a level-1 common weapon averages ~6 per hit.
 
@@ -177,7 +178,7 @@ function makeItem(base, r, ilvl, legend = null) {
     it.name = name;
   }
   it.value = Math.round((4 + ilvl * 3) * [1, 2, 5, 12, 30][r]);
-  return it;
+  return identifyItem(it);
 }
 
 export const SLOT_ICON = { katana: '🗡️', bow: '🏹', staff: '🪄', wand: '✨', helm: '⛑️', armor: '🥋', charm: '🔔' };
@@ -188,7 +189,7 @@ export function itemPower(it) {
   if (!it) return 0;
   const s = it.stats;
   let p = 0;
-  if (it.slot === 'weapon') p += (it.min + it.max) / 2 * (it.spd || 1) * 4;
+  if (it.slot === 'weapon') p += (it.min + it.max) / 2 * reinforcementMultiplier(it) * (it.spd || 1) * 4;
   p += (s.armor || 0) * 1.5 + (s.hp || 0) * 0.8 + (s.dmgPct || 0) * 2 + (s.crit || 0) * 2.5 + (s.critDmg || 0) * 0.8 + (s.atkSpd || 0) * 2 + (s.lifesteal || 0) * 4 + (s.regen || 0) * 5 + (s.resRegen || 0) + (s.moveSpd || 0) * 1.5 + (s.cdr || 0) * 2 + (s.abilityDmg || 0) * 1.2 + (s.mf || 0) * 0.5 + (s.xpPct || 0) * 0.5 + ((s.burn || 0) + (s.chill || 0) + (s.shock || 0)) * 0.8;
   if (it.unique) p += 40 + it.ilvl * 3;
   return Math.round(p);

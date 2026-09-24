@@ -36,10 +36,10 @@ export async function mouseAt(page, x, z, y = 0.45) {
 }
 // Start a fresh game as a class with no intro, standing in the village.
 export async function fresh(page, cls = 'samurai', opts = {}) {
-  await page.evaluate(([cls, opts]) => {
+  await page.evaluate(async ([cls, opts]) => {
     const g = window.__game; g.story.opening = () => {};
     try { localStorage.clear(); } catch (e) {}
-    window.__start(true, cls);
+    await window.__start(true, cls);
     g.cutscene = false; g.camFocus = null; g.flags.introFought = true; g.flags.stage = opts.stage ?? 1;
     g.entities.filter(e => e.arena).forEach(e => e.remove());
     for (const e of g.entities) if (e.isEnemy) e.remove();

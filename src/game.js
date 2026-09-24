@@ -25,18 +25,17 @@ import { AimView } from './aim.js';
 import { ensureCraftState, gainMat, learn } from './rpg/crafting.js';
 import { tileBlocks } from './entities/entity.js';
 
-const SAVE_KEY = 'mossling-save-v2';
+import { defaultInventory, identifyItem, BELLSTONES, worldPhase, respecInventory } from './persistence/model.js';
+import { snapshotCharacter, restoreCharacter, CharacterSession } from './persistence/session.js';
 export const BAG_SIZE = 30;
 const BUILDERS = { overworld: buildOverworld, dungeon: buildDungeon, grotto: buildGrotto };
 
-export function defaultInv() {
-  return { cls: 'samurai', level: 1, xp: 0, sp: 0, skills: [1, 0, 0], equip: { weapon: null, helm: null, armor: null, charm: null }, bag: [], vessels: 0,
-    hp: 60, maxHp: 60, coins: 0, keys: 0, bigkey: false, bellows: false, galeValve: false, potions: 2, maxPotions: 3, chimes: [],
-    mats: { shard: 0, thornheart: 0, echo: 0, ember: 0, sailcloth: 0 }, sigils: {}, sigilsOwned: [], recipes: [] };
-}
+export const defaultInv = defaultInventory;
 
 export class Game {
-  constructor(pr, input) {
+  constructor(pr, input, saveProvider = null) {
+    this.saveProvider = saveProvider;
+    this.discoveredBellstones = [];
     this.pr = pr; this.input = input;
     this.scene = new THREE.Scene();
     this.world = new THREE.Group(); this.scene.add(this.world);
@@ -73,6 +72,7 @@ export class Game {
 
   // ------------------------------------------------ RPG layer
   setClass(cls) {
+    if (this.profile && this.profile.classId !== cls) throw new Error('Create another character to change class.');
     const inv = this.inv;
     inv.cls = cls;
     inv.equip.weapon = starterWeapon(cls);
@@ -134,13 +134,15 @@ export class Game {
   atmosphere(dt) {
     const a = this.area;
     const u = this.pr.postMat.uniforms;
+    const phase = worldPhase(this.time, this.flags.dayOffset || 0);
+    this.isNight = phase.isNight;
     if (!a || a.id !== 'overworld') {
       waterU.light.value = a && a.dark ? 0.75 : 1; waterU.night.value = 0; waterU.rain.value = 0;
       u.fogAmt.value = a && a.dark ? 0.2 : 0; u.fogColor.value.set(a && a.rift ? 0x3a2a5a : 0x1a1426); u.contrast.value = 1.04;
       this.lampTick(dt, 0.8);
       return;
     }
-    const day = ((this.time + (this.flags.dayOffset || 0)) / 420 + 0.32) % 1;
+    const day = phase.fraction;
     this.dayT = day;
     const L = Math.max(0, Math.min(1, Math.sin((day - 0.2) * Math.PI * 2) * 1.4 + 0.45)); // 0 night .. 1 day
     const N = 1 - L;
@@ -332,6 +334,8 @@ export class Game {
   pickupItem(it) {
     const inv = this.inv;
     if (inv.bag.length >= BAG_SIZE) return false;
+    identifyItem(it, this.profile?.id);
+    if ([...inv.bag, ...Object.values(inv.equip).filter(Boolean)].some(held => held.itemInstanceId === it.itemInstanceId)) return false;
     inv.bag.push(it);
     const R = RARITY[it.r];
     sfx(it.r >= 2 ? 'pipbig' : 'pip');
@@ -341,6 +345,7 @@ export class Game {
     this.stats.items = (this.stats.items || 0) + 1;
     if (!this.flags.tutLoot) { this.flags.tutLoot = true; setTimeout(() => this.ui.toast('You found gear!', 'Press I to open your bag and equip it.', 3.5), 600); }
     this.hudDirty = true;
+    this.save();
     return true;
   }
   canEquip(it) { return !it.cls || it.cls === this.inv.cls; }
@@ -355,6 +360,7 @@ export class Game {
     sfx('unlock');
     this.guide.event('equip');
     this.recalc();
+    this.save();
   }
   salvageItem(i) {
     const inv = this.inv, it = inv.bag[i];
@@ -401,19 +407,46 @@ export class Game {
     this.hudDirty = true;
   }
 
-  save() {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ inv: this.inv, flags: this.flags, checkpoint: this.checkpoint, playTime: this.playTime, stats: this.stats })); } catch (e) {}
-  }
-  static hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
-  load() {
+  async save() {
+    if (!this.profile || !this.characterSession) return false;
     try {
-      const s = JSON.parse(localStorage.getItem(SAVE_KEY));
-      this.inv = Object.assign(defaultInv(), s.inv); this.flags = s.flags || {}; this.checkpoint = s.checkpoint || this.checkpoint;
-      ensureCraftState(this.inv); // saves from before crafting simply start with empty pouches
-      this.playTime = s.playTime || 0; this.stats = s.stats || {};
-      this.recalc(); this.inv.hp = this.inv.maxHp;
+      await this.characterSession.save(snapshotCharacter(this));
+      this.profile.revision = this.characterSession.profile.revision;
       return true;
-    } catch (e) { return false; }
+    } catch (error) {
+      this.ui.toast('Progress could not be saved', error.message, 6);
+      return false;
+    }
+  }
+  async load(id) {
+    const profiles = await this.saveProvider.loadCharacters();
+    const profile = profiles.find(p => p.id === id) || (!id && profiles[0]);
+    if (!profile) throw new Error('Character not found.');
+    if (!BUILDERS[profile.world.checkpoint.area]) throw new Error('This character needs an unavailable area. Original save retained.');
+    restoreCharacter(this, profile);
+    this.characterSession = new CharacterSession(this.saveProvider, profile);
+    ensureCraftState(this.inv);
+    this.recalc(); this.inv.hp = this.inv.maxHp;
+    return true;
+  }
+  async createCharacter(name, cls) {
+    const inv = defaultInv(cls);
+    inv.equip.weapon = starterWeapon(cls);
+    const profile = await this.saveProvider.createCharacter({ name, classId: cls, inventory: inv });
+    await this.load(profile.id);
+  }
+  async respec() {
+    respecInventory(this.inv, CLASSES[this.inv.cls].abilities);
+    this.recalc();
+    return this.save();
+  }
+  // A future Bellstone menu can use this list and guarded hook without world-art edits.
+  unlockedBellstones() { return BELLSTONES.filter(b => this.discoveredBellstones.includes(b.id)); }
+  travelToBellstone(id) {
+    const target = this.unlockedBellstones().find(b => b.id === id);
+    const atStone = this.entities.some(e => e instanceof O.Bellstone && Math.hypot(e.x - this.player.x, e.z - this.player.z) < 2);
+    if (!target || !atStone || this.dead || this.player.state === 'dead' || this.player.combatT > 0 || this.locked()) return false;
+    this.warpTo(target.area, target.spawn); return true;
   }
 
   // ------------------------------------------------ areas
@@ -562,6 +595,7 @@ export class Game {
     sfx('hurt');
     this.ui.bossBar(null);
     this.stats.deaths = (this.stats.deaths || 0) + 1;
+    this.save();
     const h = this.player.lastHit;
     const rest = { village: 'the Thimblewick Bellstone', entrance: 'the Hollow\'s entrance Bellstone', pre: 'the Bellstone before the Root Gate', dungeon: 'the Hollow\'s mouth' }[this.checkpoint.spawn] || 'your last rest';
     const el = document.querySelector('#gameover .recap');
@@ -581,6 +615,8 @@ export class Game {
     inv.hp = inv.maxHp; inv.potions = inv.maxPotions; this.res = 100;
     this.checkpoint = { area: this.area.id, spawn: stone.spawn };
     this.flags['rested:' + stone.spawn] = true;
+    const id = this.area.id + ':' + stone.spawn;
+    if (!this.discoveredBellstones.includes(id)) this.discoveredBellstones.push(id);
     this.guide.event('rest');
     this.ui.hearts(true); this.hudDirty = true;
     this.save();
@@ -916,6 +952,8 @@ export class Game {
   // ------------------------------------------------ main update
   update(dt) {
     this.time += dt;
+    this.autosaveT = (this.autosaveT || 0) + dt;
+    if (this.autosaveT >= 15) { this.autosaveT = 0; this.save(); }
     windUniform.value = this.time;
     this.liquidTime.value = this.time;
     const input = this.input;

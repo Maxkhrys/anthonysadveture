@@ -1,7 +1,8 @@
 import { PixelRenderer } from './engine/pixel.js';
 import { Input } from './engine/input.js';
 import { initAudio, playMusic, toggleMusic, sfx } from './engine/audio.js';
-import { Game, defaultInv } from './game.js';
+import { Game } from './game.js';
+import { LocalSaveProvider } from './persistence/provider.js';
 import { SettingsPanel } from './settings.js';
 import * as ITEMS from './rpg/items.js';
 import * as CRAFT from './rpg/crafting.js';
@@ -39,20 +40,54 @@ window.__sim = (frames, keys = [], dt = 1 / 30) => {
   }
   input.keys = new Set();
 };
-window.__start = (fresh, cls) => { if (mode === 'play') mode = 'title'; start(fresh, fresh ? (cls || 'samurai') : undefined); };
+window.__start = (fresh, cls) => { if (mode === 'play') mode = 'title'; return start(fresh, fresh ? (cls || 'samurai') : undefined); };
 
 const menu = [];
 let sel = 0, titleSettings = null;
-function buildMenu() {
+async function buildMenu() {
   menu.length = 0;
-  if (Game.hasSave()) menu.push({ label: 'Continue', act: () => start(false) });
-  menu.push({ label: 'New Adventure', act: () => start(true) });
+  let profiles;
+  try {
+    profiles = await game.saveProvider.loadCharacters();
+    for (const p of profiles) menu.push({ label: `${p.name} · ${p.classId} · Lv ${p.inventory.level}`, act: () => start(false, null, p.id) });
+    menu.push({ label: 'New Character', act: () => start(true) });
+    if (profiles.length) menu.push({ label: 'Delete Character…', act: () => deleteMenu(profiles) });
+    if (game.saveProvider.notice) game.ui.toast('Save notice', game.saveProvider.notice, 8);
+  } catch (error) {
+    game.ui.toast('Save could not be loaded', error.message, 12);
+    menu.push({ label: 'Save unavailable — export recovery data', act: exportRecovery });
+  }
+  if (game.saveProvider.exportRecovery) menu.push({ label: 'Export Save / Recovery Copy', act: exportRecovery });
   menu.push({ label: 'Settings', act: () => openTitleSettings() });
   menu.push({ label: 'How to Play', act: () => { sfx('select'); game.ui.say(null, 'MOVE: WASD · AIM: mouse · ATTACK: click or J (hold to charge) · GUARD: K / right click (tap to parry) · ROLL: Space\nABILITIES: 1, 2, 3 · TOOL: L · INTERACT: E · BAG: I · TONIC: Q · SURGE: R · MENU: Esc\n\nWatch for the *!* over an enemy: it is about to strike. Rest at Bellstones to refill tonics. Bring essences to Posy\'s workbench.'); } });
 }
 function renderMenu() {
-  $('title-menu').innerHTML = menu.map((m, i) => `<div class="${i === sel ? 'on' : ''}" data-i="${i}">${m.label}</div>`).join('');
-  $('title-menu').querySelectorAll('div').forEach(d => { d.onclick = () => { sel = +d.dataset.i; initAudio(); menu[sel].act(); }; d.onmouseenter = () => { sel = +d.dataset.i; renderMenu(); }; });
+  $('title-menu').replaceChildren();
+  menu.forEach((m, i) => {
+    const d = document.createElement('div');
+    d.className = i === sel ? 'on' : ''; d.dataset.i = i; d.textContent = m.label;
+    d.onclick = () => { sel = i; initAudio(); m.act(); };
+    d.onmouseenter = () => { if (sel !== i) { sel = i; renderMenu(); } };
+    $('title-menu').append(d);
+  });
+}
+function exportRecovery() {
+  try {
+    const data = game.saveProvider.exportRecovery();
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    const a = document.createElement('a'); a.href = url; a.download = 'mossling-save-recovery.json'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (error) { game.ui.toast('Export failed', error.message, 6); }
+}
+function deleteMenu(profiles) {
+  menu.length = 0; sel = 0;
+  for (const p of profiles) menu.push({ label: 'Delete ' + p.name + ' (' + p.classId + ')', act: async () => {
+    if (!confirm('Delete ' + p.name + '? Export a recovery copy first if you want to keep this character.')) return;
+    try { await game.saveProvider.deleteCharacter(p.id, p.revision); await buildMenu(); sel = 0; renderMenu(); }
+    catch (error) { game.ui.toast('Delete failed', error.message, 6); }
+  } });
+  menu.push({ label: 'Back', act: async () => { await buildMenu(); sel = 0; renderMenu(); } });
+  renderMenu();
 }
 function openTitleSettings() {
   sfx('select');
@@ -68,7 +103,11 @@ async function boot() {
   pr = new PixelRenderer($('game'));
   input = new Input();
   progress(25, 'Carving Mosslings…'); await tick();
-  game = new Game(pr, input);
+  // Storage access can itself throw (blocked browser storage). Keep the title usable.
+  let provider;
+  try { provider = new LocalSaveProvider(localStorage); }
+  catch { provider = { loadCharacters() { throw new Error('Browser storage unavailable. Enable storage to play with durable saves.'); } }; }
+  game = new Game(pr, input, provider);
   window.__game = game; window.__items = ITEMS; window.__craft = CRAFT; window.__combat = COMBAT; window.__Boss = Boss; // test hooks
   progress(45, 'Growing Whisperwood…'); await tick();
   game.loadArea('overworld', 'start');
@@ -77,21 +116,35 @@ async function boot() {
   progress(80, 'Tuning the Dawnbell…'); await tick();
   game.render(1 / 60);
   progress(100, 'Ready!'); await tick();
-  buildMenu(); renderMenu();
+  await buildMenu(); renderMenu();
   mode = 'title';
   $('loading').classList.add('done');
   setTimeout(() => $('loading').remove(), 700);
   requestAnimationFrame(frame);
 }
 
-function start(fresh, cls) {
+async function start(fresh, cls, characterId, name = 'Mossling') {
   if (mode !== 'title' && mode !== 'classsel') return;
   initAudio();
   if (fresh && !cls) {
     // choose a class first
     mode = 'classsel';
     $('title').classList.add('hidden');
-    game.ui.classSelect(input, c => { mode = 'title'; start(true, c); });
+    game.ui.classSelect(input, c => {
+      mode = 'title';
+      const name = prompt('Name your new ' + c + ':', 'Mossling');
+      if (!name?.trim()) { $('title').classList.remove('hidden'); return; }
+      start(true, c, null, name.trim());
+    });
+    return;
+  }
+  mode = 'starting';
+  try {
+    if (fresh) await game.createCharacter(name, cls || 'samurai');
+    else await game.load(characterId);
+  } catch (error) {
+    mode = 'title'; $('title').classList.remove('hidden');
+    game.ui.toast('Character could not be opened', error.message, 8);
     return;
   }
   mode = 'play';
@@ -99,9 +152,6 @@ function start(fresh, cls) {
   $('hud').classList.remove('hidden');
   game.cutscene = false; game.camFocus = null;
   if (fresh) {
-    try { localStorage.removeItem('mossling-save-v2'); } catch (e) {}
-    game.inv = defaultInv(); game.flags = {}; game.stats = {}; game.playTime = 0;
-    game.setClass(cls || 'samurai');
     game.story.bounties();
     game.res = 100;
     game.checkpoint = { area: 'overworld', spawn: 'village' };
@@ -109,12 +159,12 @@ function start(fresh, cls) {
     game.ui.areaName('Thimblewick');
     game.story.opening();
   } else {
-    game.load();
     game.loadArea(game.checkpoint.area, game.checkpoint.spawn);
     game.ui.areaName(game.area.name);
     if (game.area.id === 'overworld' && !game.flags.introFought && (game.flags.stage || 0) === 0) game.startIntroFight();
   }
   game.ui.updateHud();
+  await game.save();
 }
 
 let last = performance.now();
@@ -170,3 +220,7 @@ boot();
 
 // Keep the game from scrolling on space etc.
 addEventListener('keydown', e => { if (mode === 'title' && e.code === 'Enter') e.preventDefault(); });
+
+// Flush local writes before leaving; async cloud providers need their own offline queue.
+addEventListener('pagehide', () => { if (game?.profile) game.save(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && game?.profile) game.save(); });

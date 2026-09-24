@@ -21,8 +21,15 @@ node serve.mjs            # or: npm start
 Any static file server works too, for example `python3 -m http.server 8080`. Opening `index.html` directly from
 disk won't work, because ES modules need to be served over HTTP.
 
-Progress autosaves to `localStorage` when you change area, open a chest, complete a quest or shop. You can also save
-from the pause menu. **Continue** on the title screen resumes from your last checkpoint.
+Characters autosave to browser storage at progression events and every 15 seconds of gameplay. Choose a named
+character on the title screen to resume from its checkpoint, or use **New Character** to start another locked class
+without replacing existing progress. The pause menu also offers manual saving. Old adventures migrate automatically;
+use **Export Save / Recovery Copy** on the title screen to keep an external backup.
+
+The storage key stays `mossling-save-v2` across normal releases. Saves are local to this browser/device/origin,
+**not an account or cloud save**. Different Vercel preview URLs and production/custom domains have separate storage.
+Use a stable production URL for ongoing play. See [character persistence](docs/character-persistence.md) for schema,
+migration, recovery, provider architecture, limitations and tests.
 
 ## Controls
 

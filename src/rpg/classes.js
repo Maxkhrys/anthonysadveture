@@ -1,3 +1,5 @@
+import { reinforcementMultiplier } from '../persistence/model.js';
+import { XP_PROGRESSION } from './progression.js';
 // Classes, derived stats, experience.
 import { unitAt } from './items.js';
 
@@ -43,23 +45,22 @@ export const CLASSES = {
   },
 };
 
-export const MAX_LEVEL = 30;
-export const xpNeed = l => Math.round(30 * Math.pow(l, 1.55) + 20);
+export const MAX_LEVEL = XP_PROGRESSION.maxLevel;
+export const xpNeed = l => XP_PROGRESSION.thresholds[l - 1] ?? Infinity;
 
 export function computeStats(inv) {
   const C = CLASSES[inv.cls] || CLASSES.samurai;
   const L = inv.level;
   const s = { dmgPct: 0, crit: C.crit, critDmg: 50, atkSpd: 0, lifesteal: 0, regen: 0, resRegen: 0, moveSpd: 0, cdr: 0, abilityDmg: 0, mf: 0, xpPct: 0, burn: 0, chill: 0, shock: 0, armor: Math.round(C.armor + C.armorLv * (L - 1)), hp: C.hp + C.hpLv * (L - 1) + 15 * (inv.vessels || 0) };
   s.uniques = new Set();
-  for (const slot of ['weapon', 'helm', 'armor', 'charm']) {
-    const it = inv.equip[slot];
+  for (const it of Object.values(inv.equip)) {
     if (!it) continue;
     for (const k in it.stats) s[k] = (s[k] || 0) + it.stats[k];
     if (it.unique) s.uniques.add(it.unique);
   }
   const w = inv.equip.weapon;
   const fallback = unitAt(L) * 0.5;
-  s.wmin = w ? w.min : Math.round(fallback * 0.8); s.wmax = w ? w.max : Math.round(fallback * 1.2);
+  s.wmin = w ? w.min * reinforcementMultiplier(w) : Math.round(fallback * 0.8); s.wmax = w ? w.max * reinforcementMultiplier(w) : Math.round(fallback * 1.2);
   s.wspd = (w ? w.spd : 1) * (1 + s.atkSpd / 100);
   s.maxHp = Math.round(s.hp);
   s.speed = C.speed * (1 + s.moveSpd / 100);
