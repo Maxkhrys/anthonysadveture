@@ -144,11 +144,19 @@ export function installRpgUI(UI) {
     const lines = [];
     for (const k in it.stats) {
       const isAff = it.affixes.includes(k);
+      const affDetail = it.rolledAffixes ? it.rolledAffixes.find(a => a.id === k) : null;
       if (k === 'armor' && !isAff) lines.push(`<div>${it.stats[k]} Armour</div>`);
       else if (k === 'hp' && !isAff) lines.push(`<div>+${it.stats[k]} Max Health</div>`);
-      else lines.push(`<div class="${isAff ? 'aff' : ''}">${statLine(k, it.stats[k])}</div>`);
+      else if (affDetail) {
+        lines.push(`<div class="aff" style="color:${affDetail.displayColor}">${affDetail.displayToken} ${statLine(k, it.stats[k])} <span style="font-size:11px;opacity:0.85">[${affDetail.tierName}]</span></div>`);
+      } else lines.push(`<div class="${isAff ? 'aff' : ''}">${statLine(k, it.stats[k])}</div>`);
     }
     h += lines.join('');
+    if (it.rolledAffixes) {
+      for (const aff of it.rolledAffixes) {
+        if (aff.qualitative) h += `<div class="uq" style="color:${aff.displayColor}">★ ${aff.qualitative.name}: ${aff.qualitative.description}</div>`;
+      }
+    }
     if (it.utext) h += `<div class="uq">★ ${it.utext}</div>`;
     if (it.craft) { const r = recipeById(it.craft); h += `<div class="uq" style="color:#9ad8ff">✦ ${r.name}: ${r.effect}</div>`; }
     if (cmp !== undefined) h += this.compareHtml(it, cmp);

@@ -172,6 +172,7 @@ export class Player extends Entity {
       this.takeDamage(h.dmg * 0.25, h.src && h.src.level, h.src);
       return 'block';
     }
+    if (this.godMode || this.g.godMode) return 'miss';
     this.takeDamage(h.dmg * ((h.src && h.src.dmgMul) || 1), h.src && h.src.level, h.src);
     this.knock(fromAng + Math.PI, h.kb ?? 6);
     if (this.state === 'dead') return 'hit';
@@ -185,6 +186,7 @@ export class Player extends Entity {
   }
   // raw = damage in legacy "half-heart" units; scaled by the attacker's level and our armour
   takeDamage(raw, lvl, src) {
+    if (this.godMode || this.g.godMode) return;
     const inv = this.inv, g = this.g;
     const L = lvl || g.zoneLevel(this.x, this.z);
     // enemies hit a little harder per level than the base unit, to keep pace with the armour

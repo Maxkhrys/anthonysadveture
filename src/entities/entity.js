@@ -50,6 +50,7 @@ function resolveBox(e, x0, z0, x1, z1) {
 }
 
 export function collide(g, e) {
+  if (e.isPlayer && (g.noclip || e.noclip)) return false;
   let hit = false;
   for (let it = 0; it < 2; it++) {
     const r = e.r;
@@ -70,6 +71,11 @@ export function collide(g, e) {
 }
 
 export function move(g, e, dx, dz) {
+  if (e.isPlayer && (g.noclip || e.noclip)) {
+    e.x += dx;
+    e.z += dz;
+    return false;
+  }
   const len = Math.hypot(dx, dz);
   const steps = Math.max(1, Math.ceil(len / (e.r * 0.7)));
   let hit = false;

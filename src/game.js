@@ -24,11 +24,13 @@ import { Guide } from './guide.js';
 import { AimView } from './aim.js';
 import { ensureCraftState, gainMat, learn } from './rpg/crafting.js';
 import { tileBlocks } from './entities/entity.js';
+import { buildDevRoom } from './world/devroom.js';
+import { DevConsole } from './dev/console.js';
 
 import { defaultInventory, identifyItem, BELLSTONES, worldPhase, respecInventory } from './persistence/model.js';
 import { snapshotCharacter, restoreCharacter, CharacterSession } from './persistence/session.js';
 export const BAG_SIZE = 30;
-const BUILDERS = { overworld: buildOverworld, dungeon: buildDungeon, grotto: buildGrotto };
+const BUILDERS = { overworld: buildOverworld, dungeon: buildDungeon, grotto: buildGrotto, devroom: buildDevRoom };
 
 export const defaultInv = defaultInventory;
 
@@ -36,12 +38,18 @@ export class Game {
   constructor(pr, input, saveProvider = null) {
     this.saveProvider = saveProvider;
     this.discoveredBellstones = [];
+    this.godMode = false;
+    this.noclip = false;
+    this.devRoomPrevLocation = null;
     this.pr = pr; this.input = input;
     this.scene = new THREE.Scene();
     this.world = new THREE.Group(); this.scene.add(this.world);
     this.fx = new FX(this.scene);
     this.ui = new UI(this);
     this.story = new Story(this);
+    if (typeof document !== 'undefined') {
+      this.devConsole = new DevConsole(this);
+    }
     this.time = 0; this.playTime = 0;
     this.inv = defaultInv(); this.flags = {}; this.sigs = {}; this.stats = {};
     this.entities = []; this.solids = [];
@@ -547,6 +555,7 @@ export class Game {
         [['knight', 0, -4], ['blot', -4, 0], ['blot', 4, 0], ['blot', -2, 3], ['blot', 2, 3], ['puffer', 0, 4]],
       ], { title: 'HUSH CAMP', victory: 'The camp is broken! Report to Captain Brisk.', music: 'camp' }); e.alwaysUpdate = true; break;
       case 'bossroom': e = new Entity(this, d.x, d.z); e.bossRoom = d; e.alwaysUpdate = true; e.update = () => this.checkBossRoom(d); break;
+      case 'custom_entity': if (d.factory) e = d.factory(this); break;
       default: return;
     }
     if (e) { if (d.room) e.room = d.room; this.spawn(e); }
@@ -652,6 +661,14 @@ export class Game {
   }
   sealRoom(id, on) {
     for (const e of this.entities) if (e instanceof O.Door && e.rooms.includes(id)) e.sealed = on;
+  }
+  resetRoom() {
+    const r = this.room;
+    for (const e of this.entities) {
+      if (e.isMovable && (r ? e.room === r.id : true)) {
+        if (e.reset) e.reset();
+      }
+    }
   }
   checkBossRoom(d) {
     if (this.flags.bossKilled || this.bossActive || !this.room || this.room.id !== d.room) return;
