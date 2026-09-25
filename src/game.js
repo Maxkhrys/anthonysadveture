@@ -3,6 +3,7 @@ import {buildEmberwell} from './world/emberwell.js';
 import {installEmberwell} from './emberwell.js';
 import * as THREE from 'three';
 import { buildOverworld, buildDungeon, buildGrotto, buildRift } from './world/maps.js';
+import { onLashHit } from './rpg/soulbound.js';
 import { windUniform, clipUniform, waterU, windowMat, lampMat, bendUniform, groundY } from './world/build.js';
 import { WorldStreamer } from './world/stream.js';
 import { HEART, hx, hz, REGIONS } from './world/layout.js';
@@ -417,6 +418,7 @@ export class Game {
     if (U.has('candlewick') && S.burn > 0) dmg *= 1.2;
     const seam = U.has('seamripper') && (S.root > 0 || e.tether) && !o.ability;
     const thornstep = ps.setBonus.thornstalker >= 5 && this.thornstepT > this.time && !this.thornUsed;
+    if (p.halfVeilT > 0) dmg *= 1.25; // Between Worlds
     const crit = riposte || o.forceCrit || seam || thornstep || Math.random() * 100 < ps.crit + (o.critBonus || 0);
     if (thornstep && crit) this.thornUsed = true;
     let critDmg = ps.critDmg + (o.kind === 'lunge' ? 50 : 0);
@@ -437,6 +439,7 @@ export class Game {
       if (crit && U.has('verdanteclipse') && ready('vine')) { lock('vine',4); for(let i=-1;i<=1;i++)this.spawn(new Projectile(this,{x:p.x,z:p.z,dir:p.facing+i*.4,speed:9,range:7,mult:.5,kind:'thorn',homing:3,root:1.5,color:0x66eeb6,noCraft:true,echo:true})); }
       if(o.ability && U.has('fateweaver') && Math.random()<.2 && !e.dead) { this.procDepth=(this.procDepth||0)+1; try { this.playerHit(e,{...o,mult:(o.mult??1)*.5,noProc:true,echo:true}); } finally { this.procDepth--; } }
     }
+    if (o.lash) onLashHit(this, p, e, o, crit, dmg);
     this.guide.event('attack');
     e.hpShow = 3;
     if (!o.quiet || crit) this.ui.float(e.x, 1.0 + (e.eliteScale ? 0.3 : 0), e.z, (crit ? '' : '') + dmg + (crit ? '!' : ''), crit ? '#ffd25e' : '#ffffff', crit);
@@ -1011,9 +1014,9 @@ export class Game {
       if (!this.flags.bossMats) {
         this.flags.bossMats = true;
         gainMat(this, 'thornheart', 1, b.x, b.z + 2);
-        gainMat(this, { samurai: 'thornheart', archer: 'echo', witch: 'ember' }[this.inv.cls], 1, b.x, b.z + 2);
+        gainMat(this, { samurai: 'thornheart', archer: 'echo', witch: 'ember', soulbound: 'echo' }[this.inv.cls], 1, b.x, b.z + 2);
         gainMat(this, 'shard', 6);
-        learn(this, { samurai: 'thornrebuke', archer: 'echofletch', witch: 'emberseeds' }[this.inv.cls]);
+        learn(this, { samurai: 'thornrebuke', archer: 'echofletch', witch: 'emberseeds', soulbound: 'lanternknot' }[this.inv.cls]);
       }
       this.dropGear(b.x - 1, b.z + 2, { level: 6, floor: 3, bonus: 1 }); this.dropGear(b.x + 1, b.z + 2, { level: 6, floor: 2, bonus: 0.6 }); this.dropGear(b.x, b.z + 2.5, { level: 5, floor: 2 });
       this.save();
@@ -1056,7 +1059,7 @@ export class Game {
       [['blot', -3, 0], ['blot', 3, 0], ['blot', -1, 3], ['blot', 1, 3]],
       // the lesson at the end: a shell that shrugs off taps. Charge, or strike after a parry.
       [['porcelain', 0, 3], ['blot', -3, 2], ['blot', 3, 2]],
-    ], { title: 'HUSHLINGS!', victory: 'Thimblewick is safe… for now.', onWave: w => { if (w === 2) setTimeout(() => this.ui.toast('A Porcelain Guard!', { samurai: 'Its glaze turns light cuts. Hold C / left click for a spin — or parry (Q) and strike.', archer: 'Its glaze turns light arrows. Hold C / left click for a charged shot to crack it.', witch: 'Its glaze turns bolts. Hold C / left click for a fireball to crack it.' }[this.inv.cls], 4.5), 400); }, onClear: () => { this.story.introWon(); this.revealWorld(); const p = this.player; this.spawn(new GearDrop(this, p.x, p.z + 1.2, genItem({ level: 2, cls: this.inv.cls, slot: 'weapon', rarity: 1 }))); this.spawn(new GearDrop(this, p.x + 1, p.z + 1, genItem({ level: 2, slot: 'armor', rarity: 1 }))); } });
+    ], { title: 'HUSHLINGS!', victory: 'Thimblewick is safe… for now.', onWave: w => { if (w === 2) setTimeout(() => this.ui.toast('A Porcelain Guard!', { samurai: 'Its glaze turns light cuts. Hold C / left click for a spin — or parry (Q) and strike.', archer: 'Its glaze turns light arrows. Hold C / left click for a charged shot to crack it.', witch: 'Its glaze turns bolts. Hold C / left click for a fireball to crack it.', soulbound: 'Its glaze turns light lashes. Finish your combo, or hold C / left click to whirl the chain and crack it.' }[this.inv.cls], 4.5), 400); }, onClear: () => { this.story.introWon(); this.revealWorld(); const p = this.player; this.spawn(new GearDrop(this, p.x, p.z + 1.2, genItem({ level: 2, cls: this.inv.cls, slot: 'weapon', rarity: 1 }))); this.spawn(new GearDrop(this, p.x + 1, p.z + 1, genItem({ level: 2, slot: 'armor', rarity: 1 }))); } });
     a.alwaysUpdate = true;
     this.spawn(a);
   }
@@ -1250,7 +1253,7 @@ export class Game {
           case 'heart': this.gainHeartContainer(true); break;
           case 'pips': this.addCoins(n); break;
           case 'potion': inv.potions = Math.min(inv.maxPotions, inv.potions + 1); break;
-          case 'echo': gainMat(this, 'echo', 1); learn(this, { samurai: 'returningcut', archer: 'echosnare', witch: 'rimebloom' }[inv.cls]); break;
+          case 'echo': gainMat(this, 'echo', 1); learn(this, { samurai: 'returningcut', archer: 'echosnare', witch: 'rimebloom', soulbound: 'hollowhook' }[inv.cls]); break;
           case 'named': { const it = makeNamed(c.id, Math.max(c.level || 7, inv.level)); if (!this.pickupItem(it)) this.spawn(new GearDrop(this, this.player.x, this.player.z + 0.8, it)); break; }
           case 'recipe': learn(this, c.id); break;
           case 'mat': gainMat(this, c.mat, c.n || 1); break;
@@ -1442,7 +1445,7 @@ export class Game {
         if (d < m && d > 1e-4) { const k = (m - d) * 0.5; a.x -= dx / d * k; a.z -= dz / d * k; b.x += dx / d * k; b.z += dz / d * k; }
       }
       const dx = p.x - a.x, dz = p.z - a.z, d = Math.hypot(dx, dz), m = a.r + p.r;
-      if (d < m && d > 1e-4 && a.moveMode !== 'fly') { const k = (m - d); a.x -= dx / d * k; a.z -= dz / d * k; }
+      if (d < m && d > 1e-4 && a.moveMode !== 'fly' && p.state !== 'veil' && p.state !== 'rift') { const k = (m - d); a.x -= dx / d * k; a.z -= dz / d * k; } // in the Veil you pass through
     }
     this.entities = this.entities.filter(e => !e.dead);
     this.streamTick(dt);

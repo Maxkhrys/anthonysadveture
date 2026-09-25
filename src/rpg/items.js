@@ -50,6 +50,15 @@ export const WEAPONS = [
   { id: 'hexwand', name: 'Hexbone Wand', cls: 'witch', kind: 'wand', lvl: 10, dmg: 1.05, spd: 1.35, col: 0xe8e0d0, orb: 0x8b5cf6 },
   { id: 'frostrod', name: 'Rimefrost Rod', cls: 'witch', kind: 'staff', lvl: 13, dmg: 1.3, spd: 1.0, col: 0xaad8ff, orb: 0xdff4ff },
   { id: 'starstaff', name: 'Starfall Staff', cls: 'witch', kind: 'staff', lvl: 16, dmg: 1.4, spd: 0.95, col: 0x3a3a6a, orb: 0xfff3b0 },
+  // Soulbound: SoulChains. reach = how far the lash carries; orb = the spectral colour of the links
+  { id: 'tetherchain', name: 'Tether Chain', cls: 'soulbound', kind: 'chain', lvl: 1, dmg: 0.95, spd: 1.05, reach: 2.5, col: 0x6a6258, orb: 0x8fe3dc },
+  { id: 'shrinecord', name: 'Shrine-bell Cord', cls: 'soulbound', kind: 'chain', lvl: 2, dmg: 0.85, spd: 1.2, reach: 2.4, col: 0xb89a6a, orb: 0xfff0c0 },
+  { id: 'lanternlinks', name: 'Lantern Links', cls: 'soulbound', kind: 'chain', lvl: 4, dmg: 1.05, spd: 1.05, reach: 2.6, col: 0x5a5a64, orb: 0xffd88a },
+  { id: 'ferrymanchain', name: "Ferryman's Chain", cls: 'soulbound', kind: 'chain', lvl: 6, dmg: 1.15, spd: 0.95, reach: 2.9, col: 0x4a4e58, orb: 0x9ad8ff },
+  { id: 'mothsilk', name: 'Mothsilk Lash', cls: 'soulbound', kind: 'chain', lvl: 8, dmg: 1.0, spd: 1.3, reach: 2.5, col: 0xd8d0c0, orb: 0xe0d0ff },
+  { id: 'gravechain', name: 'Grave-anchor Chain', cls: 'soulbound', kind: 'chain', lvl: 10, dmg: 1.4, spd: 0.8, reach: 3.0, col: 0x3a3a42, orb: 0xb8a8ff, big: true },
+  { id: 'wispwoven', name: 'Wispwoven Chain', cls: 'soulbound', kind: 'chain', lvl: 13, dmg: 1.2, spd: 1.1, reach: 2.7, col: 0x6a8a88, orb: 0xb8fff0 },
+  { id: 'veilchain', name: 'Veilthread Chain', cls: 'soulbound', kind: 'chain', lvl: 16, dmg: 1.3, spd: 1.1, reach: 2.8, col: 0x2e3440, orb: 0xc8b0ff },
 ];
 // ---------------------------------------------------------------- armour bases
 export const ARMORS = [
@@ -217,7 +226,7 @@ function makeItem(base, r, ilvl, legend = null) {
     if (base.set) it.set = base.set;
   }
   const slotKey = AFFIX_SLOT(it.slot);
-  const kindKey = it.kind === 'oversized' ? 'katana' : it.kind;
+  const kindKey = it.kind === 'oversized' || it.kind === 'chain' ? 'katana' : it.kind; // melee affixes
   const pool = Object.keys(AFFIXES).filter(k => {
     if (AFFIXES[k].devOnly) return false;
     if (AFFIXES[k].slots && !AFFIXES[k].slots.includes(slotKey)) return false;
@@ -260,7 +269,7 @@ export function makeNamed(id, ilvl = 6, r = null) {
   if (b) return makeItem(b, r ?? (b.set ? 3 : 1), ilvl);
   return null;
 }
-export const SLOT_ICON = { katana: '🗡️', bow: '🏹', staff: '🪄', wand: '✨', oversized: '🥄', helm: '⛑️', armor: '🥋', charm: '📿', arms: '🧤', legs: '👖', boots: '🥾', ring: '💍' };
+export const SLOT_ICON = { chain: '⛓️', katana: '🗡️', bow: '🏹', staff: '🪄', wand: '✨', oversized: '🥄', helm: '⛑️', armor: '🥋', charm: '📿', arms: '🧤', legs: '👖', boots: '🥾', ring: '💍' };
 export function itemIcon(it) { return SLOT_ICON[it.kind || it.slot] || '?'; }
 
 // A single-number score for "is this an upgrade?" arrows
@@ -283,6 +292,6 @@ export function statLine(k, v) {
 }
 
 export function starterWeapon(cls) {
-  const b = { samurai: 'rustkatana', archer: 'huntbow', witch: 'acornstaff' }[cls];
+  const b = { samurai: 'rustkatana', archer: 'huntbow', witch: 'acornstaff', soulbound: 'tetherchain' }[cls];
   return makeItem(baseById(b), 0, 1);
 }

@@ -1,7 +1,7 @@
 import { abilityIcon } from './ui_icons.js';
 // Pass 5 UI: the six-slot combat HUD and the skill-tree screen (mouse + keyboard/pad).
 import { sfx } from './engine/audio.js';
-import { CLASSES, xpNeed } from './rpg/classes.js';
+import { CLASSES, xpNeed, costLabel, echoCount, MAX_ECHOES, ECHO } from './rpg/classes.js';
 import { SKILLS, PATHS, TREES, treeOf, rankOf, lockReason, spendNode, setLoadout, respecTree, pathPoints, spentPoints, rankMult, rankCd, LOADOUT_SIZE, MAX_ACTIVE_RANK } from './rpg/skills.js';
 import { SETS } from './rpg/gear.js';
 
@@ -28,7 +28,7 @@ export function installSkillUI(UI) {
     const lbl = this.g.settings.abilityLabels;
     $('abilities').innerHTML = Array.from({ length: LOADOUT_SIZE }, (_, i) => {
       const id = inv.loadout && inv.loadout[i], S = id && SKILLS[id];
-      return `<div class="ab ${S ? '' : 'empty'} ${lbl ? 'lbl' : ''}" data-slot="${i}" title="${S ? S.name : 'Empty slot'}"><b>${KEYS[i]}</b><span class="ic">${S ? abilityIcon(id) : '+'}</span>${S ? `<span class="cost">${S.cost}</span><span class="rk"></span><i class="cdr"></i><em class="cdt"></em><i class="dur" style="display:none"></i>` : ''}${lbl && S ? `<span class="nm">${S.name}</span>` : ''}</div>`;
+      return `<div class="ab ${S ? '' : 'empty'} ${lbl ? 'lbl' : ''}" data-slot="${i}" title="${S ? S.name : 'Empty slot'}"><b>${KEYS[i]}</b><span class="ic">${S ? abilityIcon(id) : '+'}</span>${S ? `<span class="cost">${CLASSES[inv.cls].echo ? (S.cost / ECHO || '') + (S.cost ? '✦' : '') : S.cost}</span><span class="rk"></span><i class="cdr"></i><em class="cdt"></em><i class="dur" style="display:none"></i>` : ''}${lbl && S ? `<span class="nm">${S.name}</span>` : ''}</div>`;
     }).join('');
     this._slots = [...$('abilities').children];
     this._slots.forEach((el, i) => { el.style.pointerEvents = 'auto'; el.onclick = () => { this.openInventory(); this.invTab = 'skills'; this.treeSlot = i; this.renderInventory(); }; });
@@ -52,8 +52,15 @@ export function installSkillUI(UI) {
     this.hearts();
     const rb = $('resbar');
     rb.style.setProperty('--k', g.res + '%'); rb.style.setProperty('--rc', C.resColor);
-    rb.querySelector('span').textContent = Math.floor(g.res);
-    rb.title = C.res;
+    rb.querySelector('span').textContent = C.echo ? echoCount(g.res) : Math.floor(g.res);
+    rb.title = C.echo ? `${C.res} ${echoCount(g.res)} / ${MAX_ECHOES}` : C.res;
+    // Soul Echoes: five pips around the globe, the one still forming glows faintly
+    rb.classList.toggle('echo', !!C.echo);
+    if (C.echo) {
+      let pips = rb.querySelector('.pips'); if (!pips) { pips = document.createElement('div'); pips.className = 'pips'; pips.innerHTML = '<i></i>'.repeat(MAX_ECHOES); rb.appendChild(pips); }
+      const n = echoCount(g.res), part = (g.res % ECHO) / ECHO;
+      [...pips.children].forEach((el, i) => { el.className = i < n ? 'on' : i === n && part >= 0.5 ? 'half' : ''; });
+    }
     $('xpbar').querySelector('.fill').style.width = (inv.xp / xpNeed(inv.level) * 100) + '%';
     $('lvl').textContent = inv.level;
     $('lvl').title = `Level ${inv.level} · XP ${inv.xp} / ${xpNeed(inv.level)}${inv.sp ? ` · ${inv.sp} skill point${inv.sp > 1 ? 's' : ''} to spend` : ''}`;
@@ -79,7 +86,7 @@ export function installSkillUI(UI) {
       const f = this.activeFrac(id), dur = el.querySelector('.dur');
       dur.style.display = f > 0 ? '' : 'none'; if (f > 0) dur.style.transform = `scaleX(${f})`;
       el.classList.toggle('active', f > 0);
-      if (p.costOf(id) === 0 && S.cost > 0) el.querySelector('.cost').textContent = 'FREE'; else if (el.querySelector('.cost').textContent !== String(S.cost)) el.querySelector('.cost').textContent = S.cost;
+      const ct = C.echo ? (S.cost ? S.cost / ECHO + '✦' : '') : String(S.cost); if (p.costOf(id) === 0 && S.cost > 0) el.querySelector('.cost').textContent = 'FREE'; else if (el.querySelector('.cost').textContent !== ct) el.querySelector('.cost').textContent = ct;
     });
     $('abilities').classList.toggle('disrupted', p.disruptT > 0);
     // calm HUD out of combat
@@ -137,7 +144,7 @@ export function installSkillUI(UI) {
     d += `<div class="td-rank">Rank <b>${r}</b> / ${sel.max}${sel.free ? ' · <span style="color:#9f9">granted free at level ' + sel.lvl + '</span>' : sel.lvl > 1 ? ' · level ' + sel.lvl : ''}</div>`;
     if (S) {
       const cur = this.skillPreview(S, r), nxt = this.skillPreview(S, r + 1);
-      d += `<p>${S.desc}</p><div class="td-stats"><div><span>Cost</span><b>${S.cost} ${CLASSES[cls].res}</b></div><div><span>Cooldown</span><b>${cur.cd.toFixed(1)} s${r && r < sel.max ? ` → ${nxt.cd.toFixed(1)}` : ''}</b></div><div><span>Damage</span><b>≈${cur.dmg}${r && r < sel.max ? ` → ${nxt.dmg}` : ''}</b></div><div><span>Hits</span><b>${S.hits}</b></div><div><span>Targeting</span><b>${{ self: 'Around you', dir: 'Aimed direction', ground: 'Placed (hold to aim)', unit: 'Aimed foe' }[S.target]}</b></div><div><span>Element</span><b>${S.element}</b></div></div>`;
+      d += `<p>${S.desc}</p><div class="td-stats"><div><span>Cost</span><b>${costLabel(cls, S.cost)}</b></div><div><span>Cooldown</span><b>${cur.cd.toFixed(1)} s${r && r < sel.max ? ` → ${nxt.cd.toFixed(1)}` : ''}</b></div><div><span>Damage</span><b>≈${cur.dmg}${r && r < sel.max ? ` → ${nxt.dmg}` : ''}</b></div><div><span>Hits</span><b>${S.hits}</b></div><div><span>Targeting</span><b>${{ self: 'Around you', dir: 'Aimed direction', ground: 'Placed (hold to aim)', unit: 'Aimed foe' }[S.target]}</b></div><div><span>Element</span><b>${S.element}</b></div></div>`;
     } else {
       d += `<p>${sel.desc(Math.max(1, r))}</p>`;
       if (r && r < sel.max) d += `<p class="td-next">Next rank: ${sel.desc(r + 1)}</p>`;

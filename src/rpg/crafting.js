@@ -20,7 +20,7 @@ export const MATS = {
   stardust: { name: 'Stardust', icon: '✦', color: '#c8e8ff', desc: 'Cold, bright grit from a fallen star\'s crater. It hums a note nobody taught it.' },
   crowfeather: { name: 'Tollcrow Feather', icon: '⸙', color: '#6a6a7a', desc: 'An iron-dark feather from the bird that nests in the Great Bell. It rings when it falls.' },
 };
-const ALL_BASES = ['katana', 'bow', 'staff', 'wand', 'oversized'];
+const ALL_BASES = ['katana', 'bow', 'staff', 'wand', 'oversized', 'chain'];
 
 // kind: 'weapon' (engraving on one weapon) or 'sigil' (modifies one class ability)
 export const RECIPES = [
@@ -33,6 +33,9 @@ export const RECIPES = [
   { id: 'emberseeds', kind: 'weapon', name: 'Ember Seeds', cls: 'witch', bases: ['staff', 'wand'], mats: { ember: 1, shard: 6 }, pips: 40,
     effect: 'Charged fireballs plant three ember seeds where they burst. Each swells visibly and detonates 1.2 s later (70% damage, burns). Seeds never plant seeds.',
     hint: 'Defeat what guards the Verdant Chime, or find an Ember Mote.' },
+  { id: 'lanternknot', kind: 'weapon', name: 'Lantern Knot', cls: 'soulbound', bases: ['chain'], mats: { echo: 1, shard: 6 }, pips: 40,
+    effect: 'SoulChain combo finishers leave a ring of spirit light where they land. 0.6 s later it rings again for 60% damage. Rings never ring twice.',
+    hint: 'Defeat what guards the Verdant Chime, or find a Hollow Echo.' },
   { id: 'millwind', kind: 'weapon', name: 'Millwind Edge', cls: null, bases: ALL_BASES, mats: { sailcloth: 1, shard: 8 }, pips: 60,
     effect: 'Your charged attack (spin, power shot or fireball) also throws a gust along your aim: it knocks foes back, reflects spores, spins pinwheels and blows out flames.',
     hint: 'Help Miller Oswin get his mill turning again.' },
@@ -45,6 +48,9 @@ export const RECIPES = [
   { id: 'rimebloom', kind: 'sigil', name: 'Rime Bloom', cls: 'witch', ability: 0, mats: { thornheart: 1, shard: 5 }, pips: 30,
     effect: 'Frost Nova leaves a ring of rime for 3 s that chills foes inside. Your next hit on a frozen foe shatters the ice for +60% damage.',
     hint: 'Ask the Root Hermit about the Hollow, once its guardian has fallen.' },
+  { id: 'hollowhook', kind: 'sigil', name: 'Hollow Hook', cls: 'soulbound', ability: 0, mats: { thornheart: 1, shard: 5 }, pips: 30,
+    effect: 'Soul Hook drags every small foe along its line toward you, not only the first one it catches.',
+    hint: 'Read what the Bellwrights left behind the Echo Door.' },
   // ---- Pass 5: six engravings tied to the new content. Every one changes behaviour.
   { id: 'seamstitch', kind: 'weapon', name: 'Seamstitch', cls: null, bases: ALL_BASES, mats: { seamthread: 1, shard: 8 }, pips: 80,
     effect: 'One hit in five stitches the foe to its nearest neighbour for 3 s: they share 30% of the damage either takes, and snap apart if dragged too far.',
@@ -160,4 +166,5 @@ export function gainMat(g, k, n = 1, x, z) {
   if (k === 'thornheart' && inv.cls === 'samurai') learn(g, 'thornrebuke');
   if (k === 'echo' && inv.cls === 'archer') learn(g, 'echofletch');
   if (k === 'ember' && inv.cls === 'witch') learn(g, 'emberseeds');
+  if (k === 'echo' && inv.cls === 'soulbound') learn(g, 'lanternknot');
 }

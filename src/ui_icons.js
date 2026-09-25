@@ -24,6 +24,15 @@ const marks = {
  stormthread:'M2 10c8-13 18 25 28 10M2 20C10 7 22 33 30 10M16 2v28',
  witherhex:'M16 2l12 7v14l-12 7-12-7V9zM8 8l16 16M24 8L8 24M16 10v12',
  glasscomet:'M16 2l5 15-5 13-5-13zM5 16h22M9 10l14 14M23 10L9 24',
+ soulhook:'M6 26c3-3 4-6 7-7m2-2c3-2 5-4 6-7M22 10a4 4 0 118 0c0 4-5 5-5 9M8 22l2 2m3-7l2 2',
+ reapingcoil:'M16 16m-11 0a11 11 0 1022 0 11 11 0 10-22 0M16 9a7 7 0 107 7M16 13a3 3 0 103 3',
+ bindingseal:'M9 9h6v6H9zM17 17h6v6h-6zM15 12h5v5M12 15v5h5M4 28l5-5m18-18l-5 5',
+ veilshift:'M5 26c0-9 4-15 11-15s11 6 11 15M11 26c0-6 2-9 5-9s5 3 5 9M16 3v4M9 5l2 3M23 5l-2 3',
+ echorend:'M3 16c4-6 8 6 12 0s8 6 12 0M3 10c4-6 8 6 12 0M17 22c4-6 8 6 12 0',
+ veilrift:'M16 3c-4 6-4 20 0 26M16 3c4 6 4 20 0 26M6 16h4m12 0h4M9 9l2 2m10 10l2 2m0-14l-2 2M9 23l2-2',
+ kindred:'M6 20l3-12 5 6h4l5-6 3 12c0 5-5 8-10 8S6 25 6 20zM12 19h1m6 0h1M15 23h2M26 26c3 0 4-3 3-6',
+ spiritvolley:'M16 28V16M16 16l-8-10M16 16l8-10M16 16L3 13M16 16l13-3M8 4h2m12 0h2M2 11h2m24 0h2',
+ ancestorward:'M16 3l11 5v8c0 7-5 11-11 13C10 27 5 23 5 16V8zM11 14a2 2 0 104 0 2 2 0 10-4 0m6 0a2 2 0 104 0 2 2 0 10-4 0M12 21h8',
 };
 export function abilityIcon(id, type='active') {
  const p=marks[id] || ({passive:'M16 5l4 7 8 4-8 4-4 7-4-7-8-4 8-4z',mod:'M7 7h18v18H7zM16 10v12M10 16h12',res:'M16 3C11 12 5 15 7 22a9 9 0 0018 0c2-7-4-10-9-19z',util:'M7 24L24 7M16 7h8v8M16 25H7v-8',key:'M16 3l4 9 9 4-9 4-4 9-4-9-9-4 9-4z'}[type]) || 'M16 3l12 13-12 13L4 16zM16 10v12M10 16h12';

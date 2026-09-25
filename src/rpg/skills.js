@@ -28,6 +28,11 @@ export const PATHS = {
     { id: 'rimestorm', name: 'Rime & Storm', color: '#9ad8ff', blurb: 'Frost, lightning, control and shatter.' },
     { id: 'hexweaver', name: 'Hexweaver', color: '#b88aff', blurb: 'Curses, familiars, moths and delayed Echo magic.' },
   ],
+  soulbound: [
+    { id: 'chainwarden', name: 'Chainwarden', color: '#8fd8d0', blurb: 'Hooks, pulls, bindings and a longer reach.' },
+    { id: 'veilwalker', name: 'Veilwalker', color: '#b8a8ff', blurb: 'Step through the Veil and strike from where they are not looking.' },
+    { id: 'spiritcaller', name: 'Spiritcaller', color: '#9ae8c8', blurb: 'Kindred spirits, spent Echoes and wards that answer back.' },
+  ],
 };
 
 // ------------------------------------------------------------------ active abilities
@@ -61,6 +66,16 @@ export const SKILLS = {
   familiar: { cls: 'witch', path: 2, name: 'Hex Familiar', icon: '🐈‍⬛', cost: 50, cd: 18, target: 'self', power: 0.6, element: 'hex', desc: 'Summon a spectral cat that hexes your enemies.', hits: 'homing hex bolts' },
   witherhex: { cls: 'witch', path: 2, name: 'Wither Hex', icon: '🕯️', cost: 25, cd: 6, target: 'unit', range: 8, power: 2.2, element: 'hex', desc: 'Curse a foe. After 3 s the curse bursts, adding 30% of everything it suffered meanwhile.', hits: 'delayed burst + stored damage' },
   mothstorm: { cls: 'witch', path: 2, name: 'Mothstorm', icon: '🦋', cost: 40, cd: 12, target: 'ground', range: 8, radius: 2, def: 3.5, power: 0.3, element: 'hex', desc: 'Release a storm of pale moths that drifts toward your aim and devours what it touches.', hits: 'every 0.3 s for 4 s' },
+  // ---------------- Soulbound (costs are in Soul Echoes: 20 = one Echo)
+  soulhook: { cls: 'soulbound', path: 0, name: 'Soul Hook', icon: '🪝', cost: 0, cd: 4.5, target: 'dir', power: 1.2, element: 'spirit', desc: 'Throw the SoulChain along your aim. A small foe is yanked to your feet and staggered; a large one (elites, bosses, the armoured) pulls YOU to it instead, and you land with a cut. A catch gathers a Soul Echo.', hits: 'catch (×1.2) · +1 Echo' },
+  reapingcoil: { cls: 'soulbound', path: 0, name: 'Reaping Coil', icon: '➰', cost: 20, cd: 7, target: 'self', power: 0.9, element: 'spirit', desc: 'Whirl the chain twice around you. Each turn drags foes inward before the links bite.', hits: '2 sweeps, pulls inward' },
+  bindingseal: { cls: 'soulbound', path: 0, name: 'Binding Seal', icon: '🔗', cost: 40, cd: 11, target: 'unit', range: 7, power: 1.6, element: 'spirit', desc: 'Spectral chains lash a foe and up to three of its neighbours together: rooted for 2.5 s and marked (+25% damage taken).', hits: 'bind (×1.6) · root + mark' },
+  veilshift: { cls: 'soulbound', path: 1, name: 'Veilshift', icon: '🌫️', cost: 0, cd: 5, target: 'dir', power: 1.3, element: 'spirit', desc: 'Slip into the Veil: untouchable, you pass through foes. You reappear behind the first foe on your path, or at the end of it, and cut on the way out. If you hold a Soul Echo, it is spent to make that cut a guaranteed crit.', hits: 'emergence cut (×1.3)' },
+  echorend: { cls: 'soulbound', path: 1, name: 'Echo Rend', icon: '〰️', cost: 20, cd: 8, target: 'dir', power: 1.2, element: 'spirit', desc: 'Spend every Soul Echo you hold. One real lash tears forward, and each Echo follows it as a spectral lash a heartbeat later.', hits: 'lash + one echo lash (×0.9) per Echo spent' },
+  veilrift: { cls: 'soulbound', path: 1, name: 'Veil Rift', icon: '🌀', cost: 40, cd: 10, target: 'ground', range: 7, radius: 2.2, def: 4, power: 2.0, element: 'spirit', desc: 'Tear a rift in the Veil where you aim. You vanish, and a moment later step out of it in a spectral sweep that drags foes in.', hits: 'sweep (×2.0) · pulls inward' },
+  kindred: { cls: 'soulbound', path: 2, name: 'Kindred Lantern', icon: '🏮', cost: 40, cd: 18, target: 'self', power: 0.55, element: 'spirit', desc: 'A lantern-fox spirit answers your call for 14 s. It darts at foes and bites; whenever you spend Soul Echoes it howls, and its next bite bursts.', hits: 'bites every 0.7 s' },
+  spiritvolley: { cls: 'soulbound', path: 2, name: 'Echo Release', icon: '✨', cost: 20, cd: 5, target: 'dir', power: 1.1, element: 'spirit', desc: 'Let every Soul Echo you hold go free. Each becomes a spirit mote that seeks a foe near your aim.', hits: 'one seeking mote per Echo' },
+  ancestorward: { cls: 'soulbound', path: 2, name: 'Warden Spirits', icon: '🛡️', cost: 60, cd: 16, target: 'self', power: 1.0, element: 'spirit', desc: 'Three old spirits circle close for 8 s. Each one catches a blow meant for you, then answers the attacker.', hits: 'each blocks one hit, retaliates (×1.0)' },
 };
 for (const [id, s] of Object.entries(SKILLS)) s.id = id;
 
@@ -141,6 +156,32 @@ export const TREES = {
     N({ id: 'mothstorm', type: 'active', path: 2, x: 1, y: 2, skill: 'mothstorm', lvl: 6, max: 5, req: ['witherhex'] }),
     N({ id: 'mothcovenant', type: 'key', path: 2, x: 1, y: 3, name: 'Moth Covenant', pathMin: 7, lvl: 12, req: ['mothstorm'], desc: () => 'Keystone. Mothstorm follows your aim twice as fast and lasts twice as long. Mana regeneration −20%.' }),
   ],
+  soulbound: [
+    N({ id: 'soulhook', type: 'active', path: 0, x: 1, y: 0, skill: 'soulhook', free: true, lvl: 1, max: 5 }),
+    N({ id: 'longchain', type: 'passive', path: 0, x: 0, y: 1, name: 'Long Chain', max: 3, stats: { reach: 8 }, req: ['soulhook'], desc: r => `+${8 * r}% SoulChain reach.` }),
+    N({ id: 'barbedlinks', type: 'mod', path: 0, x: 2, y: 1, name: 'Barbed Links', max: 2, req: ['soulhook'], desc: r => `Soul Hook staggers ${0.4 * r}s longer${r > 1 ? '' : ''}, and a large catch gathers a second Echo.` }),
+    N({ id: 'reapingcoil', type: 'active', path: 0, x: 1, y: 2, skill: 'reapingcoil', lvl: 4, max: 5, req: ['longchain'] }),
+    N({ id: 'soulthirst', type: 'res', path: 0, x: 2, y: 2, name: 'Soul Thirst', req: ['barbedlinks'], desc: () => 'Combo finishers that land gather one extra Soul Echo.' }),
+    N({ id: 'ironlinks', type: 'passive', path: 0, x: 0, y: 3, name: 'Iron Links', max: 3, stats: { armor: 5 }, req: ['reapingcoil'], desc: r => `+${5 * r} armour.` }),
+    N({ id: 'bindingseal', type: 'active', path: 0, x: 1, y: 3, skill: 'bindingseal', lvl: 8, max: 5, req: ['reapingcoil'] }),
+    N({ id: 'wardenoath', type: 'key', path: 0, x: 1, y: 4, name: "Warden's Oath", pathMin: 7, lvl: 12, req: ['bindingseal'], desc: () => 'Keystone. Every SoulChain lash drags what it strikes a little toward you, and Binding Seal chains every foe within 4 tiles. Movement speed −10%.' }),
+    N({ id: 'veilshift', type: 'active', path: 1, x: 1, y: 0, skill: 'veilshift', free: true, lvl: 3, max: 5 }),
+    N({ id: 'fleetspirit', type: 'passive', path: 1, x: 0, y: 1, name: 'Fleet Spirit', max: 3, stats: { moveSpd: 4 }, req: ['veilshift'], desc: r => `+${4 * r}% movement speed.` }),
+    N({ id: 'lingeringveil', type: 'mod', path: 1, x: 2, y: 1, name: 'Lingering Veil', max: 2, req: ['veilshift'], desc: r => `Veilshift carries you ${r} tile${r > 1 ? 's' : ''} further and its emergence cut deals +${20 * r}% damage.` }),
+    N({ id: 'echorend', type: 'active', path: 1, x: 1, y: 2, skill: 'echorend', lvl: 5, max: 5, req: ['fleetspirit'] }),
+    N({ id: 'veilhunger', type: 'res', path: 1, x: 0, y: 2, name: 'Veil Hunger', max: 2, req: ['fleetspirit'], desc: r => `Emerging from the Veil behind a foe gathers ${r} Soul Echo${r > 1 ? 'es' : ''}.` }),
+    N({ id: 'phantomedge', type: 'passive', path: 1, x: 2, y: 3, name: 'Phantom Edge', max: 3, stats: { critDmg: 10 }, req: ['echorend'], desc: r => `+${10 * r}% critical damage.` }),
+    N({ id: 'veilrift', type: 'active', path: 1, x: 1, y: 3, skill: 'veilrift', lvl: 7, max: 5, req: ['echorend'] }),
+    N({ id: 'betweenworlds', type: 'key', path: 1, x: 1, y: 4, name: 'Between Worlds', pathMin: 7, lvl: 12, req: ['veilrift'], desc: () => 'Keystone. After Veilshift or Veil Rift you stay half in the Veil for 1.5 s: +25% damage dealt and −40% damage taken. Veilshift cooldown +1.5 s.' }),
+    N({ id: 'kindred', type: 'active', path: 2, x: 1, y: 0, skill: 'kindred', free: true, lvl: 6, max: 5 }),
+    N({ id: 'spiritvolley', type: 'active', path: 2, x: 0, y: 1, skill: 'spiritvolley', lvl: 2, max: 5, req: [] }),
+    N({ id: 'kinship', type: 'passive', path: 2, x: 2, y: 1, name: 'Kinship', max: 3, stats: { abilityDmg: 6 }, req: ['kindred'], desc: r => `+${6 * r}% ability damage.` }),
+    N({ id: 'gentlehands', type: 'res', path: 2, x: 0, y: 2, name: 'Gentle Hands', req: ['spiritvolley'], desc: () => 'Each spirit mote you release that strikes a foe mends 3% of your life.' }),
+    N({ id: 'lanternbond', type: 'mod', path: 2, x: 2, y: 2, name: 'Lantern Bond', max: 2, req: ['kinship'], desc: r => `Kindred Lantern stays ${4 * r}s longer and bites ${20 * r}% faster.` }),
+    N({ id: 'ancestorward', type: 'active', path: 2, x: 1, y: 2, skill: 'ancestorward', lvl: 8, max: 5, req: ['spiritvolley'] }),
+    N({ id: 'hollowchorus', type: 'passive', path: 2, x: 1, y: 3, name: 'Hollow Chorus', max: 2, stats: { echoDmg: 15 }, req: ['ancestorward'], desc: r => `Spirits, echo lashes and other spectral effects deal +${15 * r}% damage.` }),
+    N({ id: 'chorusofmany', type: 'key', path: 2, x: 1, y: 4, name: 'Chorus of Many', pathMin: 7, lvl: 12, req: ['hollowchorus'], desc: () => 'Keystone. Every Soul Echo you spend also frees a seeking spirit mote (×0.6). Your first two lashes of a combo no longer gather Echoes.' }),
+  ],
 };
 const NODE_INDEX = {};
 for (const [cls, nodes] of Object.entries(TREES)) for (const n of nodes) {
@@ -151,7 +192,7 @@ for (const [cls, nodes] of Object.entries(TREES)) for (const n of nodes) {
 export const nodeById = id => NODE_INDEX[id];
 export const treeOf = cls => TREES[cls] || [];
 // the original three abilities keep their slot order for the legacy `skills` mirror
-const LEGACY = { samurai: ['iaido', 'tempest', 'oni'], archer: ['multishot', 'snare', 'rain'], witch: ['nova', 'chain', 'familiar'] };
+const LEGACY = { samurai: ['iaido', 'tempest', 'oni'], archer: ['multishot', 'snare', 'rain'], witch: ['nova', 'chain', 'familiar'], soulbound: ['soulhook', 'veilshift', 'kindred'] };
 export const legacyAbilities = cls => LEGACY[cls] || [];
 
 // ------------------------------------------------------------------ state helpers (pure)

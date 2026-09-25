@@ -14,6 +14,11 @@ import { soak } from '../rpg/elements.js';
 import { hasEngraving, hasSigil } from '../rpg/crafting.js';
 import { AIM_H } from '../aim.js';
 import { blocksObject, isLiquid } from '../world/tiles.js';
+import { SoulKit, startLash, soulState, soulAnimate, beginSoulAbility, whirlPull, onEchoSpent } from '../rpg/soulbound.js';
+import { ECHO } from '../rpg/classes.js';
+
+// the Soulbound's own states (rpg/soulbound.js runs them)
+const SOUL_STATES = new Set(['lash', 'hook', 'hookzip', 'coil', 'veil', 'rend', 'rift']);
 
 const _v = new THREE.Vector3();
 // how far each basic shot flies (used by both the shot and its on-screen path preview)
@@ -58,7 +63,7 @@ export class Player extends Entity {
   cdOf(id) { return this.cdMap[id] || 0; }
   reduceCooldowns(sec) { for (const k in this.cdMap) this.cdMap[k] = Math.max(0, this.cdMap[k] - sec); }
   // how the equipped weapon is used: blade | heavy | bow | staff | wand | oversized
-  get family() { return (this.g.pstats && this.g.pstats.family) || ({ archer: 'bow', witch: 'staff' }[this.cls] || 'blade'); }
+  get family() { return (this.g.pstats && this.g.pstats.family) || ({ archer: 'bow', witch: 'staff', soulbound: 'chain' }[this.cls] || 'blade'); }
   get ranged() { return !!RANGED[this.family]; }
   get specialist() { return !this.g.pstats || this.g.pstats.specialist; }
   get aiming() { return this.aimSrc === 'mouse' || this.aimSrc === 'pad'; }
@@ -157,6 +162,8 @@ export class Player extends Entity {
     const g = this.g;
     if (this.invuln > 0 || this.state === 'dead' || this.state === 'fall' || g.cutscene) return false;
     if (this.state === 'roll' && this.st < this.rollIframes) { this.perfectDodge(h); return false; }
+    // Warden Spirits: one of them takes the blow and answers it
+    if (this.wards) { this.wards = this.wards.filter(w => !w.dead); const w = this.wards.shift(); if (w) { w.answer(h.src); this.invuln = Math.max(this.invuln, 0.35); return 'block'; } }
     const fromAng = Math.atan2(h.x - this.x, h.z - this.z);
     if (this.state === 'block' && !h.unblockable && Math.abs(angDiff(this.facing, fromAng)) < 1.4) {
       const window = 0.2 + 0.06 * g.talent('perfectguard') + (this.family === 'oversized' && this.inv.equip.weapon && this.inv.equip.weapon.unique === 'parasol' ? 0.05 : 0);
@@ -210,6 +217,7 @@ export class Player extends Entity {
     // enemies hit a little harder per level than the base unit, to keep pace with the armour
     // and life that gear adds along the way
     if (this.porcelainT > 0 && src) { raw *= 0.4; this.porcelainT = 0; sfx('shatter'); g.fx.burst(this.x, 0.5, this.z, 16, [0xe8e0d0, 0xffffff, 0x9ad8ff], 3.5); }
+    if (this.halfVeilT > 0) raw *= 0.6; // Between Worlds
     let n = Math.max(1, Math.round(raw * unitAt(L) * (1 + 0.05 * (L - 1)) * 1.05 * g.pstats.dr * g.diffMult()));
     // no unexplained one-shots: a single blow can take at most a set share of your life
     n = Math.min(n, Math.ceil(inv.maxHp * g.hitCap()));
@@ -282,7 +290,13 @@ export class Player extends Entity {
     const len = { nodachi: 0.35, onicleaver: 0.3 }[w.base] ?? (b && b.reach ? Math.max(0, b.reach - 1.25) : 0);
     return len + 1.25 * ((this.g.pstats.reach || 0) / 100);
   }
+  // how far the SoulChain carries: the chain's own length, then the Strike Reach affix and Long Chain
+  chainRange() {
+    const w = this.inv.equip.weapon, b = w && w.kind === 'chain' ? baseById(w.base) : null;
+    return ((b && b.reach) || 2.5) * (1 + (this.g.pstats.reach || 0) / 100);
+  }
   basicAttack() {
+    if (this.family === 'chain') return startLash(this);
     if (!this.ranged) return this.startAttack();
     const g = this.g;
     if (this.aiming) this.facing = this.aimDir;
@@ -367,6 +381,7 @@ export class Player extends Entity {
     let first = null;
     if (S.target === 'unit') { first = this.chainTarget(S.range || 7); if (!first) { sfx('error'); g.ui.toast('No target in sight', 'Point at an enemy within range.', 0.9); return false; } }
     g.res -= this.costOf(id);
+    if (CLASSES[this.cls].echo && this.costOf(id) > 0) onEchoSpent(g, this.costOf(id) / ECHO);
     const crit = (id === 'iaido' || id === 'ghostdraw') && this.counterT > 0;
     if (id === 'iaido' || id === 'ghostdraw') this.counterT = 0;
     this.cdMap[id] = rankCd(S, rank) * (1 - g.pstats.cdr / 100) * (id === 'nova' && g.talent('conductor') ? 1.3 : 1);
@@ -384,6 +399,7 @@ export class Player extends Entity {
     else if (id !== 'iaido' && id !== 'galestep' && !SELF_CAST[id]) { const t = g.nearestEnemy(this.x, this.z, 8, f, 0.9); if (t) this.facing = Math.atan2(t.x - this.x, t.z - this.z); }
     const F = this.facing;
     this.castCrit = !!crit;
+    if (beginSoulAbility(this, id, rm, rank, at, first)) return;
     switch (id) {
       case 'iaido': this.setState('dash'); this.attackId++; this.hitSet.clear(); this.invuln = 0.35; this.abMult = 2.2 * rm; this.dashFrom = { x: this.x, z: this.z }; sfx('spin'); break;
       case 'tempest': this.setState('tempest'); this.abMult = 0.7 * rm; this.tick = 0; this.tempestDur = 1.3 + 0.3 * T('cuttingwind'); sfx('spin'); break;
@@ -440,6 +456,10 @@ export class Player extends Entity {
     if (this.porcelainT > 0 && Math.random() < 0.25) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.5, y: 0.3 + Math.random() * 0.5, z: this.z + (Math.random() - 0.5) * 0.5, g: 0, color: 0xe8e0d0, life: 0.3, size: 0.04 });
     if (mlen > 0.1 && this.state !== 'aim') this.stillSince = g.time;
     this.rebukeT = Math.max(0, (this.rebukeT || 0) - dt);
+    this.halfVeilT = Math.max(0, (this.halfVeilT || 0) - dt);
+    // Soul Echoes drift away when there is nothing left to fight
+    if (CLASSES[this.cls].echo) { if (this.combatT > 0) this.echoIdle = 0; else if ((this.echoIdle = (this.echoIdle || 0) + dt) > 2 && g.res > 0) { g.res = Math.max(0, g.res - 8 * dt); g.hudDirty = true; } }
+    if (this.halfVeilT > 0 && Math.random() < 0.3) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.5, y: 0.2 + Math.random() * 0.6, z: this.z + (Math.random() - 0.5) * 0.5, g: -0.5, color: 0xc8b0ff, life: 0.4, size: 0.04 });
     this.combatT = Math.max(0, (this.combatT || 0) - dt);
     // resource & regen
     g.res = Math.min(100, g.res + ps.resRegenRate * dt);
@@ -489,7 +509,9 @@ export class Player extends Entity {
       if (inp.pressed('surge') && g.surge >= 100 && s !== 'surge') { this.setState('surge'); this.invuln = 0.9; sfx('roll'); }
     }
 
-    switch (s) {
+    const soul = SOUL_STATES.has(s) ? soulState(this, s, dt, { inp, locked, mx, mz, mlen, aspd }) : null;
+    if (soul) { vx = soul[0]; vz = soul[1]; speed = soul[2]; }
+    else switch (s) {
       case 'move': {
         speed = ps.speed * (1 + (g.quickT > g.time ? 0.05 * (g.quickStacks || 0) : 0) + (g.thornstepT > g.time ? 0.25 : 0));
         if (mlen > 0.1) this.facing = angleLerp(this.facing, Math.atan2(mx, mz), Math.min(1, dt * 18));
@@ -697,7 +719,8 @@ export class Player extends Entity {
       }
       case 'spin': {
         speed = 1.5;
-        if (this.st < 0.35) this.doHits((1.95 + this.reach) * (1 + 0.1 * g.talent('tollingweight')), Math.PI, 2.5 * (this.spinMult || 1), 'spin', 9);
+        if (this.family === 'chain') { if (this.st < 0.4) { whirlPull(this, dt); this.doHits(this.chainRange() * 1.05, Math.PI, 2.3 * (this.spinMult || 1), 'spin', 7); } }
+        else if (this.st < 0.35) this.doHits((1.95 + this.reach) * (1 + 0.1 * g.talent('tollingweight')), Math.PI, 2.5 * (this.spinMult || 1), 'spin', 9);
         if (this.st >= 0.45) this.setState('move');
         break;
       }
@@ -804,6 +827,8 @@ export class Player extends Entity {
       if (this.stepT > 1.3) { this.stepT = 0; sfx('step'); if (g.area.id === 'overworld') g.fx.dust(this.x, this.z, 1, t === T.SAND ? 0xf1d38e : 0xc8d8a8); }
     }
     this.animate(dt, moved);
+    this.moveSpeed = moved;
+    if (this.family === 'chain' || this.cls === 'soulbound') { if (!this.kit) this.kit = new SoulKit(this, !!CLASSES[this.cls].echo); this.kit.setWeapon(inv.equip.weapon); this.kit.update(dt); }
     const w = inv.equip.weapon;
     if (w && w.r >= 3 && Math.random() < (w.r === 4 ? 0.5 : 0.25)) {
       const hand = new THREE.Vector3(); (this.m.offhand.children.length ? this.m.offhand : this.m.sword).getWorldPosition(hand);
@@ -820,7 +845,7 @@ export class Player extends Entity {
     m.body.rotation.set(0, 0, 0); m.body.position.set(0, 0, 0); m.body.scale.set(1, 1, 1);
     m.armR.rotation.set(0, 0, 0); m.armL.rotation.set(0, 0, 0); m.legL.rotation.set(0, 0, 0); m.legR.rotation.set(0, 0, 0);
     m.head.rotation.set(0, 0, 0);
-    m.sword.rotation.set(fam === 'staff' || fam === 'wand' ? 0.25 : Math.PI / 2 * 0.9, 0, 0);
+    m.sword.rotation.set(fam === 'staff' || fam === 'wand' ? 0.25 : fam === 'chain' ? 0.35 : Math.PI / 2 * 0.9, 0, 0);
     m.shield.rotation.set(0, 0, 0); m.shield.position.set(-0.06, -0.08, 0.02);
     const walk = clamp(speed / 5, 0, 1.2);
     this.walkT += dt * (4 + speed * 2.2);
@@ -834,7 +859,8 @@ export class Player extends Entity {
     m.tail1.rotation.x = -0.4 - lag * 0.7 + Math.sin(t * 13) * 0.12 * (0.3 + lag);
     m.tail2.rotation.x = -0.2 - lag * 0.4 + Math.sin(t * 13 + 1) * 0.18 * (0.3 + lag);
     m.tail1.rotation.y = Math.sin(t * 7) * 0.2 * lag;
-    switch (s) {
+    const soulPose = (fam === 'chain' || SOUL_STATES.has(s)) && soulAnimate(this, m, s, t);
+    if (!soulPose) switch (s) {
       case 'attack': {
         const k = this.combo === 3 ? this.st / 0.42 : this.st / 0.3;
         if (twoHand && this.combo < 3) {
@@ -925,7 +951,10 @@ export class Player extends Entity {
       m.body.scale.set(1 + br * 0.012, 1 - br * 0.015 + 0.015, 1);
       m.armL.rotation.z = -0.1 - br * 0.04; m.armR.rotation.z = 0.1 + br * 0.04;
       m.head.rotation.x = Math.sin(t * 0.7) * 0.04;
+      // a light, ready stance: weight forward, the chain hand loose and low
+      if (fam === 'chain') { m.body.rotation.y = 0.18; m.armR.rotation.x = -0.35 + br * 0.03; m.armR.rotation.z = 0.25; m.legL.rotation.x = 0.18; m.legR.rotation.x = -0.12; m.body.rotation.x = 0.05; }
     }
+    if (fam === 'chain' && s === 'move' && speed >= 0.3) m.body.rotation.x = Math.min(0.22, speed * 0.035); // a runner's lean
     if (this.aiming && (s === 'move' || s === 'block')) m.head.rotation.y = clamp(angDiff(this.facing, this.aimDir), -0.7, 0.7) * 0.7;
     if (s === 'roll') { const k = this.st / 0.34; m.body.scale.set(1 + Math.sin(k * Math.PI) * 0.1, 0.8, 1); }
     if (s === 'attack' && this.st < 0.05) m.body.scale.set(1.08, 0.92, 1.08); // anticipation squash

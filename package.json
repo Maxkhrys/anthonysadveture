@@ -10,6 +10,7 @@
     "test:persistence": "node --test tests/persistence.unit.mjs",
     "test:dev": "node --test tests/dev_commands.unit.mjs tests/dev_tools_pass2.unit.mjs",
     "test:world": "node --test tests/world.unit.mjs",
+    "test:soulbound": "node --test tests/soulbound.unit.mjs",
     "test:simulation": "node tests/affix_simulation.mjs",
     "test:browser": "node tests/run.mjs"
   },

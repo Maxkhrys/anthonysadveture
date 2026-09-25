@@ -143,7 +143,7 @@ export function normalizeCharacter(input) {
   requireRecord(input, 'character');
   const p = copy(input);
   if (typeof p.id !== 'string' || !p.id || typeof p.name !== 'string' || !p.name.trim()) throw new Error('Invalid character identity');
-  if (!['samurai', 'archer', 'witch'].includes(p.classId)) throw new Error('Unsupported character class; save retained.');
+  if (!['samurai', 'archer', 'witch', 'soulbound'].includes(p.classId)) throw new Error('Unsupported character class; save retained.');
   requireRecord(p.inventory, 'inventory');
   const inv = { ...defaultInventory(p.classId), ...p.inventory };
   if (inv.cls !== p.classId) throw new Error('Character class is locked.');

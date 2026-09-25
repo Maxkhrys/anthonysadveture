@@ -10,8 +10,8 @@ import { recipeById, MATS } from './rpg/crafting.js';
 import { DollPreview, itemIconURL } from './preview.js';
 
 const $ = id => document.getElementById(id);
-const AB_ICON = { iaido: '💨', tempest: '🌀', oni: '👹', multishot: '🎯', snare: '🪤', rain: '🌧️', nova: '❄️', chain: '⚡', familiar: '🐈‍⬛' };
-const CLASS_ICON = { samurai: abilityIcon('iaido'), archer: abilityIcon('multishot'), witch: abilityIcon('familiar') };
+const AB_ICON = { iaido: '💨', tempest: '🌀', oni: '👹', multishot: '🎯', snare: '🪤', rain: '🌧️', nova: '❄️', chain: '⚡', familiar: '🐈‍⬛', soulhook: '🪝', veilshift: '🌫️', kindred: '🏮' };
+const CLASS_ICON = { samurai: abilityIcon('iaido'), archer: abilityIcon('multishot'), witch: abilityIcon('familiar'), soulbound: abilityIcon('soulhook') };
 const _v = new THREE.Vector3();
 
 export function installRpgUI(UI) {
@@ -140,7 +140,7 @@ export function installRpgUI(UI) {
   P.itemHtml = function (it, cmp) {
     if (!it) return '<div class="tt"><div class="sub">Empty slot</div></div>';
     const g = this.g, R = it.prismatic ? {...RARITY[it.r],color:'#9edfff'} : RARITY[it.r];
-    const typeName = it.slot === 'weapon' ? { katana: it.big ? 'Greatblade' : 'Katana', bow: 'Bow', staff: 'Staff', wand: 'Wand', oversized: 'Oversized' }[it.kind] : { helm: 'Head', armor: 'Chest', charm: 'Necklace', arms: 'Arms', legs: 'Legs', boots: 'Boots', ring: 'Ring' }[it.slot] || it.slot;
+    const typeName = it.slot === 'weapon' ? { katana: it.big ? 'Greatblade' : 'Katana', bow: 'Bow', staff: 'Staff', wand: 'Wand', oversized: 'Oversized', chain: 'SoulChain' }[it.kind] : { helm: 'Head', armor: 'Chest', charm: 'Necklace', arms: 'Arms', legs: 'Legs', boots: 'Boots', ring: 'Ring' }[it.slot] || it.slot;
     const clsTxt = it.cls ? ` · <span style="color:${it.cls === g.inv.cls ? '#9f9' : '#fc8'}">${CLASSES[it.cls].name}</span>` : it.slot === 'weapon' ? ' · <span style="color:#9df">any class</span>' : '';
     const up = it.upgradeLevel ? ` <span class="uplvl">+${it.upgradeLevel}</span>` : '';
     const locked = g.isLocked(it) ? ' <span title="Locked: cannot be salvaged">🔒</span>' : '';
@@ -309,12 +309,12 @@ export function installRpgUI(UI) {
 
   // ---------------- class select
   P.classSelect = function (input, onPick) {
-    const ids = ['samurai', 'archer', 'witch'];
+    const ids = ['samurai', 'archer', 'witch', 'soulbound'];
     this.csSel = this.csSel ?? 0;
     const render = () => {
       $('classcards').innerHTML = ids.map((id, i) => {
         const C = CLASSES[id];
-        return `<div class="ccard ${i === this.csSel ? 'on' : ''}" data-i="${i}"><div class="ico">${CLASS_ICON[id]}</div><h3>${C.name}</h3><div class="role">${C.role}</div><p>${C.blurb}</p>
+        return `<div class="ccard ${i === this.csSel ? 'on' : ''}" data-i="${i}"><div class="ico">${CLASS_ICON[id]}</div><h3>${C.name}</h3><div class="role">${C.role}</div>${C.tagline ? `<div class="tagline">“${C.tagline}”</div>` : ''}<p>${C.blurb}</p>
         <div class="st">${Object.entries(C.stats).map(([k, v]) => `<span>${k}</span><i style="width:${v * 20}%"></i>`).join('')}</div>
         <div style="font-size:12px;color:#ffd25e">${C.basic}</div><ul>${C.abilities.map(a => `<li>${AB_ICON[a.id]} ${a.name} <span style="color:#a99">(lv ${a.lvl})</span></li>`).join('')}</ul></div>`;
       }).join('');
@@ -328,8 +328,9 @@ export function installRpgUI(UI) {
   P.updateClassSelect = function (input) {
     const cs = this.csActive;
     if (!cs) return false;
-    if (input.pressed('left')) { this.csSel = (this.csSel + 2) % 3; sfx('select'); cs.render(); }
-    if (input.pressed('right')) { this.csSel = (this.csSel + 1) % 3; sfx('select'); cs.render(); }
+    const n = cs.ids.length;
+    if (input.pressed('left')) { this.csSel = (this.csSel + n - 1) % n; sfx('select'); cs.render(); }
+    if (input.pressed('right')) { this.csSel = (this.csSel + 1) % n; sfx('select'); cs.render(); }
     if (input.pressed('interact') || input.pressed('attack')) cs.done();
     return true;
   };

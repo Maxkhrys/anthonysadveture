@@ -15,7 +15,10 @@ export const CLASS_LOOK = {
   samurai: { shirt: 0x2f3f5a, shirtD: 0x223048, pants: 0x2a2f44, boots: 0x3a2a24, scarf: 0xd8342c, hair: 0x1a1420, sleeve: 0x2f3f5a },
   archer: { shirt: 0x4a7a3a, shirtD: 0x3a6a2e, pants: 0x5a4a32, boots: 0x5a3a24, scarf: 0xe0b83a, hair: 0x7a4a24, sleeve: 0x4a7a3a },
   witch: { shirt: 0x5a3a8a, shirtD: 0x44296e, pants: 0x3a2a5a, boots: 0x2a1e3a, scarf: 0x7fd36a, hair: 0x8a5ac0, sleeve: 0x5a3a8a },
+  // dark muted travelling cloth, aged leather, a pale spectral teal
+  soulbound: { shirt: 0x3c4450, shirtD: 0x2c323c, pants: 0x3a3b40, boots: 0x5a4432, scarf: 0x5fa8a2, hair: 0x2c2834, sleeve: 0x4a4e56 },
 };
+const SPIRIT = 0x8fe3dc, SPIRIT_L = 0xc8b0ff, IRON = 0x5c5a5e, IRON_L = 0x8a8890, PAPER = 0xe8dcc0, LEATHER = 0x6a4a30;
 
 // ------------------------------------------------------------------ armour looks by base
 // main/second/trim colours plus a shape keyword the builders understand
@@ -115,6 +118,14 @@ export function torsoParts(cls, chest) {
     P.push(B(0.12, 0.36, 0.1, 0.08, 0.2, -0.16, 0x7a4a2a, 0, 0, -0.35), B(0.02, 0.14, 0.02, 0.0, 0.52, -0.16, 0xf0f0f0, 0, 0, -0.35), B(0.03, 0.06, 0.03, -0.01, 0.62, -0.16, 0xe8424f, 0, 0, -0.35), B(0.02, 0.14, 0.02, 0.06, 0.54, -0.16, 0xf0f0f0, 0, 0, -0.35), B(0.03, 0.06, 0.03, 0.05, 0.64, -0.16, 0x7fd36a, 0, 0, -0.35)); // quiver + fletchings
     P.push(B(0.34, 0.28, 0.03, 0, 0.1, -0.13, 0x3a6a2e), B(0.3, 0.06, 0.03, 0, 0.06, -0.14, 0x2e5a24)); // short cape
   }
+  if (cls === 'soulbound') {
+    P.push(B(0.3, 0.05, 0.02, 0, 0.26, 0.116, shade(second, 1.25), 0, 0, -0.55), B(0.3, 0.04, 0.02, 0, 0.12, 0.116, LEATHER, 0, 0, 0.5)); // crossed wraps + a satchel strap
+    P.push(B(0.2, 0.3, 0.05, -0.12, 0.14, -0.1, 0x2a2e36, 0.12, 0, 0.1), B(0.16, 0.06, 0.26, -0.19, 0.38, -0.01, 0x2a2e36, 0, 0, 0.35), B(0.14, 0.06, 0.05, -0.16, -0.02, -0.11, 0x22262c, 0.2)); // short cloak, left shoulder only
+    P.push(B(0.3, 0.1, 0.12, 0, 0.36, -0.13, 0x30353e), B(0.22, 0.06, 0.06, 0, 0.44, -0.18, 0x30353e)); // hood, lowered
+    P.push(B(0.05, 0.09, 0.01, 0.09, 0.07, 0.125, PAPER), B(0.04, 0.07, 0.01, 0.15, 0.05, 0.11, PAPER, 0, -0.5)); // paper seals on the belt
+    P.push(G(0.02, 0.02, 0.012, 0.09, 0.12, 0.132, SPIRIT), G(0.018, 0.018, 0.012, 0.15, 0.09, 0.118, SPIRIT_L)); // their runes
+    P.push(B(0.09, 0.08, 0.07, -0.15, 0.1, 0.08, LEATHER), B(0.1, 0.02, 0.075, -0.15, 0.18, 0.08, shade(LEATHER, 1.3)), G(0.025, 0.025, 0.02, -0.15, 0.14, 0.12, SPIRIT)); // relic pouch
+  }
   if (cls === 'witch' || (A && (A.shape === 'robe' || A.shape === 'cinderwoven'))) {
     P.push(B(0.34, 0.12, 0.26, 0, 0.04, 0, second), B(0.4, 0.1, 0.3, 0, -0.04, 0, shade(second, 0.8)), B(0.44, 0.04, 0.32, 0, -0.06, 0, A ? trim : 0x2e1a4a)); // robe skirt to the ankles
     if (A && A.shape === 'robe') P.push(B(0.03, 0.03, 0.02, -0.08, 0.28, 0.115, 0xfff3b0), B(0.03, 0.03, 0.02, 0.07, 0.2, 0.115, 0xfff3b0), B(0.03, 0.03, 0.02, -0.12, 0.06, 0.155, 0xfff3b0));
@@ -138,13 +149,18 @@ export function legParts(cls, legsItem, bootsItem, chest, side) {
   if (bs === 'cinderwoven') P.push(B(0.135, 0.02, 0.17, 0, -0.26, 0.015, CERAMIC), G(0.04, 0.012, 0.012, 0, -0.18, 0.1, EMBER));
   return P;
 }
-export function armParts(cls, armsItem, chest) {
+export function armParts(cls, armsItem, chest, side = 1) {
   const C = CLASS_LOOK[cls] || CLASS_LOOK.samurai, A = armorLook(chest), R = armsItem ? armorLook(armsItem) : null;
   const sleeve = A ? A.arms : C.sleeve;
   const bracer = R ? R.main : A && A.r >= 1 ? A.second : shade(sleeve, 0.8);
   const P = [B(0.09, 0.12, 0.09, 0, -0.14, 0, sleeve), B(0.1, 0.06, 0.1, 0, -0.2, 0, bracer), B(0.085, 0.06, 0.085, 0, -0.26, 0, SKIN)];
   if (R && R.r >= 2) P.push(B(0.03, 0.03, 0.02, 0, -0.18, 0.055, R.rar));
   if (cls === 'witch') P.push(B(0.12, 0.05, 0.12, 0, -0.18, 0, shade(sleeve, 0.85))); // bell sleeves
+  if (cls === 'soulbound' && side > 0) { // the SoulChain lives on this arm: iron turns fading into a spectral band
+    for (let i = 0; i < 3; i++) P.push(B(0.112, 0.022, 0.112, 0, -0.1 - i * 0.045, 0, i % 2 ? IRON_L : IRON, 0, i * 0.4));
+    P.push(G(0.114, 0.014, 0.114, 0, -0.235, 0, SPIRIT));
+  }
+  if (cls === 'soulbound' && side < 0) P.push(B(0.104, 0.03, 0.104, 0, -0.12, 0, PAPER), B(0.104, 0.02, 0.104, 0, -0.17, 0, shade(PAPER, 0.85)));
   const as = setOf(armsItem);
   if (as === 'bellwarden') P.push(B(0.13, 0.08, 0.13, 0, -0.22, 0, BELL), B(0.14, 0.02, 0.14, 0, -0.17, 0, BELL_L));
   if (as === 'thornstalker') for (let i = 0; i < 3; i++) P.push(B(0.025, 0.07, 0.025, 0.05, -0.12 - i * 0.05, 0, THORN, 0, 0, -0.9));
@@ -164,11 +180,12 @@ export function headParts(cls) {
   if (cls === 'samurai') P.push(B(0.08, 0.12, 0.08, 0, 0.34, -0.06, C.hair), B(0.1, 0.03, 0.1, 0, 0.36, -0.06, 0xd8342c), B(0.4, 0.04, 0.36, 0, 0.26, 0, 0xd8342c)); // topknot + hachimaki
   if (cls === 'archer') P.push(B(0.12, 0.06, 0.04, -0.08, 0.28, 0.16, C.hair, 0, 0, 0.3), B(0.1, 0.06, 0.04, 0.09, 0.27, 0.16, C.hair, 0, 0, -0.2)); // fringe
   if (cls === 'witch') P.push(B(0.07, 0.24, 0.1, -0.2, 0.02, 0, C.hair), B(0.07, 0.24, 0.1, 0.2, 0.02, 0, C.hair), B(0.12, 0.1, 0.1, 0, 0.0, -0.18, C.hair)); // long hair
+  if (cls === 'soulbound') P.push(B(0.24, 0.08, 0.05, 0.06, 0.24, 0.16, C.hair, 0, 0, -0.35), B(0.06, 0.1, 0.05, -0.15, 0.2, 0.16, 0xcfe4e2, 0, 0, 0.25), B(0.07, 0.18, 0.08, -0.2, 0.08, 0.02, C.hair), B(0.1, 0.06, 0.1, 0.02, 0.32, -0.02, C.hair, 0, 0, 0.3)); // swept fringe, one pale streak
   return P;
 }
 // hats / helms: the class hat when no helm is worn, so the silhouette always reads
 export function helmParts(cls, helm) {
-  const kind = helm ? (HELM_LOOK[helm.base] || 'cap') : { samurai: 'none', archer: 'hood', witch: 'witchhat' }[cls];
+  const kind = helm ? (HELM_LOOK[helm.base] || 'cap') : { samurai: 'none', archer: 'hood', witch: 'witchhat', soulbound: 'none' }[cls];
   // (a porcelain mask covers the face: the eyes show through as dark slits)
   const rar = helm ? RAR[helm.r || 0] : 0xffd25e;
   const P = [];
@@ -379,10 +396,10 @@ function oversized(base, it) {
   return { parts: [B(0.06, 0.9, 0.06, 0, -0.1, 0, 0x8a7a6a)], glow: [] };
 }
 export function weaponModel(item, cls = 'samurai') {
-  const kind = item ? item.kind : { archer: 'bow', witch: 'staff' }[cls] || 'katana';
-  const base = item ? item.base : { archer: 'huntbow', witch: 'acornstaff' }[cls] || 'rustkatana';
+  const kind = item ? item.kind : { archer: 'bow', witch: 'staff', soulbound: 'chain' }[cls] || 'katana';
+  const base = item ? item.base : { archer: 'huntbow', witch: 'acornstaff', soulbound: 'tetherchain' }[cls] || 'rustkatana';
   const H = HEIRLOOM_BY_ID[base];
-  let W = (H ? heirloomModel(H) : null) || named(base, item) || (kind === 'oversized' ? oversized(base, item) : kind === 'katana' ? katana(base, item) : kind === 'bow' ? bow(base, item) : staff(base, item));
+  let W = kind === 'chain' ? chainWeapon(base, item, H) : (H ? heirloomModel(H) : null) || named(base, item) || (kind === 'oversized' ? oversized(base, item) : kind === 'katana' ? katana(base, item) : kind === 'bow' ? bow(base, item) : staff(base, item));
   if (item && item.unique) W = legendary(item.unique, W);
   if (item && item.craft) (W.glow || (W.glow = [])).push(B(0.03, 0.03, 0.03, 0.05, kind === 'bow' ? 0 : 0.12, 0.05, 0x9ad8ff));
   W.scale = (W.scale || 1) * (item && item.visualScale ? item.visualScale : 1);
@@ -400,6 +417,27 @@ export function weaponMesh(item, cls) {
   g.userData.kind = W.kind;
   g.traverse(o => { if (o.isMesh) o.layers.enable(1); });
   return g;
+}
+
+// SoulChains: a wrapped grip with a coil of links; the lash itself is drawn live by the
+// chain rig (rpg/soulbound.js), so in the hand this is only the grip and the gathered coil.
+export const CHAIN_LOOK = {
+  tetherchain: [0x6a6258, 0x8fe3dc], shrinecord: [0xb89a6a, 0xfff0c0], lanternlinks: [0x5a5a64, 0xffd88a], ferrymanchain: [0x4a4e58, 0x9ad8ff],
+  mothsilk: [0xd8d0c0, 0xe0d0ff], gravechain: [0x3a3a42, 0xb8a8ff], wispwoven: [0x6a8a88, 0xb8fff0], veilchain: [0x2e3440, 0xc8b0ff],
+  wayfarerlinks: [0xa8a298, 0x8fe3dc], tidewhisper: [0x5a7a8a, 0x55bfff], duskcoil: [0x4a3a5a, 0xb765ef], lanternchain: [0x6a5a48, 0xffc860], threshold: [0x2a2e3a, 0xc8b0ff],
+};
+export const chainColors = item => CHAIN_LOOK[item && item.base] || (item && item.unique && CHAIN_LOOK[item.unique]) || CHAIN_LOOK.tetherchain;
+function chainWeapon(base, it, H) {
+  const [iron, orb] = chainColors(it || { base });
+  const P = [B(0.055, 0.15, 0.055, 0, -0.02, 0, LEATHER), B(0.065, 0.025, 0.065, 0, 0.12, 0, shade(iron, 1.3)), B(0.07, 0.03, 0.07, 0, -0.04, 0, shade(LEATHER, 0.7))];
+  const G = [];
+  // the gathered coil: a ring of links around the grip's head
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; P.push(B(0.05, 0.035, 0.028, Math.cos(a) * 0.1, 0.16 + Math.sin(a) * 0.1, 0.02, i % 2 ? iron : shade(iron, 1.35), 0, i % 2 ? 1.57 : 0, a)); }
+  G.push(B(0.03, 0.03, 0.03, 0, 0.26, 0.02, orb)); // the first spectral link
+  P.push(B(0.05, 0.08, 0.01, 0.05, -0.1, 0.03, PAPER)); G.push(B(0.018, 0.018, 0.012, 0.05, -0.07, 0.037, orb)); // a seal tied to the grip
+  if (it && it.r >= 2) G.push(B(0.02, 0.02, 0.02, -0.07, 0.2, 0.05, RAR[it.r]));
+  if (H && H.prismatic) for (let i = 0; i < 4; i++) G.push(B(0.025, 0.025, 0.025, Math.cos(i * 1.57) * 0.14, 0.16 + Math.sin(i * 1.57) * 0.14, 0.03, [0x75e9ff, 0xb992ff, 0xff79d9, 0xffd763][i]));
+  return { parts: P, glow: G };
 }
 
 // ------------------------------------------------------------------ the figure
@@ -450,8 +488,8 @@ export function makeHero(cls = 'samurai') {
     setMesh(torso, torsoParts(cls, V.chest));
     setMesh(legLm, legParts(cls, V.legs, V.boots, V.chest, -1));
     setMesh(legRm, legParts(cls, V.legs, V.boots, V.chest, 1));
-    setMesh(armLm, armParts(cls, V.arms, V.chest));
-    setMesh(armRm, armParts(cls, V.arms, V.chest));
+    setMesh(armLm, armParts(cls, V.arms, V.chest, -1));
+    setMesh(armRm, armParts(cls, V.arms, V.chest, 1));
     setMesh(helm, helmParts(cls, V.head));
     setMesh(neck, neckParts(V.neck));
     setWeapon(V.weapon);

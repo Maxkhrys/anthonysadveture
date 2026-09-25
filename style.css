@@ -482,3 +482,10 @@ body.aiming #game{cursor:none}
 #abilities.disrupted .ab{filter:sepia(.9) brightness(.7)}
 #abilities.disrupted{animation:disrupt .5s infinite alternate}
 @keyframes disrupt{to{filter:drop-shadow(0 0 6px #e0b860)}}
+/* Soulbound: the Soul Echo globe shows five pips; the one still forming glows faintly */
+.globe.res.echo .pips{position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);display:flex;gap:4px;pointer-events:none}
+.globe.res.echo .pips i{width:9px;height:9px;transform:rotate(45deg);background:#1b2426;border:1px solid #5a8a86;box-shadow:0 0 0 1px #0008}
+.globe.res.echo .pips i.on{background:#bff4ee;border-color:#e8fffb;box-shadow:0 0 6px #8fe3dc}
+.globe.res.echo .pips i.half{background:#4a7a76;border-color:#8fe3dc}
+.ccard .tagline{text-align:center;font-style:italic;color:#9ee0d8;font-size:12px;margin:-4px 0 8px}
+#classcards .ccard{width:236px}

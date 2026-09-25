@@ -2,7 +2,7 @@ import {renderCreative} from './dev/creative.js';
 // Shared journal presentation. Uses existing inventory, quest, map and service systems.
 import { glyph, controlsHTML } from './engine/actions.js';
 import { abilityIcon } from './ui_icons.js';
-import { CLASSES, xpNeed } from './rpg/classes.js';
+import { CLASSES, xpNeed, costLabel, echoCount, MAX_ECHOES } from './rpg/classes.js';
 import { SKILLS, treeOf } from './rpg/skills.js';
 import { sfx } from './engine/audio.js';
 const $ = id => document.getElementById(id);
@@ -83,7 +83,7 @@ export function installJournalUI(UI) {
     hotbar.call(this);
     (this._slots || []).forEach((el,i) => {
       const S = SKILLS[this.g.inv.loadout[i]];
-      el.title = S ? `${glyph('ab'+(i+1))} · ${S.name}\n${S.desc}\n${S.cost} ${CLASSES[this.g.inv.cls].res} · ${S.cd}s cooldown\nClick to edit loadout` : `Slot ${i+1} · Click to assign an ability`;
+      el.title = S ? `${glyph('ab'+(i+1))} · ${S.name}\n${S.desc}\n${costLabel(this.g.inv.cls, S.cost)} · ${S.cd}s cooldown\nClick to edit loadout` : `Slot ${i+1} · Click to assign an ability`;
       el.tabIndex = 0; el.setAttribute('role','button'); el.setAttribute('aria-label', el.title);
       el.onclick = () => { this.treeSlot = i; if (S) this.treeSel = this.g.inv.loadout[i]; this.navigate?.('skills'); };
       el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); el.click(); } };
@@ -101,7 +101,7 @@ export function installJournalUI(UI) {
       $('title').querySelector('.foot').textContent = 'WASD move · Mouse aim / attack · Q guard · Space dodge · F interact · H tonic · E inventory · K skills · J journal · M map';
     }
     const inv = this.g.inv, C = CLASSES[inv.cls], plaque = $('hero-plaque');
-    if (plaque.dataset.cls !== inv.cls) { plaque.dataset.cls = inv.cls; plaque.querySelector('.hero-seal').innerHTML = abilityIcon({samurai:'iaido',archer:'multishot',witch:'familiar'}[inv.cls]); }
+    if (plaque.dataset.cls !== inv.cls) { plaque.dataset.cls = inv.cls; plaque.querySelector('.hero-seal').innerHTML = abilityIcon({samurai:'iaido',archer:'multishot',witch:'familiar',soulbound:'soulhook'}[inv.cls]); }
     if(inv.fireRod){const tool=$('slot-item');tool.title=(inv.activeTool==='fireRod'?'Cinder Rod':'Gustbellows')+' · L use · Y swap';tool.querySelector('.cap').textContent=inv.activeTool==='fireRod'?'FIRE':'WIND';tool.querySelector('.icon').style.filter=inv.activeTool==='fireRod'?'hue-rotate(160deg) saturate(2)':'';}
     $('xpbar').title = `Experience ${inv.xp} / ${xpNeed(inv.level)}`;
     $('xpbar').setAttribute('aria-label', $('xpbar').title);
@@ -111,7 +111,7 @@ export function installJournalUI(UI) {
     plaque.querySelector('.hero-hp span').textContent = `${Math.ceil(inv.hp)} / ${inv.maxHp}`;
     plaque.querySelector('.hero-resource i').style.width = `${this.g.res}%`;
     plaque.querySelector('.hero-resource i').style.backgroundColor = C.resColor;
-    plaque.querySelector('.hero-resource span').textContent = `${Math.floor(this.g.res)} ${C.res}`;
+    plaque.querySelector('.hero-resource span').textContent = C.echo ? `${echoCount(this.g.res)} / ${MAX_ECHOES} ${C.res}` : `${Math.floor(this.g.res)} ${C.res}`;
     $('map-caption').textContent = this.g.area?.name || 'The world';
     $('objective').classList.toggle('hidden', this.g.settings.questGuide === false);
     const dev = this.g.area?.id === 'devroom' || !!this.g.devSandbox;

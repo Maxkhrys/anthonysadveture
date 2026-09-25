@@ -1,11 +1,12 @@
 // Guided first-session tutorial: a live checklist that reacts to what you do.
 import { sfx } from './engine/audio.js';
 
-const CHARGE = { samurai: 'Hold <kbd>C</kbd>, release to spin-slash', archer: 'Hold <kbd>C</kbd> to charge a piercing shot', witch: 'Hold <kbd>C</kbd> to hurl a fireball' };
+const CHARGE = { samurai: 'Hold <kbd>C</kbd>, release to spin-slash', archer: 'Hold <kbd>C</kbd> to charge a piercing shot', witch: 'Hold <kbd>C</kbd> to hurl a fireball', soulbound: 'Hold <kbd>C</kbd> to wind the chain, release to whirl it round you' };
 // The same opening for everyone, taught the way each class actually fights.
 const CLS = {
   samurai: { attack: 'Aim with the mouse and click: three taps make a combo (<kbd>C</kbd> cuts where you face)', guard: 'Tap <kbd>Q</kbd> right before a hit to <b>parry</b> — the next cut is a sure crit', ability: 'Press <kbd>1</kbd>: Iaido Dash. It spends <b>Ki</b>, which your blade earns with every hit' },
   archer: { attack: 'Aim with the mouse and click to loose — you can walk while you aim', guard: 'Tap <kbd>Q</kbd> just before a hit to parry, or roll away and keep your distance', ability: 'Press <kbd>1</kbd>: Multishot. It spends <b>Focus</b>, which refills quickly' },
+  soulbound: { attack: 'Aim with the mouse and click: four lashes make a combo, and every lash that lands gathers <b>Soul Echoes</b>', guard: 'Tap <kbd>Q</kbd> just before a hit to parry — or slip away through the Veil', ability: 'Press <kbd>1</kbd>: Soul Hook. Small foes come to you; big ones pull you to them' },
   witch: { attack: 'Aim with the mouse and click: bolts bend a little toward foes near your aim', guard: 'Tap <kbd>Q</kbd> just before a hit to parry — you are fragile, so roll often', ability: 'Press <kbd>1</kbd>: Frost Nova. Heavy blows shatter what it freezes. It spends <b>Mana</b>' },
 };
 export function guideSteps(cls) {

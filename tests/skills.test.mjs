@@ -44,11 +44,11 @@ async function castAll(page, cls) {
 
 export default async function (page, R) {
   // ---------------------------------------------------------------- every ability, every class
-  for (const cls of ['samurai', 'archer', 'witch']) {
+  for (const cls of ['samurai', 'archer', 'witch', 'soulbound']) {
     const res = await castAll(page, cls);
     const ids = Object.keys(res);
     R.ok(ids.length >= 8, `${cls}: at least 8 active abilities in the tree`, ids.join(','));
-    const bad = ids.filter(id => !res[id].cast || !(res[id].dmg > 0) && id !== 'familiar');
+    const bad = ids.filter(id => !res[id].cast || !(res[id].dmg > 0) && id !== 'familiar' && id !== 'ancestorward'); // (wards only strike back when struck)
     R.ok(!bad.length, `${cls}: every active casts through the hotbar and damages foes`, JSON.stringify(Object.fromEntries(bad.map(b => [b, res[b]]))));
   }
 

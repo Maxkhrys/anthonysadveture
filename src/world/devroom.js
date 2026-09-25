@@ -334,7 +334,7 @@ export class DevClassShrine extends Entity {
     const C = CLASSES[classId];
     this.displayName = `${C.name} Quick Shrine`;
 
-    const iconCol = { samurai: 0xd8342c, archer: 0x7fd36a, witch: 0x8b5cf6 }[classId] || 0xffd25e;
+    const iconCol = { samurai: 0xd8342c, archer: 0x7fd36a, witch: 0x8b5cf6, soulbound: 0x8fe3dc }[classId] || 0xffd25e;
     const parts = [
       B(0.8, 0.15, 0.8, 0, 0.08, 0, 0x221a30),
       B(0.4, 0.9, 0.4, 0, 0.55, 0, 0x36284a),
@@ -833,6 +833,7 @@ export function buildDevRoom() {
   defs.push({ type: 'custom_entity', factory: g => new DevClassShrine(g, 6.0, 22.0, 'samurai') });
   defs.push({ type: 'custom_entity', factory: g => new DevClassShrine(g, 10.0, 22.0, 'archer') });
   defs.push({ type: 'custom_entity', factory: g => new DevClassShrine(g, 14.0, 22.0, 'witch') });
+  defs.push({ type: 'custom_entity', factory: g => new DevClassShrine(g, 18.0, 22.0, 'soulbound') });
 
   // LAB 5: Weapon Test Range (South-West)
   defs.push({ type: 'custom_entity', factory: g => new DevTrainingDummy(g, 6.0, 36.0, 'dps', { name: 'DPS Dummy' }) });

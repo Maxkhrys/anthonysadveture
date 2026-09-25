@@ -6,6 +6,7 @@ import { initAudio, playMusic, toggleMusic, sfx } from './engine/audio.js';
 import { Game } from './game.js';
 import { LocalSaveProvider } from './persistence/provider.js';
 import { SettingsPanel } from './settings.js';
+import * as SOULBOUND from './rpg/soulbound.js';
 import * as ITEMS from './rpg/items.js';
 import * as CRAFT from './rpg/crafting.js';
 import * as SKILLS from './rpg/skills.js';
@@ -128,7 +129,7 @@ async function boot() {
       mode = 'play'; game.ui.invTab = page; game.ui.openInventory();
     } else { mode = 'pause'; game.ui.openPause(); game.ui.tab(page); }
   };
-  window.__game = game; window.__items = ITEMS; window.__craft = CRAFT; window.__combat = COMBAT; window.__Boss = Boss; window.__skills = SKILLS; window.__gear = GEAR; window.__elements = ELEMENTS; window.__m3 = M3; window.__settings = SETTINGS; window.__devDefs = DEVDEFS; // test hooks
+  window.__game = game; window.__items = ITEMS; window.__craft = CRAFT; window.__combat = COMBAT; window.__Boss = Boss; window.__skills = SKILLS; window.__gear = GEAR; window.__elements = ELEMENTS; window.__m3 = M3; window.__settings = SETTINGS; window.__devDefs = DEVDEFS; window.__sb = SOULBOUND; // test hooks
   progress(45, 'Growing Whisperwood…'); await tick();
   game.loadArea('overworld', 'start');
   game.cutscene = true;

@@ -8,7 +8,7 @@ const FODDER = ['blot', 'sporeling', 'wisp'], HEAVY = ['knight', 'treant', 'gole
 export default async function (page, R) {
   await page.evaluate(() => { const s = window.__sim; window.__sim = (f, k) => { window.__game.noRender = true; s(f, k); window.__game.noRender = false; }; });
   const table = [];
-  for (const cls of ['samurai', 'archer', 'witch']) {
+  for (const cls of ['samurai', 'archer', 'witch', 'soulbound']) {
     for (const lvl of [1, 5, 10]) {
       await fresh(page, cls, { level: lvl });
       const row = await page.evaluate(([ATTACKS, lvl]) => {

@@ -119,6 +119,15 @@ const SFX = {
   oath: () => { bell(N(57), 1.4, 0.18); tone(N(45), 0.8, { type: 'triangle', vol: 0.12 }); },
   forge: () => { bell(N(84), 1.2, 0.2); noise(0.3, { freq: 3000, vol: 0.2 }); [72, 79, 84].forEach((n, i) => tone(N(n), 0.12, { vol: 0.1, delay: 0.1 + i * 0.06 })); },
   soulpick: () => { bell(N(88), 0.8, 0.15); tone(N(76), 0.3, { type: 'triangle', vol: 0.1 }); },
+  // Soulbound: the chain's whip-crack, the Veil, and the soft notes of gathered Echoes
+  lash: () => { noise(0.1, { freq: 3200, slide: 0.25, vol: 0.22, q: 3 }); noise(0.05, { freq: 6000, vol: 0.2, q: 1.5, delay: 0.07 }); },
+  lash2: () => { noise(0.12, { freq: 2600, slide: 0.35, vol: 0.24, q: 3 }); for (let i = 0; i < 3; i++) tone(1400 + i * 260, 0.04, { type: 'triangle', vol: 0.05, delay: 0.06 + i * 0.02 }); },
+  chainpull: () => { for (let i = 0; i < 5; i++) tone(900 - i * 90, 0.05, { type: 'triangle', vol: 0.07, delay: i * 0.035 }); noise(0.25, { freq: 1800, vol: 0.15, q: 4, slide: 0.6 }); },
+  veilin: () => { tone(N(74), 0.35, { type: 'sine', vol: 0.12, slide: 0.5 }); noise(0.3, { freq: 900, vol: 0.14, slide: 0.4, q: 2 }); },
+  veilout: () => { tone(N(62), 0.25, { type: 'sine', vol: 0.12, slide: 2 }); noise(0.18, { freq: 4000, vol: 0.18, slide: 0.5, q: 3 }); bell(N(86), 0.5, 0.06, 0.05); },
+  echo: () => { bell(N(91), 0.6, 0.06); },
+  echospend: () => { bell(N(79), 0.9, 0.1); bell(N(86), 0.9, 0.07, 0.06); },
+  kindred: () => { tone(N(81), 0.12, { type: 'triangle', vol: 0.12, slide: 1.3 }); tone(N(86), 0.18, { type: 'triangle', vol: 0.1, slide: 0.9, delay: 0.1 }); bell(N(93), 0.8, 0.06, 0.2); },
   windmill: () => { tone(60, 1.5, { type: 'sawtooth', vol: 0.1, slide: 1.5 }); noise(1.2, { freq: 400, vol: 0.2 }); },
 };
 

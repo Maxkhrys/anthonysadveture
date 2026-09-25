@@ -12,6 +12,7 @@ export const FAMILY = {
   staff: { name: 'Staff', melee: false },
   wand: { name: 'Wand', melee: false },
   oversized: { name: 'Oversized', melee: true },
+  chain: { name: 'SoulChain', melee: true },
 };
 export function weaponFamily(w) {
   if (!w) return null;
@@ -20,7 +21,7 @@ export function weaponFamily(w) {
   return w.kind; // bow | staff | wand
 }
 export const HEAVY_BASES = new Set(['nodachi', 'onicleaver', 'bellclapper']);
-export const CLASS_FAMILIES = { samurai: ['blade', 'heavy'], archer: ['bow'], witch: ['staff', 'wand'] };
+export const CLASS_FAMILIES = { samurai: ['blade', 'heavy'], archer: ['bow'], witch: ['staff', 'wand'], soulbound: ['chain'] };
 // Off-class weapons work fully, at reduced scaling and without the class specialist perks.
 export const OFFCLASS_SCALING = 0.8;
 
