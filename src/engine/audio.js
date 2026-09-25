@@ -88,12 +88,46 @@ const SFX = {
   error: () => tone(140, 0.2, { vol: 0.2, type: 'sawtooth' }),
   windup: () => tone(N(58), 0.3, { type: 'sawtooth', vol: 0.06, slide: 1.6 }),
   shoot: () => { noise(0.15, { freq: 900, vol: 0.2 }); tone(300, 0.12, { slide: 0.5, vol: 0.12, type: 'triangle' }); },
+  bossSting: () => { [38, 41, 45].forEach(n => tone(N(n), 1.6, { type: 'sawtooth', vol: 0.1 })); [50, 53, 57].forEach((n, i) => tone(N(n), 0.5, { type: 'square', vol: 0.08, delay: 0.5 + i * 0.12 })); noise(0.9, { freq: 160, vol: 0.3, delay: 0.5 }); },
   roar: () => { tone(80, 1.2, { type: 'sawtooth', vol: 0.25, slide: 0.6 }); noise(1.2, { freq: 300, vol: 0.4, slide: 0.5 }); },
   inhale: () => noise(1.6, { freq: 200, slide: 6, vol: 0.35, q: 0.8 }),
   bossdie: () => { for (let i = 0; i < 6; i++) { noise(0.4, { freq: 300 + i * 200, vol: 0.4, delay: i * 0.18 }); tone(200 - i * 20, 0.3, { vol: 0.2, delay: i * 0.18, slide: 0.5 }); } },
   low: () => { tone(N(81), 0.08, { vol: 0.1 }); tone(N(81), 0.08, { vol: 0.1, delay: 0.16 }); },
   potion: () => { [72, 76, 79, 84].forEach((n, i) => tone(N(n), 0.12, { type: 'triangle', vol: 0.12, delay: i * 0.06 })); },
   spawn: () => noise(0.4, { freq: 200, slide: 3, vol: 0.2 }),
+  // ---- Pass 5: skills, elements, new creatures and bosses
+  crit: () => { tone(N(88), 0.06, { type: 'triangle', vol: 0.16 }); noise(0.07, { freq: 5200, vol: 0.22, q: 3 }); },
+  quake: () => { tone(55, 0.5, { vol: 0.55, slide: 0.45 }); noise(0.45, { freq: 180, vol: 0.5, type: 'lowpass', slide: 0.5 }); bell(N(48), 1.2, 0.18, 0.02); },
+  shatter: () => { for (let i = 0; i < 5; i++) tone(2000 + Math.random() * 2600, 0.12 + i * 0.03, { type: 'triangle', vol: 0.09, delay: i * 0.025 }); noise(0.2, { freq: 6000, vol: 0.3, q: 0.8 }); },
+  glass: () => { bell(N(96), 0.5, 0.12); noise(0.12, { freq: 7000, vol: 0.18, q: 2 }); },
+  zap: () => { tone(900, 0.08, { type: 'sawtooth', vol: 0.1, slide: 0.3 }); noise(0.07, { freq: 4000, vol: 0.18, q: 1.5 }); },
+  thread: () => { tone(620 + Math.random() * 120, 0.12, { type: 'sawtooth', vol: 0.05, slide: 1.4 }); noise(0.1, { freq: 5000, vol: 0.1, q: 4 }); },
+  tether: () => { tone(N(62), 0.25, { type: 'triangle', vol: 0.14, slide: 1.3 }); noise(0.25, { freq: 900, vol: 0.12, q: 3 }); },
+  snap: () => { noise(0.12, { freq: 2600, vol: 0.35, q: 1 }); tone(180, 0.15, { slide: 0.4, vol: 0.2 }); },
+  moth: () => noise(0.5, { freq: 1600, vol: 0.12, q: 6, slide: 0.7 }),
+  hex: () => { tone(N(55), 0.4, { type: 'sawtooth', vol: 0.08, slide: 0.8 }); tone(N(61), 0.4, { type: 'square', vol: 0.05, slide: 0.8, delay: 0.05 }); },
+  draw: () => { noise(0.25, { freq: 5000, slide: 0.4, vol: 0.18, q: 5 }); tone(N(86), 0.2, { type: 'triangle', vol: 0.08, delay: 0.12 }); },
+  weakpoint: () => { tone(N(92), 0.08, { type: 'square', vol: 0.12 }); tone(N(99), 0.12, { type: 'square', vol: 0.1, delay: 0.05 }); noise(0.1, { freq: 3000, vol: 0.25 }); },
+  armorbreak: () => { tone(1500, 0.3, { type: 'triangle', vol: 0.2, slide: 0.5 }); noise(0.35, { freq: 2500, vol: 0.35, slide: 0.4 }); tone(90, 0.3, { vol: 0.3, slide: 0.5 }); },
+  bonk: () => { tone(420, 0.25, { type: 'triangle', vol: 0.35, slide: 0.55 }); tone(1260, 0.35, { type: 'sine', vol: 0.15 }); },
+  croak: () => { tone(70, 0.5, { type: 'sawtooth', vol: 0.35, slide: 1.3 }); tone(95, 0.35, { type: 'square', vol: 0.15, slide: 0.8, delay: 0.25 }); },
+  tongue: () => { noise(0.2, { freq: 900, vol: 0.3, slide: 2.5, q: 2 }); tone(300, 0.15, { slide: 2, vol: 0.1 }); },
+  stitch: () => { for (let i = 0; i < 3; i++) tone(1800 + i * 300, 0.05, { type: 'triangle', vol: 0.08, delay: i * 0.05 }); },
+  wax: () => noise(0.4, { freq: 500, vol: 0.18, slide: 0.6, type: 'lowpass' }),
+  lunge: () => { noise(0.14, { freq: 4200, slide: 0.3, vol: 0.3, q: 4 }); tone(700, 0.1, { type: 'sawtooth', vol: 0.08, slide: 0.4 }); },
+  resonate: () => { bell(N(69), 1.0, 0.16); bell(N(70), 1.0, 0.12, 0.03); },
+  oath: () => { bell(N(57), 1.4, 0.18); tone(N(45), 0.8, { type: 'triangle', vol: 0.12 }); },
+  forge: () => { bell(N(84), 1.2, 0.2); noise(0.3, { freq: 3000, vol: 0.2 }); [72, 79, 84].forEach((n, i) => tone(N(n), 0.12, { vol: 0.1, delay: 0.1 + i * 0.06 })); },
+  soulpick: () => { bell(N(88), 0.8, 0.15); tone(N(76), 0.3, { type: 'triangle', vol: 0.1 }); },
+  // Soulbound: the chain's whip-crack, the Veil, and the soft notes of gathered Echoes
+  lash: () => { noise(0.1, { freq: 3200, slide: 0.25, vol: 0.22, q: 3 }); noise(0.05, { freq: 6000, vol: 0.2, q: 1.5, delay: 0.07 }); },
+  lash2: () => { noise(0.12, { freq: 2600, slide: 0.35, vol: 0.24, q: 3 }); for (let i = 0; i < 3; i++) tone(1400 + i * 260, 0.04, { type: 'triangle', vol: 0.05, delay: 0.06 + i * 0.02 }); },
+  chainpull: () => { for (let i = 0; i < 5; i++) tone(900 - i * 90, 0.05, { type: 'triangle', vol: 0.07, delay: i * 0.035 }); noise(0.25, { freq: 1800, vol: 0.15, q: 4, slide: 0.6 }); },
+  veilin: () => { tone(N(74), 0.35, { type: 'sine', vol: 0.12, slide: 0.5 }); noise(0.3, { freq: 900, vol: 0.14, slide: 0.4, q: 2 }); },
+  veilout: () => { tone(N(62), 0.25, { type: 'sine', vol: 0.12, slide: 2 }); noise(0.18, { freq: 4000, vol: 0.18, slide: 0.5, q: 3 }); bell(N(86), 0.5, 0.06, 0.05); },
+  echo: () => { bell(N(91), 0.6, 0.06); },
+  echospend: () => { bell(N(79), 0.9, 0.1); bell(N(86), 0.9, 0.07, 0.06); },
+  kindred: () => { tone(N(81), 0.12, { type: 'triangle', vol: 0.12, slide: 1.3 }); tone(N(86), 0.18, { type: 'triangle', vol: 0.1, slide: 0.9, delay: 0.1 }); bell(N(93), 0.8, 0.06, 0.2); },
   windmill: () => { tone(60, 1.5, { type: 'sawtooth', vol: 0.1, slide: 1.5 }); noise(1.2, { freq: 400, vol: 0.2 }); },
 };
 
@@ -108,6 +142,14 @@ const TRACKS = {
   dungeon: { bpm: 92, lead: 'D5:4 - :2 F5:2 E5:4 C5:4 D5:4 - :2 A4:2 C5:6 - :2 D5:4 - :2 F5:2 G5:4 A5:2 G5:2 F5:4 E5:4 D5:8', bass: 'D2:8 C2:8 D2:8 A1:8 D2:8 E2:8 F2:4 C2:4 D2:8', wave: 'triangle' },
   boss: { bpm: 156, lead: 'D5:1 D5:1 F5:1 D5:1 G5:1 D5:1 G#5:1 A5:1 D5:1 D5:1 F5:1 D5:1 C5:2 A4:2 D5:1 D5:1 F5:1 D5:1 G5:1 D5:1 A5:2 C6:1 A5:1 G5:1 F5:1 E5:2 C5:2', bass: 'D2:1 D3:1 D2:1 D3:1 D2:1 D3:1 D2:1 D3:1 A#1:1 A#2:1 A#1:1 A#2:1 C2:1 C3:1 C2:1 C3:1 D2:1 D3:1 D2:1 D3:1 D2:1 D3:1 D2:1 D3:1 A#1:1 A#2:1 C2:1 C3:1 A1:1 A2:1 A1:1 A2:1', wave: 'sawtooth' },
   cave: { bpm: 70, lead: 'E5:6 B4:2 C5:4 A4:4 - :4 E5:2 F5:2 E5:4 B4:4 - :4', bass: 'E2:8 A1:8 E2:8 B1:8', wave: 'triangle' },
+  // Pass 6: one theme per region (same small synth, each with its own mode and pulse)
+  forest: { bpm: 96, lead: 'D5:2 F5:2 A5:4 G5:2 F5:2 E5:4 D5:2 C5:2 D5:4 A4:4 - :2 D5:2 F5:2 G5:2 A5:4 C6:2 A5:2 G5:4 F5:2 E5:2 D5:8', bass: 'D3:8 C3:8 A2:8 D3:8 D3:8 F2:8 G2:8 D3:8', wave: 'triangle' },
+  glass: { bpm: 88, lead: 'E5:2 B5:2 G5:4 F#5:2 D5:2 E5:4 - :2 B4:2 C#5:2 D5:4 E5:2 F#5:2 G5:4 A5:2 B5:2 E5:8', bass: 'E2:8 C3:8 D3:8 E3:8', wave: 'triangle', pad: true },
+  lake: { bpm: 78, lead: 'G4:4 B4:2 D5:2 E5:4 D5:4 B4:2 A4:2 G4:4 - :4 E4:2 G4:2 A4:4 B4:4 D5:2 B4:2 A4:8', bass: 'G2:8 E2:8 C3:8 D3:8', wave: 'triangle', pad: true },
+  desert: { bpm: 116, lead: 'E5:2 F5:1 E5:1 D5:2 E5:2 - :2 B4:2 C5:4 B4:2 A4:2 G#4:2 A4:2 B4:4 - :4 E5:2 F5:1 G#5:1 A5:2 G#5:2 F5:2 E5:2 F5:4 E5:8', bass: 'E2:4 E3:4 E2:4 F2:4 E2:4 E3:4 D2:4 E2:4', wave: 'square' },
+  volcano: { bpm: 132, lead: 'A4:2 A4:1 C5:1 A4:2 D#5:2 D5:2 C5:2 A4:4 G4:2 A4:2 C5:2 D5:2 D#5:4 D5:4 A4:8', bass: 'A1:2 A2:2 A1:2 A2:2 F1:2 F2:2 G1:2 G2:2 A1:2 A2:2 A1:2 A2:2 D#2:2 D2:2 A1:4', wave: 'sawtooth' },
+  marsh: { bpm: 72, lead: 'C5:4 D#5:4 G4:4 - :4 C5:2 D5:2 D#5:4 F5:4 D#5:4 D5:8 - :4', bass: 'C2:8 G#1:8 F1:8 G1:8', wave: 'triangle', pad: true },
+  highlands: { bpm: 100, lead: 'A4:2 D5:2 E5:4 F#5:4 E5:2 D5:2 B4:4 A4:4 - :2 A4:2 B4:2 D5:2 F#5:4 A5:4 G5:2 F#5:2 E5:8', bass: 'D2:8 G2:8 D2:8 A2:8', wave: 'triangle', pad: true },
   camp: { bpm: 140, lead: 'E5:1 E5:1 - :1 E5:1 G5:2 E5:2 D5:2 B4:2 D5:2 E5:1 E5:1 - :1 E5:1 A5:2 G5:2 E5:4 - :4', bass: 'E2:1 E3:1 E2:1 E3:1 E2:1 E3:1 E2:1 E3:1 C2:1 C3:1 C2:1 C3:1 D2:1 D3:1 D2:1 D3:1 E2:1 E3:1 E2:1 E3:1 E2:1 E3:1 E2:1 E3:1 C2:1 C3:1 D2:1 D3:1 E2:4', wave: 'square' },
 };
 function parse(line) {
@@ -165,3 +207,44 @@ export function toggleMusic() {
   return musicOn;
 }
 export function duckMusic(on) { if (musBus && ctx) musBus.gain.setTargetAtTime(on ? VOL.music * 0.3 : VOL.music, ctx.currentTime, 0.2); }
+// a single pitched bell (puzzle bells ring their own note)
+export function playTone(midi) { if (ctx) bell(N(midi), 1.6, 0.28); }
+
+// ---------------- Pass 6: regional ambience -----------------
+// Sparse, quiet sound beds under the music: a few one-shots every few seconds, chosen by the
+// region you stand in (and whether it's night). No looping noise.
+const AMB = {
+  meadow: n => n ? (Math.random() < 0.5 && crickets()) : (Math.random() < 0.6 && chirp()),
+  forest: n => n ? (Math.random() < 0.4 && owl()) : Math.random() < 0.5 ? chirp() : Math.random() < 0.3 && knock(),
+  deepforest: n => Math.random() < 0.35 ? owl() : Math.random() < 0.3 && creak(),
+  glass: () => Math.random() < 0.5 && tinkle(),
+  water: n => Math.random() < 0.5 ? lap() : !n && Math.random() < 0.3 && gull(),
+  dry: () => Math.random() < 0.6 && breeze(0.05),
+  volcanic: () => Math.random() < 0.5 ? rumble() : crackle(),
+  marsh: n => n ? (Math.random() < 0.6 ? frog() : crickets()) : Math.random() < 0.4 && frog(),
+  wind: () => Math.random() < 0.6 ? breeze(0.09) : Math.random() < 0.25 && bell(N(45), 3, 0.05),
+  cave: () => Math.random() < 0.4 && drip(),
+};
+const chirp = () => { const f = 2600 + Math.random() * 900; tone(f, 0.07, { type: 'sine', vol: 0.03, slide: 1.3 }); tone(f * 1.1, 0.06, { type: 'sine', vol: 0.025, slide: 1.25, delay: 0.1 }); };
+const crickets = () => { for (let i = 0; i < 4; i++) tone(4200, 0.03, { type: 'square', vol: 0.006, delay: i * 0.07 }); };
+const owl = () => { tone(N(57), 0.35, { type: 'sine', vol: 0.03 }); tone(N(55), 0.5, { type: 'sine', vol: 0.03, delay: 0.45 }); };
+const knock = () => { for (let i = 0; i < 5; i++) noise(0.02, { freq: 1500, vol: 0.03, delay: i * 0.09 }); };
+const creak = () => tone(140, 0.6, { type: 'sawtooth', vol: 0.012, slide: 1.3 });
+const tinkle = () => { const s = [76, 79, 81, 84, 88]; bell(N(s[Math.floor(Math.random() * s.length)] + 12), 1.4, 0.025); };
+const lap = () => noise(1.2, { freq: 500, vol: 0.03, slide: 0.6, type: 'lowpass' });
+const gull = () => tone(1400, 0.3, { type: 'triangle', vol: 0.015, slide: 0.7 });
+const breeze = v => noise(2.2, { freq: 700, vol: v * 0.5, slide: 1.6, q: 0.4 });
+const rumble = () => { tone(45, 1.5, { type: 'sine', vol: 0.05 }); noise(1.2, { freq: 120, vol: 0.04, type: 'lowpass' }); };
+const crackle = () => { for (let i = 0; i < 6; i++) noise(0.02, { freq: 3000 + Math.random() * 2000, vol: 0.02, delay: Math.random() * 0.6 }); };
+const frog = () => { tone(N(45), 0.12, { type: 'square', vol: 0.02, slide: 0.8 }); tone(N(45), 0.12, { type: 'square', vol: 0.02, slide: 0.8, delay: 0.18 }); };
+const drip = () => tone(1800 + Math.random() * 600, 0.08, { type: 'sine', vol: 0.03, slide: 0.5 });
+let ambId = null, ambNight = false, ambTimer = null;
+export const AMBIENCES = Object.keys(AMB);
+export function setAmbience(id, night = false) {
+  ambNight = night;
+  if (id === ambId) return;
+  ambId = id; clearInterval(ambTimer); ambTimer = null;
+  if (!id || !AMB[id]) return;
+  ambTimer = setInterval(() => { if (ctx && musicOn && ambId === id) AMB[id](ambNight); }, 2600);
+}
+export function currentAmbience() { return ambId; }

@@ -8,6 +8,16 @@ import { T, isLiquid } from '../world/tiles.js';
 
 const INK = [0x2a1a3a, 0x3e2856, 0x8b5cf6, 0x1b1024];
 
+// death debris by creature (presentation only)
+const DEATH_FX = {
+  blot: { n: 6, c: [0x2a1a3a, 0x3e2856], s: 0.09 }, seedling: { n: 6, c: [0x7fd36a, 0x4a8a3a], s: 0.07 },
+  beetle: { n: 8, c: [0x8a3a2a, 0xb24a30, 0xe8d0a0], s: 0.1 }, puffer: { n: 12, c: [0xb88ae0, 0xe0c8ff], s: 0.1, soft: true, g: -0.5, wob: 1 },
+  wisp: { n: 7, c: [0x4a3068, 0x6a48a0], s: 0.08, g: 2, wob: 2 }, knight: { n: 10, c: [0x3a3450, 0x544a70, 0x8a8aa0], s: 0.11 },
+  scorpion: { n: 8, c: [0xd8a860, 0xa87a3a], s: 0.09 }, imp: { n: 10, c: [0xff8a2a, 0xffd25e, 0xc0381a], s: 0.07, g: -1 },
+  wraith: { n: 10, c: [0x9ad8ff, 0x3a4a6a], s: 0.1, soft: true, g: -1 }, brigand: { n: 8, c: [0x5a2a3a, 0x8a8a9a, 0xc8b8a0], s: 0.09 },
+  sporeling: { n: 12, c: [0xc8e08a, 0xe0f0b0], s: 0.1, soft: true, g: -0.4, wob: 1 }, treant: { n: 14, c: [0x6a4a30, 0x4f8a3a, 0x8ac05a], s: 0.12, wob: 1.5, g: 5 },
+  golem: { n: 14, c: [0x8a8a9a, 0x6a6a7a, 0x7ad8ff], s: 0.14, g: 12 }, thief: { n: 10, c: [0xffd25e, 0x7a5a3a], s: 0.08 },
+};
 export class Enemy extends Entity {
   constructor(g, x, z, kind) {
     super(g, x, z);
@@ -26,9 +36,12 @@ export class Enemy extends Entity {
     this.walkT = Math.random() * 10;
   }
   get p() { return this.g.player; }
+  remove() { if (this.warnMk && this.warnMk.parent) this.warnMk.parent.remove(this.warnMk); this.warnMk = null; super.remove(); }
   setState(s) { this.state = s; this.st = 0; }
   takeToken() {
     if (this.token) return true;
+    // nobody commits to an attack from off-screen
+    if (!this.g.onScreen(this.x, this.z, 0.4)) return false;
     if (this.g.tokens >= (this.g.bossActive ? 2 : 3)) return false;
     this.g.tokens++; this.token = true; return true;
   }
@@ -53,17 +66,19 @@ export class Enemy extends Entity {
     flashObj(this.obj, 0.08);
     g.fx.burst(this.x, 0.35, this.z, 6, INK, 3, { life: 0.4 });
     g.fx.sparks(this.x, 0.35, this.z, h.dir, 5);
-    const heavy = h.kind === 'spin' || h.kind === 'surge' || h.kind === 'spin3';
+    const heavy = h.heavy || h.kind === 'spin' || h.kind === 'surge' || h.kind === 'spin3';
     sfx(heavy ? 'heavyhit' : 'hit');
     g.hitstop(heavy ? 0.07 : 0.045);
     g.pr.addShake(heavy ? 0.35 : 0.15);
     const kb = (h.kb ?? 4) * (this.poise && !heavy ? 0.15 : 1) * (this.kbMul ?? 1);
     this.kx = Math.sin(h.dir) * kb; this.kz = Math.cos(h.dir) * kb;
-    if (!this.poise || heavy) { this.stagger = heavy ? 0.5 : 0.28; this.onStagger && this.onStagger(); this.dropToken(); if (this.state === 'windup' || this.state === 'attack') this.setState('recover'); }
+    if ((!this.poise && !this.elite) || heavy) { this.stagger = heavy ? 0.5 : 0.28; this.onStagger && this.onStagger(); this.dropToken(); if (this.state === 'windup' || this.state === 'attack') this.setState('recover'); }
     if (this.hp <= 0) this.die(h);
     return 'hit';
   }
   onGust(dirAng, power) {
+    // wind fans flames: a gust through a burning foe spreads its fire (elements.js)
+    if (this.status && this.status.burn > 0 && !(this.fanT > this.g.time)) { this.fanT = this.g.time + 1; import('../rpg/elements.js').then(m => m.fanFlames(this.g, this, this.status)); }
     const kb = (power === 2 ? 9 : 6) * (this.gustMul ?? 1);
     this.kx = Math.sin(dirAng) * kb; this.kz = Math.cos(dirAng) * kb;
     this.stagger = Math.max(this.stagger, power === 2 ? 0.7 : 0.4);
@@ -75,9 +90,14 @@ export class Enemy extends Entity {
     const g = this.g;
     this.dropToken();
     sfx(how === 'splash' ? 'splash' : how === 'fall' ? 'fall' : 'enemydie');
+    if (how === 'splash') { g.fx.ring(this.x, this.z, 0.1, 1.3, 0xe8f8ff, 0.6, -0.1); g.fx.ring(this.x, this.z, 0.1, 0.8, 0xffffff, 0.9, -0.1); for (let i = 0; i < 14; i++) { const a = Math.random() * 6.28; g.fx.add({ x: this.x, y: 0, z: this.z, vx: Math.cos(a) * 1.5, vz: Math.sin(a) * 1.5, vy: 3 + Math.random() * 2, color: i % 2 ? 0xe8f8ff : 0x9ad8ff, life: 0.6, size: 0.06, g: 12, floor: -0.14 }); } }
     g.fx.burst(this.x, 0.4, this.z, 18, INK, 4.5, { life: 0.6 });
     g.fx.burst(this.x, 0.4, this.z, 6, 0xfff3b0, 3, { life: 0.4, size: 0.06 });
     g.fx.ring(this.x, this.z, 0.2, 1.2, 0x8b5cf6, 0.35);
+    // what each creature leaves behind: fragments of what it was made of, and a puff of shadow
+    const D = DEATH_FX[this.kind];
+    if (D) for (let i = 0; i < D.n; i++) { const a = Math.random() * 6.28, sp = 1.5 + Math.random() * 3; g.fx.add({ x: this.x, y: 0.35, z: this.z, vx: Math.cos(a) * sp, vz: Math.sin(a) * sp, vy: 2 + Math.random() * 3, color: D.c[i % D.c.length], life: 0.9 + Math.random() * 0.6, size: D.s * (0.7 + Math.random() * 0.6), g: D.g ?? 9, drag: 1, shrink: D.soft ? true : false, soft: !!D.soft, wob: D.wob || 0 }); }
+    for (let i = 0; i < 5; i++) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.4, y: 0.3, z: this.z + (Math.random() - 0.5) * 0.4, vy: 0.6 + Math.random() * 0.4, vx: (Math.random() - 0.5) * 0.6, g: 0, drag: 0.8, color: 0x2a1a3a, life: 1.0, size: 0.14, grow: 1.6, shrink: false, soft: true });
     if (!how) dropLoot(g, this.x, this.z, { ...this.loot, pips: Math.round((this.loot.pips || 1) * (1 + 0.3 * ((this.level || 1) - 1)) * (this.elite ? 3 : 1)) });
     g.stats.kills = (g.stats.kills || 0) + 1;
     this.remove();
@@ -97,7 +117,7 @@ export class Enemy extends Entity {
     this.g.ui.float(this.x, 0.9, this.z, '' + n, color, false, true);
     if (this.hp <= 0) this.die({ dir: 0 });
   }
-  onParried() { this.stagger = 1.2; this.dropToken(); this.setState('recover'); this.parried = 1.4; flashObj(this.obj, 0.15, 0xfff3b0); }
+  onParried() { this.stagger = 1.2; this.dropToken(); this.setState('recover'); this.parried = 1.4; this.riposted = false; flashObj(this.obj, 0.15, 0xfff3b0); this.g.ui.float(this.x, 1.3, this.z, 'OPEN!', '#fff3b0', false); }
 
   update(dt) {
     const g = this.g;
@@ -109,11 +129,16 @@ export class Enemy extends Entity {
     if (S) {
       for (const k in S) if (typeof S[k] === 'number' && k !== 'burnDps') S[k] = Math.max(0, S[k] - dt);
       if (S.burn > 0) { S.burnTick = (S.burnTick || 0) - dt; if (S.burnTick <= 0) { S.burnTick = 0.5; this.dot(S.burnDps * 0.5, '#ff8a2a'); } if (Math.random() < 0.3) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.4, y: 0.5, z: this.z + (Math.random() - 0.5) * 0.4, vy: 1.2, g: -1, color: Math.random() < 0.5 ? 0xff8a2a : 0xffd25e, life: 0.4, size: 0.05 }); }
+      if (S.wet > 0 && Math.random() < 0.15) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.4, y: 0.5, z: this.z + (Math.random() - 0.5) * 0.4, vy: -0.5, g: 6, color: 0x6ab8ff, life: 0.4, size: 0.04 });
+      if (S.hex > 0 && Math.random() < 0.15) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.5, y: 0.9, z: this.z + (Math.random() - 0.5) * 0.5, vy: 0.4, g: 0, color: 0xb88aff, life: 0.5, size: 0.05 });
       if ((S.chill > 0 || S.freeze > 0) && Math.random() < 0.2) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.4, y: 0.4, z: this.z + (Math.random() - 0.5) * 0.4, vy: 0.3, g: 0, color: 0xaee8ff, life: 0.5, size: 0.05 });
       if (S.mark > 0 && Math.random() < 0.1) g.fx.add({ x: this.x, y: 1.1, z: this.z, vy: 0.3, g: 0, color: 0xff5a8a, life: 0.4, size: 0.06 });
       if (this.iceBlock) this.iceBlock.visible = S.freeze > 0;
       if (this.dead) return;
     }
+    this.warn(dt);
+    // rain soaks everything outdoors; wet foes conduct lightning and flash-freeze
+    if (g.rainK > 0.5 && g.area && g.area.id === 'overworld' && !(this.status && this.status.wet > 1)) this.applyStatus('wet', 2);
     if (this.elite === 'Vampiric' && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.02 * dt);
     if (this.aura) this.aura.rotation.z += dt * 2;
     const frozen = S && (S.freeze > 0 || S.root > 0);
@@ -132,6 +157,7 @@ export class Enemy extends Entity {
       const t = g.tileAt(Math.floor(this.x), Math.floor(this.z));
       if (t === T.PIT) { const fx = this.x % 1, fz = this.z % 1; if (fx > 0.15 && fx < 0.85 && fz > 0.15 && fz < 0.85) return this.die(null, 'fall'); }
       if (isLiquid(t)) return this.die(null, 'splash');
+      if (t === T.SHALLOW && !(this.status && this.status.wet > 1)) this.applyStatus('wet', 2);
     }
     this.animate(dt, Math.hypot(vx, vz));
     this.sync();
@@ -175,6 +201,25 @@ export class Enemy extends Entity {
       return p.hurt({ dmg, x: this.x, z: this.z, src: this, ...opts });
     }
     return false;
+  }
+  // A '!' above anything winding up — the visible half of the wind-up sound. Heavy hitters
+  // (poised enemies and elites) show a larger amber mark: those blows break a plain guard.
+  warn(dt) {
+    const on = this.state === 'windup' || this.state === 'burrow';
+    if (on && !this.warnMk) {
+      const heavy = this.poise || this.elite;
+      const col = heavy ? 0xffa02a : 0xff4a4a;
+      this.warnMk = mesh([B(0.08, 0.22, 0.06, 0, 0.14, 0, col), B(0.08, 0.07, 0.06, 0, -0.04, 0, col)], MAT_GLOW, false);
+      this.warnMk.scale.setScalar(heavy ? 1.5 : 1);
+      this.warnMk.renderOrder = 5;
+      this.g.world.add(this.warnMk);
+    }
+    if (this.warnMk) {
+      if (!on || this.dead) { if (this.warnMk.parent) this.warnMk.parent.remove(this.warnMk); this.warnMk = null; return; }
+      const es = this.eliteScale || 1;
+      this.warnMk.position.set(this.x, 0.95 * es + (this.alt || 0) + (this.kind === 'knight' || this.kind === 'treant' || this.kind === 'golem' ? 0.6 : 0) + Math.abs(Math.sin(this.g.time * 12)) * 0.06, this.z);
+      this.warnMk.visible = Math.floor(this.st * 12) % 3 !== 0 || this.st > 0.25;
+    }
   }
   telegraph(t) {
     // eyes flash red during windup
@@ -359,7 +404,7 @@ export class Puffer extends Enemy {
       case 'aim': {
         if (!this.playerVisible()) { this.setState('idle'); return [0, 0]; }
         this.facing = angleLerp(this.facing, this.angleTo(p), Math.min(1, dt * 6));
-        if (this.cool <= 0 && d < 8) { this.setState('windup'); return [0, 0]; }
+        if (this.cool <= 0 && d < 8 && this.g.onScreen(this.x, this.z, 0.5)) { this.setState('windup'); return [0, 0]; }
         if (d < 3) { const a = this.angleTo(p) + Math.PI; return [Math.sin(a) * this.speed, Math.cos(a) * this.speed]; }
         return [0, 0];
       }
@@ -452,7 +497,7 @@ export class Knight extends Enemy {
     this.surgeGain = 5;
     this.cool = 1;
   }
-  modifyHit() { return this.parried > 0 ? 2 : 1; }
+  modifyHit() { return 1; }
   onGust(dir, power) { super.onGust(dir, power); if (power === 2) { this.stagger = 1.0; } else this.stagger = 0; }
   think(dt) {
     const p = this.p;
@@ -484,7 +529,7 @@ export class Knight extends Enemy {
           if (this.st < 0.02) {
             const fx = this.x + Math.sin(this.facing) * 1.1, fz = this.z + Math.cos(this.facing) * 1.1;
             this.g.fx.ring(fx, fz, 0.3, 2.0, 0xff5a8a, 0.35); this.g.pr.addShake(0.5); this.g.fx.dust(fx, fz, 10);
-            if (Math.hypot(p.x - fx, p.z - fz) < 1.8 + p.r) p.hurt({ dmg: 2, x: fx, z: fz, src: this, kb: 8 });
+            if (Math.hypot(p.x - fx, p.z - fz) < 1.8 + p.r) p.hurt({ dmg: 2.5, x: fx, z: fz, src: this, kb: 8, heavy: true });
           }
         }
         if (this.st > 0.45) { this.setState('recover'); this.dropToken(); this.cool = 1.2 + Math.random(); }

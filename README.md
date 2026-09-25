@@ -21,18 +21,26 @@ node serve.mjs            # or: npm start
 Any static file server works too, for example `python3 -m http.server 8080`. Opening `index.html` directly from
 disk won't work, because ES modules need to be served over HTTP.
 
-Progress autosaves to `localStorage` when you change area, open a chest, complete a quest or shop. You can also save
-from the pause menu. **Continue** on the title screen resumes from your last checkpoint.
+Characters autosave to browser storage at progression events and every 15 seconds of gameplay. Choose a named
+character on the title screen to resume from its checkpoint, or use **New Character** to start another locked class
+without replacing existing progress. The pause menu also offers manual saving. Old adventures migrate automatically;
+use **Export Save / Recovery Copy** on the title screen to keep an external backup.
+
+The storage key stays `mossling-save-v2` across normal releases. Saves are local to this browser/device/origin,
+**not an account or cloud save**. Different Vercel preview URLs and production/custom domains have separate storage.
+Use a stable production URL for ongoing play. See [character persistence](docs/character-persistence.md) for schema,
+migration, recovery, provider architecture, limitations and tests.
 
 ## Controls
 
 | Action | Keyboard / mouse | Gamepad |
 |---|---|---|
 | Move | WASD / arrow keys | Left stick / D-pad |
-| Basic attack (tap); charged attack (hold, then release) | J / left click | X |
-| Abilities | 1, 2, 3 | |
+| Aim | Mouse (pressing J switches to aiming where you face) | Right stick |
+| Basic attack (tap); charged attack (hold, then release) | Left click / J | X |
+| Abilities; hold Snare or Rain to see where it lands, release to cast | 1, 2, 3 | |
 | Guard: hold to block; tap *just* before a hit to **parry** | K / right click | LB / LT |
-| Roll (invulnerable) | Space / Shift | A |
+| Roll (invulnerable; standing still with a mouse = backstep) | Space / Shift | A |
 | Gustbellows: tap for a puff, **hold** for a gale | L | Y |
 | Talk / read / open / advance text | E / Enter | B |
 | Bag, equipment and skills | I | |
@@ -41,6 +49,167 @@ from the pause menu. **Continue** on the title screen resumes from your last che
 | Drink a Red Tonic | Q | Back |
 | Map, journal, gear, controls, settings | Esc / Tab | Start |
 | Music on/off | M | |
+
+## Pass 4: visual quality
+
+A presentation-only pass. No item, crafting, save, combat-number or boss-logic rules changed.
+Before/after captures are in `docs/screens/`.
+
+- **Hero and gear (`src/hero.js`).** A new layered figure with a face (it blinks, glances at your aim and squints
+  when hit) and class silhouettes:
+  - **Samurai:** topknot, hachimaki headband, shoulder guards, scabbard.
+  - **Archer:** feathered hood, quiver, cape.
+  - **Witch:** tall hat, long hair, robe.
+
+  **Visual equipment slots** are head, neck, chest, arms, legs, boots and weapon. Each reads whatever is equipped
+  in that slot, or from `helm`/`charm`/`armor`. Arms, legs and boots fall back to the chest piece's matching set,
+  so the outfit always reads as one piece. A future `arms`/`legs`/`boots`/`ring` slot will draw (and appear in the
+  inventory) automatically. Changing gear updates the model at once.
+- **Weapons.** Every base has its own silhouette, and special blades have glowing parts. The 12 Legendary weapons
+  get unique details. `item.visualScale` lets rare oversized weapons scale cleanly.
+- **Inventory.**
+  - A live, rotatable 3D paper doll on a mossy plinth, with slots around it.
+  - Pixel icons rendered from the real item models.
+  - Rarity frames, with Legendaries glowing.
+  - A large preview of the selected item, and green/red stat differences against what you're wearing.
+- **Workbench.** Shows Weapon + Essence + Material = Result with real icons, and a restrained "forge" pulse when
+  crafting succeeds.
+- **World.**
+  - A painted ground-detail shader, so tiles stop reading as a grid.
+  - Instanced clover, stones, toadstools, ferns, fallen leaves, twigs, root runs and a second layer of grass.
+  - **Miniature scale:** a few forest-edge tree tiles are a giant acorn, thimble, teacup, spool, bucket, log,
+    matchbox or trowel instead. Those tiles still block exactly as before, so paths and navigation are unchanged.
+  - Buttons and coins lie in the grass.
+- **Thimblewick.**
+  - Lantern posts along the lanes, and barrels, crates, pots and sacks against the houses.
+  - Chimney smoke, and windows and lamps that light up at night.
+  - Villagers work when idle: Posy wipes her stall, Oswin hauls sacks, Tamsin ponders, Brisk keeps watch, Fennel
+    plays.
+- **Atmosphere.**
+  - Per-region fog and mood through aerial perspective in the post pass.
+  - Real nights: darker, bluer, and lit by lamps and windows through a small pool of point lights.
+  - Pink dawns and amber dusks.
+  - Butterflies by day, fireflies at night, falling leaves in Whisperwood.
+- **Water.**
+  - Sky reflection, lapping shore foam and glints.
+  - Rings when it rains, and the water dims at night.
+  - Splashes when something falls in, and a wake from projectiles.
+- **Combat VFX.**
+  - Two-tone slash trails tinted by your blade.
+  - Grass clippings, and charge motes gathering at the bow or staff.
+  - Smoke on spell blasts.
+  - Per-creature death debris (shell, stone, leaves, spores, cloth) with a puff of shadow.
+- **Bramblemaw.**
+  - Letterboxed reveal, a push-in camera and a name card with a music sting.
+  - Spores drifting through the arena.
+  - A visible enrage at its existing phase-two threshold.
+- **Camera distance** is a new setting, from Very close to Widest. The default is unchanged.
+- **Map.** An illustrated parchment map with pins, labels, a compass and a heading arrow. Loot chests only appear
+  once you've been near them, so secrets aren't spoiled.
+- **Title.** A golden-hour drift over Thimblewick and a gilded logo.
+
+**Performance.** Scenery used to draw the whole map every frame. It is now batched per 16-tile chunk and
+frustum-culled, and flat dressing doesn't cast shadows.
+
+| Scene | Before: draw calls / triangles | After: draw calls / triangles |
+|---|---|---|
+| Village | 198 / 457k | 306 / 224k |
+| Forest | 100 / 451k | 243 / 283k |
+| Crowd of 24 | 294 / 464k | 387 / 224k |
+
+Game-update time stays around 0.3 ms per frame, or under 2 ms with a crowd. The UI preview uses its own small WebGL
+canvas and only renders while the bag is open. `node tests/run.mjs zperf` reprints these numbers, and
+`OUT=dir node tests/run.mjs zshots` recaptures the screenshot set.
+
+## Pass 3: aim, fights, crafting, and a village that answers back
+
+**Aiming.** Movement and aim are separate.
+- The mouse is projected through the rendered camera onto the plane that shots fly on, so the reticle, the
+  weapon, the projectile path preview and the hit all agree. A cursor resting on an enemy locks onto it.
+- The right stick aims on a gamepad. Pressing J switches to a deliberate keyboard mode that aims where you face,
+  with a soft assist.
+- The Archer and Witch can walk one way and shoot another. A quick shot fires the moment you release. Holding
+  charges, and the aim keeps tracking the cursor while you charge.
+- The Witch's bolt "seeks" only as a stated, limited property: it bends at most about 20° toward a foe already
+  near the line you aimed.
+- Snare Trap and Rain of Arrows are placed at the cursor. Holding the key shows a range ring and the area; the
+  spot is clamped to range and checked for line of sight. Nothing is spent if the cast fails.
+- Chain Lightning starts on the enemy you point at.
+- Dodging follows your movement keys. Standing still with the mouse gives a backstep.
+- Guarding faces the aim. Attacking out of a guard uses your class's own attack.
+- Projectiles use a swept hit test, so fast arrows can't skip small targets, and walls and solid objects stop
+  them.
+
+**Fights.**
+- Normal difficulty hits about 30% harder than before. Story and Hard are still either side of it.
+- A single blow can never take more than 40% of your life on Normal (30% on Story, 55% on Hard), so there are no
+  unexplained one-shots.
+- A flashing **!** appears over anything winding up an attack. It is amber for heavy hitters: their blows break a
+  held guard, so parry them or roll.
+- Only enemies on screen may commit to attacks or fire shots.
+- Elites have *poise*: light hits no longer cancel their attacks.
+- A perfect parry opens any enemy. Your first blow after it is a guaranteed critical, and all your hits deal +50%
+  for a moment.
+- Back-to-back rolls get shorter invulnerability.
+- Healing is limited:
+  - **Bellstones** (in the village, at the Hollow's mouth, and before the Root Gate) refill your life and tonics
+    and become your checkpoint.
+  - Tonics take a short, committed sip.
+  - Passive recovery only brings you back up to 40% out of combat.
+  - Hearts drop less often.
+  - Life steal draws from a small pool that refills over time.
+- Dying shows who felled you and how hard the last blow hit. You wake at the last Bellstone with full health and
+  tonics. Gear, crafting and story progress are all kept.
+
+**Crafting at Posy's workbench.** A weapon (or an ability), plus one rare essence, plus a few Hush Shards, gives
+one modifier that changes *how you fight*.
+
+| Recipe | For | Effect |
+|---|---|---|
+| Thorn Rebuke | Samurai katana | A perfect parry bursts thorns, and your next swing looses a rooting thorn crescent |
+| Echo Fletching | Archer bow | A charged shot re-fires as a spectral echo along the same path 0.6 s later |
+| Ember Seeds | Witch staff/wand | A charged fireball plants three visibly swelling seeds that burst 1.2 s later |
+| Millwind Edge | any class | A charged attack also throws a gust (it knocks foes back, reflects spores and works wind puzzles) |
+| Returning Cut (sigil) | Samurai: Iaido Dash | An afterimage repeats the dash's cut 0.5 s later |
+| Echo Snare (sigil) | Archer: Snare Trap | The trap springs a second time |
+| Rime Bloom (sigil) | Witch: Frost Nova | Leaves a ring of rime; frozen foes shatter for +60% damage |
+
+- **Materials** come from normal play:
+  - Salvaging gear gives Hush Shards, and elites shed them too.
+  - Bramblemaw's first defeat gives a Thornheart plus an essence suited to your class.
+  - Barkhulks, Ember Imps, Volatile and Mirewraith elites, and Rift Champions drop essences.
+  - Oswin gives you Mill Sailcloth.
+- **Recipes are discovered** through the boss, Oswin, the Echo Door and the Root Hermit. Undiscovered ones show a
+  hint.
+- **Before you craft**, the workbench shows the requirements, what you have, the cost, class compatibility and
+  the resulting effect.
+- **Crafting is safe:**
+  - Every check runs before anything is taken, so a failed craft costs nothing, and crafting saves at once.
+  - An engraving can be moved to a better weapon for 3 shards and 25 pips.
+  - An engraved weapon can't be salvaged by accident.
+  - No recipe touches a Chime.
+- **Chain limits:** echoes never echo, seeds never plant seeds, and death-triggered effects chain at most two
+  links deep.
+- **Bosses:** Bramblemaw still ignores everything until you make it choke.
+
+**People and places.**
+- Tamsin, Posy and Oswin talk through short topic menus. Unread topics are marked. Once you've read a topic you
+  get its short version instead of the full exposition again. Greetings react to your quests, your crafting and
+  the chapter's progress, and the wording fits your class. You can click the choices or use the keyboard; Esc
+  says goodbye.
+- **The Still Mill pays off.** Oswin gives you his sailcloth and teaches Millwind Edge. A whetwheel yard with
+  flour sacks and bunting then appears by the mill, and its hum is drawn as rings you can see. Tamsin, Posy and
+  Fennel all notice.
+- **The Echo.** Once you carry the Verdant Chime, every Gustbellows gust repeats once, 1.5 s later, from where you
+  stood (a ghost marks the spot).
+  - In combat, foes are hit twice.
+  - As a puzzle: the **Echo Door** east of Rootwell Hollow has two short-lived pinwheels with a hedge between
+    them. The walk around the hedge takes longer than one pinwheel spins, so only an echoed gust keeps the first
+    one turning.
+  - The Echo Door is optional and any class can solve it. It holds a Hollow Echo, a Bellwright tablet and your
+    class's sigil recipe.
+- **Visible sound.** The Bellstone chime, the mill's hum, the echo, and every enemy's wind-up have something to
+  see as well as hear.
 
 ## Pass 2: RPG loot overhaul
 
@@ -201,7 +370,18 @@ If you mess up a puzzle room, step out and back in and it resets. A sign in the 
 
 ### Testing
 
-The whole Chapter I path was checked with scripted runs in headless Chromium, using real simulated key input. The
+`npm test` runs the browser regression checks in `tests/`. It needs Playwright and Chromium; `npm i -D playwright`
+works, and the runner also finds a global install. You can run one suite at a time: `node tests/run.mjs aim`.
+
+| Suite | What it checks |
+|---|---|
+| `aim` | Moving left while shooting right with the real mouse; retargeting mid-charge; the keyboard fallback; the Witch's limited seeking; ground-target range, preview, obstruction and no cost on failure; walls; swept hits on a tiny target; Chain Lightning targeting; guard→attack; dodge directions |
+| `balance` | A table of how many clean hits each class survives, per enemy, at levels 1, 5 and 10 with level-matched gear; fodder time-to-kill; difficulty ordering; recovery capped at 40%; the tonic sip; the life-steal cap; roll chaining; the off-screen rule; elite poise; the parry crit; guard breaks; Bellstone rest; the death recap; waking up |
+| `crafting` | The workbench flow; failed crafts taking nothing; no double crafts; persistence across a reload; class rules; moving an engraving; every recipe's effect; recursion guards; a strong build against a crowd compared with the same bow unmodified; Bramblemaw's armour still holding |
+| `village` | Topic menus, read state and class wording; the mill → recipe → village change chain; persistence; the Echo Door with and without the echo; the echo in combat |
+| `chapter` | **Work in progress, not passing yet.** The whole of Chapter I for each class, at normal health with level-4 gear, with a bot that aims with the mouse and counts its deaths. The bot currently leaves a dialogue box open after talking to Tamsin, which blocks the rest of its run. That is a harness bug, not a game bug. Until it's fixed, the Pass 1 route script (with extra health) remains the evidence for completing the chapter. |
+
+The Pass 1 notes below still apply. The whole Chapter I path was checked with scripted runs in headless Chromium, using real simulated key input. The
 scripts use a deterministic fixed-step hook, `window.__sim(frames, heldKeys)`, which is exposed in `src/main.js` for
 this purpose. The runs covered:
 
@@ -216,3 +396,16 @@ The runs also confirmed that puzzle rooms reset when you step out and back in.
 
 Two limits apply. The test player was given extra hearts, so the runs prove the route can be completed, not how hard
 it is. They were also too slow to judge feel at 60 fps.
+
+
+## Pass 5 — identity, skill trees and content
+Skill trees (3 paths per class, 24 actives, six-slot hotbar), off-class weapons, armour sets, named weapons, reinforcement, real affix-rarity loot, element combinations, five new creatures, two elite modifiers, the Cracked Conservatory, the Seamkeeper, the Crowned Toad, Bellstone fast travel and death drops. Details, migration notes and measurements: `docs/pass5.md`. Dev tooling hooks: `docs/pass5-dev-integration.md`.
+
+## Pass 6 — the world expansion
+Lanternreach is now one seamless 320×260 overworld: about 5× the old walkable ground. The old world sits in the middle, and seven new regions surround it: the Deepwood, Lake Mirrow, Sunscald Reach, Cinderpeak, Moonfen and the Chime Highlands, with Glassmere expanded.
+- **Places:** 41 landmarks; two settlements (Mirrow Landing and Cinder Rest); 11 new Bellstones; 11 mini-dungeons, four of them holding unique accessories.
+- **Encounters:** a new world boss, the Tollcrow; seeded optional content (camps, rare elites, a travelling pedlar, falling stars, Hush incursions, a night procession); night enemy pools and NPC schedules; six new quests.
+- **Map:** fog-of-war discovery on the map, and a first world reveal after the intro fight.
+- **Seeds:** every character has a world seed and a saved manifest of optional content. Old saves migrate in place.
+
+The world streams in 24-tile chunks. Details: `docs/pass6.md`. Screenshots: `docs/screens/pass6/`. Tests: `npm run test:world` and `node tests/run.mjs world`.

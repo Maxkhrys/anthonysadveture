@@ -1,12 +1,17 @@
+import { abilityIcon } from './ui_icons.js';
 // RPG-layer UI: vitals, ability bar, floating numbers, enemy bars, loot feed, inventory, skills, class select.
 import * as THREE from 'three';
 import { sfx } from './engine/audio.js';
 import { CLASSES, xpNeed, computeStats } from './rpg/classes.js';
-import { RARITY, AFFIXES, itemIcon, itemPower, statLine, baseById } from './rpg/items.js';
+import { RARITY, AFFIXES, itemIcon, itemPower, statLine, baseById, SETS } from './rpg/items.js';
+import { FAMILY, weaponFamily, CLASS_FAMILIES, OFFCLASS_SCALING, SET_PIECES } from './rpg/gear.js';
+import { AFFIX_RARITY_TIERS } from './rpg/affixes.js';
+import { recipeById, MATS } from './rpg/crafting.js';
+import { DollPreview, itemIconURL } from './preview.js';
 
 const $ = id => document.getElementById(id);
-const AB_ICON = { iaido: '💨', tempest: '🌀', oni: '👹', multishot: '🎯', snare: '🪤', rain: '🌧️', nova: '❄️', chain: '⚡', familiar: '🐈‍⬛' };
-const CLASS_ICON = { samurai: '⚔️', archer: '🏹', witch: '🧙' };
+const AB_ICON = { iaido: '💨', tempest: '🌀', oni: '👹', multishot: '🎯', snare: '🪤', rain: '🌧️', nova: '❄️', chain: '⚡', familiar: '🐈‍⬛', soulhook: '🪝', veilshift: '🌫️', kindred: '🏮' };
+const CLASS_ICON = { samurai: abilityIcon('iaido'), archer: abilityIcon('multishot'), witch: abilityIcon('familiar'), soulbound: abilityIcon('soulhook') };
 const _v = new THREE.Vector3();
 
 export function installRpgUI(UI) {
@@ -44,11 +49,12 @@ export function installRpgUI(UI) {
   // ---------------- floating numbers & enemy bars
   P.float = function (x, y, z, text, color, big, small) {
     if (this.g.settings && this.g.settings.numbers === false && !small) return;
+    if (this.g.settings && this.g.settings.combatText === false && small && /[A-Z]{3}/.test(text)) return;
     const el = document.createElement('div');
     el.className = 'flt' + (big ? ' crit' : '') + (small ? ' small' : '');
     el.textContent = text; el.style.color = color;
     $('floaters').appendChild(el);
-    (this.floats || (this.floats = [])).push({ el, x: x + (Math.random() - 0.5) * 0.3, y, z, t: 0, vy: big ? 1.6 : 1.2 });
+    (this.floats || (this.floats = [])).push({ el, x: x + (Math.random() - 0.5) * 0.3, y: y + (this.g.groundAt ? this.g.groundAt(x, z) : 0), z, t: 0, vy: big ? 1.6 : 1.2 });
     if (this.floats.length > 60) { const f = this.floats.shift(); f.el.remove(); }
   };
   P.updateFloats = function (dt) {
@@ -79,7 +85,7 @@ export function installRpgUI(UI) {
         b.innerHTML = `<i></i>${e.elite ? `<label>${e.displayName}</label>` : ''}<small>${e.level || ''}</small>`;
         host.appendChild(b); this.bars.set(e, b);
       }
-      const s = this.g.pr.project(_v.set(e.x, (e.alt || 0) + 0.95 * (e.eliteScale || 1) + (e.kind === 'knight' ? 0.5 : 0), e.z));
+      const s = this.g.pr.project(_v.set(e.x, (e.gy || 0) + (e.alt || 0) + 0.95 * (e.eliteScale || 1) + (e.kind === 'knight' ? 0.5 : 0), e.z));
       b.style.left = s.x + 'px'; b.style.top = s.y + 'px';
       b.firstChild.style.width = Math.max(0, e.hp / e.maxHp * 100) + '%';
     }
@@ -105,25 +111,75 @@ export function installRpgUI(UI) {
     this.renderInventory();
   };
   P.closeInventory = function () { this.invOpen = false; this.show('inventory', false); };
+  // ---- presentation helpers (display only; item rules live in game.js / items.js)
+  const SLOT_DEFS = [
+    { k: 'helm', alts: ['head'], label: 'Head', side: 'L' }, { k: 'charm', alts: ['neck', 'necklace'], label: 'Neck', side: 'L' },
+    { k: 'armor', alts: ['chest'], label: 'Chest', side: 'L' }, { k: 'arms', alts: ['gloves'], label: 'Arms', side: 'L' },
+    { k: 'weapon', alts: [], label: 'Weapon', side: 'R' }, { k: 'legs', alts: ['pants'], label: 'Legs', side: 'R' },
+    { k: 'boots', alts: ['feet'], label: 'Boots', side: 'R' }, { k: 'ring1', alts: [], label: 'Ring', side: 'R' }, { k: 'ring2', alts: [], label: 'Ring', side: 'R' },
+  ];
+  // only slots the character actually has are shown (new slots appear automatically)
+  P.dollSlots = function () {
+    const eq = this.g.inv.equip;
+    const out = [];
+    for (const d of SLOT_DEFS) { const k = [d.k, ...d.alts].find(k => k in eq); if (k) out.push({ ...d, key: k }); }
+    return out;
+  };
+  const icon = (it, cls) => { try { const u = itemIconURL(it, cls); return u ? `<img class="ico" src="${u}" alt="">` : itemIcon(it); } catch (e) { return itemIcon(it); } };
+  P.icon = function (it) { return icon(it, this.g.inv.cls); };
+  const statVal = (it, k) => (it && it.stats && it.stats[k]) || 0;
+  P.compareHtml = function (it, cur) {
+    if (!it || !cur || it === cur) return '';
+    const rows = [];
+    const d = (label, a, b, fmt = v => v, better = 1) => { const diff = Math.round((a - b) * 10) / 10; if (!diff) return; rows.push(`<div class="${diff * better > 0 ? 'up' : 'down'}">${diff > 0 ? '▲ +' : '▼ '}${fmt(diff)} ${label}</div>`); };
+    if (it.slot === 'weapon') { d('avg damage', (it.min + it.max) / 2, (cur.min + cur.max) / 2); d('speed', it.spd, cur.spd, v => v.toFixed(2)); }
+    const keys = new Set([...Object.keys(it.stats || {}), ...Object.keys(cur.stats || {})]);
+    for (const k of keys) { const A = AFFIXES[k]; d(A ? A.name + (A.pct ? ' %' : '') : k === 'armor' ? 'Armour' : k === 'hp' ? 'Max Health' : k, statVal(it, k), statVal(cur, k)); }
+    return rows.length ? `<div class="delta"><div class="sub">vs. equipped</div>${rows.join('')}</div>` : '<div class="delta"><div class="sub">Same stats as equipped</div></div>';
+  };
   P.itemHtml = function (it, cmp) {
-    if (!it) return '<div class="tt"><div class="sub">Empty</div></div>';
-    const g = this.g, R = RARITY[it.r];
-    const base = baseById(it.base);
-    const typeName = it.slot === 'weapon' ? { katana: 'Katana', bow: 'Bow', staff: 'Staff', wand: 'Wand' }[it.kind] : { helm: 'Helm', armor: 'Armour', charm: 'Charm' }[it.slot];
-    const clsTxt = it.cls ? ` · <span style="color:${it.cls === g.inv.cls ? '#9f9' : '#f88'}">${CLASSES[it.cls].name}</span>` : '';
-    let h = `<h4 style="color:${R.color}">${it.name}</h4><div class="sub">${R.name} ${typeName} · item level ${it.ilvl}${clsTxt}</div>`;
-    if (it.slot === 'weapon') h += `<div class="dmg">${it.min}–${it.max} damage · ${it.spd.toFixed(2)} speed</div>`;
+    if (!it) return '<div class="tt"><div class="sub">Empty slot</div></div>';
+    const g = this.g, R = it.prismatic ? {...RARITY[it.r],color:'#9edfff'} : RARITY[it.r];
+    const typeName = it.slot === 'weapon' ? { katana: it.big ? 'Greatblade' : 'Katana', bow: 'Bow', staff: 'Staff', wand: 'Wand', oversized: 'Oversized', chain: 'SoulChain' }[it.kind] : { helm: 'Head', armor: 'Chest', charm: 'Necklace', arms: 'Arms', legs: 'Legs', boots: 'Boots', ring: 'Ring' }[it.slot] || it.slot;
+    const clsTxt = it.cls ? ` · <span style="color:${it.cls === g.inv.cls ? '#9f9' : '#fc8'}">${CLASSES[it.cls].name}</span>` : it.slot === 'weapon' ? ' · <span style="color:#9df">any class</span>' : '';
+    const up = it.upgradeLevel ? ` <span class="uplvl">+${it.upgradeLevel}</span>` : '';
+    const locked = g.isLocked(it) ? ' <span title="Locked: cannot be salvaged">🔒</span>' : '';
+    let h = `<div class="tt-head"><div class="big-ico rar${it.r}">${this.icon(it)}</div><div><h4 style="color:${it.set ? SETS[it.set].color : R.color}">${it.name}${up}${locked}</h4><div class="sub">${it.prismatic ? 'Prismatic signature' : it.set ? 'Set' : R.name} ${typeName} · item level ${it.ilvl}${clsTxt}</div>`;
+    if (it.slot === 'weapon') {
+      const m = 1 + (it.upgradeLevel || 0) * 0.05;
+      h += `<div class="dmg">${Math.round(it.min * m)}–${Math.round(it.max * m)} damage · ${it.spd.toFixed(2)} speed</div>`;
+      const fam = weaponFamily(it), own = !it.cls || it.cls === g.inv.cls;
+      h += `<div class="sub fam">${FAMILY[fam].name}${own ? (it.cls ? ' · your class: full scaling and specialist perks' : ' · universal: full scaling for everyone') : ` · off-class: ${Math.round(OFFCLASS_SCALING * 100)}% scaling, no ${CLASSES[g.inv.cls].name} specialist perk`}</div>`;
+    }
+    h += `</div></div>`;
     const lines = [];
     for (const k in it.stats) {
       const isAff = it.affixes.includes(k);
+      const affDetail = it.rolledAffixes ? it.rolledAffixes.find(a => a.id === k) : null;
       if (k === 'armor' && !isAff) lines.push(`<div>${it.stats[k]} Armour</div>`);
       else if (k === 'hp' && !isAff) lines.push(`<div>+${it.stats[k]} Max Health</div>`);
-      else lines.push(`<div class="${isAff ? 'aff' : ''}">${statLine(k, it.stats[k])}</div>`);
+      else if (affDetail) {
+        lines.push(`<div class="aff" style="color:${affDetail.displayColor}">${affDetail.displayToken} ${statLine(k, it.stats[k])} <span style="font-size:11px;opacity:0.85">[${affDetail.tierName}]</span></div>`);
+      } else lines.push(`<div class="${isAff ? 'aff' : ''}">${statLine(k, it.stats[k])}</div>`);
     }
     h += lines.join('');
+    if (it.rolledAffixes) {
+      for (const aff of it.rolledAffixes) {
+        if (aff.qualitative) h += `<div class="uq" style="color:${aff.displayColor}">★ ${aff.qualitative.name}: ${aff.qualitative.description}</div>`;
+      }
+    }
+    if (it.sourceHint) h += `<div class="sub">Found in: ${it.sourceHint}</div>`;
     if (it.utext) h += `<div class="uq">★ ${it.utext}</div>`;
+    if (it.set) {
+      const S = SETS[it.set], have = g.pstats.sets[it.set] || 0;
+      h += `<div class="setbox" style="--sc:${S.color}"><b>${S.name} set</b> (${have}/5 worn)<div class="${have >= 2 ? 'on' : ''}">2: ${S.bonus2.text}</div><div class="${have >= 5 ? 'on' : ''}">5: ${S.bonus5.text}</div><small>${SET_PIECES(it.set).map(id => baseById(id).name.replace(S.name + ' ', '')).join(' · ')}</small></div>`;
+    }
+    if (it.slot === 'weapon' && it === g.inv.equip.weapon) { const ps = g.pstats; h += `<div class="sub">Abilities scale with this weapon: a ×1.0 ability hit ≈ ${Math.round((ps.wmin + ps.wmax) / 2 * (1 + ps.dmgPct / 100) * (1 + ps.abilityDmg / 100))}</div>`; }
+    if (it.craftedMutations && it.craftedMutations.length) h += `<div class="sub">Crafted: ${it.craftedMutations.map(m => m.replace('engraving:', 'engraving · ')).join(', ')}</div>`;
+    if (it.craft) { const r = recipeById(it.craft); h += `<div class="uq" style="color:#9ad8ff">✦ ${r.name}: ${r.effect}</div>`; }
+    if (cmp !== undefined) h += this.compareHtml(it, cmp);
     h += `<div class="sub" style="margin-top:4px">Salvage: ${Math.max(1, Math.round(it.value * 0.35))} pips · Power ${itemPower(it)}</div>`;
-    return `<div class="tt">${h}</div>`;
+    return `<div class="tt rarb${it.r}">${h}</div>`;
   };
   P.renderInventory = function () {
     const g = this.g, inv = g.inv;
@@ -131,31 +187,54 @@ export function installRpgUI(UI) {
     $('inv-bag').classList.toggle('hidden', this.invTab !== 'bag');
     $('inv-skills').classList.toggle('hidden', this.invTab !== 'skills');
     if (this.invTab === 'skills') return this.renderSkills();
-    const slots = ['weapon', 'helm', 'armor', 'charm'];
-    $('paperdoll').innerHTML = slots.map((s, i) => { const it = inv.equip[s]; return `<div class="slotbox ${this.invSel === -1 - i ? 'sel' : ''}" data-eq="${i}" style="border-color:${it ? RARITY[it.r].color : '#3a3050'}">${it ? itemIcon(it) : ''}<small>${s}</small></div>`; }).join('');
+    const slots = this.dollSlots();
+    const shown = this.bagView();
+    if (this.invSel >= 0 && !shown.includes(this.invSel)) this.invSel = shown[0] ?? 30;
+    this.invSel = Math.max(-slots.length, this.invSel);
+    const slotHtml = (d, i) => { const it = inv.equip[d.key]; return `<div class="slotbox ${this.invSel === -1 - i ? 'sel' : ''} ${it ? 'rar' + it.r : 'empty'}" data-eq="${i}" title="${d.label}">${it ? this.icon(it) : `<span class="ghost">${{ Head: '⛑', Neck: '◌', Chest: '▣', Arms: '✋', Weapon: '⚔', Legs: '‖', Boots: '▙', Ring: '○' }[d.label] || '·'}</span>`}<small>${d.label}</small></div>`; };
+    const Ls = slots.map((d, i) => d.side === 'L' ? slotHtml(d, i) : '').join(''), Rs = slots.map((d, i) => d.side === 'R' ? slotHtml(d, i) : '').join('');
+    $('paperdoll').innerHTML = `<div class="doll-col">${Ls}</div><div class="doll-stage"><div class="doll-name">${CLASSES[inv.cls].name} · Lv ${inv.level}</div></div><div class="doll-col">${Rs}</div>`;
+    this.doll = this.doll || new DollPreview();
+    this.doll.mount($('paperdoll').querySelector('.doll-stage'));
+    this.doll.setGear(inv.cls, inv.equip);
     const ps = g.pstats;
     const C = CLASSES[inv.cls];
     const row = (a, b) => `<div>${a}: <b>${b}</b></div>`;
-    $('statsheet').innerHTML = [row('Class', C.name), row('Level', inv.level), row('XP', inv.xp + '/' + xpNeed(inv.level)), row('Health', Math.round(inv.hp) + '/' + inv.maxHp), row('Damage', ps.wmin + '–' + ps.wmax), row('Atk speed', ps.wspd.toFixed(2)), row('Crit', ps.crit.toFixed(0) + '%'), row('Crit dmg', '+' + ps.critDmg + '%'), row('Armour', ps.armor), row('Dmg +', ps.dmgPct + '%'), row('Life steal', ps.lifesteal + '%'), row('Cooldowns', '-' + ps.cdr + '%'), row('Move', '+' + ps.moveSpd + '%'), row('Magic find', ps.mf + '%'), row('Pips', inv.coins), row('Bag', inv.bag.length + '/30')].join('');
+    $('statsheet').innerHTML = [row('Health', Math.round(inv.hp) + '/' + inv.maxHp), row('Damage', Math.round(ps.wmin * 10) / 10 + '–' + Math.round(ps.wmax * 10) / 10), row('Armour', ps.armor), row('Crit', ps.crit.toFixed(0) + '%'), row('Crit dmg', '+' + ps.critDmg + '%'), row('Atk speed', ps.wspd.toFixed(2)), row('Dmg +', ps.dmgPct + '%'), row('Life steal', ps.lifesteal + '%'), row('Cooldowns', '-' + ps.cdr + '%'), row('Move', '+' + ps.moveSpd + '%'), row('Magic find', ps.mf + '%'), row('XP', inv.xp + '/' + xpNeed(inv.level)), row('Pips', inv.coins), row('Bag', inv.bag.length + '/' + g.bagCapacity())].join('') + (inv.mats ? `<div class="mats">${Object.keys(MATS).filter(k => inv.mats[k]).map(k => `<span title="${MATS[k].desc}"><b style="color:${MATS[k].color}">${MATS[k].icon}</b> ${MATS[k].name} ×${inv.mats[k]}</span>`).join('') || '<span style="color:#a99">No crafting materials yet.</span>'}</div>` : '');
+    const view = this.bagView();
     let cells = '';
-    for (let i = 0; i < 30; i++) {
-      const it = inv.bag[i];
-      if (!it) { cells += `<div class="cell ${this.invSel === i ? 'sel' : ''}" data-i="${i}"></div>`; continue; }
-      const cur = inv.equip[it.slot];
-      const mark = !g.canEquip(it) ? '<span class="no">✕</span>' : itemPower(it) > itemPower(cur) ? '<span class="up">▲</span>' : '';
-      cells += `<div class="cell ${this.invSel === i ? 'sel' : ''}" data-i="${i}" style="border-color:${RARITY[it.r].color};background:${RARITY[it.r].color}18">${itemIcon(it)}${mark}</div>`;
+    for (let v = 0; v < g.bagCapacity(); v++) {
+      const i = view[v], it = i === undefined ? null : inv.bag[i];
+      if (!it) { cells += `<div class="cell" data-i="-99"></div>`; continue; }
+      const cur = inv.equip[it.slot === 'ring' ? (this.compareRing || 'ring1') : it.slot];
+      const mark = g.isOffClass(it) ? '<span class="oc" title="Off-class">◐</span>' : itemPower(it) > itemPower(cur) ? '<span class="up">▲</span>' : '';
+      const hi = it.highestAffixTier && AFFIX_RARITY_TIERS[it.highestAffixTier] && AFFIX_RARITY_TIERS[it.highestAffixTier].tierIndex >= 5 ? ` style="--ac:${it.highestAffixColor}"` : '';
+      cells += `<div class="cell rar${it.r} ${it.set ? 'isset' : ''} ${hi ? 'afx' : ''} ${this.invSel === i ? 'sel' : ''}" data-i="${i}"${hi}>${this.icon(it)}${mark}${g.isLocked(it) ? '<span class="lk">🔒</span>' : ''}${it.upgradeLevel ? `<span class="ul">+${it.upgradeLevel}</span>` : ''}</div>`;
     }
-    $('baggrid').innerHTML = cells;
-    const sel = this.invSel >= 0 ? inv.bag[this.invSel] : inv.equip[slots[-1 - this.invSel]];
-    const cmp = sel && this.invSel >= 0 ? inv.equip[sel.slot] : null;
-    $('tooltip').innerHTML = this.itemHtml(sel) + (sel && this.invSel >= 0 ? `<div class="cmp"><div class="sub">Currently equipped:</div>${cmp ? this.itemHtml(cmp) : '<div class="tt">—</div>'}</div>` : '');
+    const F = ['all', 'weapon', 'armour', 'jewel', 'set', 'named'], FN = { all: 'All', weapon: 'Weapons', armour: 'Armour', jewel: 'Jewellery', set: 'Sets', named: 'Named' };
+    const SO = { new: 'Newest', rarity: 'Rarity', power: 'Power', slot: 'Slot', name: 'Name' };
+    $('baggrid').innerHTML = `<div class="bagbar">${F.map(f => `<span data-f="${f}" class="${(this.bagFilter || 'all') === f ? 'on' : ''}">${FN[f]}</span>`).join('')}<span class="sort" data-s="1">⇅ ${SO[this.bagSort || 'new']}</span></div>` + cells;
+    $('baggrid').querySelectorAll('[data-f]').forEach(el => { el.style.pointerEvents = 'auto'; el.onclick = () => { this.bagFilter = el.dataset.f; sfx('select'); this.renderInventory(); }; });
+    const so = $('baggrid').querySelector('[data-s]'); so.style.pointerEvents = 'auto'; so.onclick = () => this.cycleSort();
+    const sel = this.invSel >= 0 ? inv.bag[this.invSel] : inv.equip[(slots[-1 - this.invSel] || {}).key];
+    const cmp = sel && this.invSel >= 0 ? inv.equip[sel.slot === 'ring' ? (this.compareRing || 'ring1') : sel.slot] || null : undefined;
+    $('tooltip').innerHTML = this.itemHtml(sel, cmp) + (sel && this.invSel >= 0 ? `<div class="cmp"><div class="sub">Currently equipped:</div>${cmp ? this.itemHtml(cmp) : '<div class="tt">—</div>'}</div>` : '');
     $('baggrid').querySelectorAll('.cell').forEach(c => {
       const i = +c.dataset.i;
+      if (i < 0) return;
       c.onclick = () => { this.invSel = i; sfx('select'); this.renderInventory(); };
-      c.ondblclick = () => { this.invSel = i; g.equipItem(i); this.renderInventory(); };
-      c.oncontextmenu = e => { e.preventDefault(); this.invSel = i; g.salvageItem(i); this.renderInventory(); };
+      c.ondblclick = () => { this.invSel = i; g.equipItem(i, inv.bag[i]?.slot === 'ring' ? (this.compareRing || 'ring1') : undefined); this.renderInventory(); };
+      c.oncontextmenu = e => { e.preventDefault(); this.invSel = i; g.salvageItem(i); g.save(); this.renderInventory(); };
     });
     $('paperdoll').querySelectorAll('.slotbox').forEach(c => { c.onclick = () => { this.invSel = -1 - +c.dataset.eq; this.renderInventory(); }; });
+    // equip feedback: the slot that just changed pulses
+    if (g.lastEquip && performance.now() - g.lastEquip.t < 600) { const k = slots.findIndex(d => d.key === g.lastEquip.slot || (d.k === g.lastEquip.slot)); const el = $('paperdoll').querySelector(`.slotbox[data-eq="${k}"]`); if (el) el.classList.add('justeq'); }
+    const st = $('paperdoll').querySelector('.doll-stage'); if (st && !st.dataset.zoomHint) { st.dataset.zoomHint = 1; st.title = 'Drag to turn · wheel or double-click to zoom'; }
+    if (!this.dollLoop) {
+      let last = performance.now();
+      const loop = now => { if (!this.invOpen) { this.dollLoop = null; return; } this.dollLoop = requestAnimationFrame(loop); this.doll.frame(Math.min(0.05, (now - last) / 1000)); last = now; };
+      this.dollLoop = requestAnimationFrame(loop);
+    }
   };
   P.renderSkills = function () {
     const g = this.g, inv = g.inv, C = CLASSES[inv.cls];
@@ -173,29 +252,63 @@ export function installRpgUI(UI) {
     if (inv.sp > 0 && inv.skills[i] > 0 && inv.skills[i] < 5) { inv.skills[i]++; inv.sp--; sfx('buy'); g.save(); this.updateVitals(); } else sfx('error');
     this.renderSkills();
   };
+  // filtered + sorted view of the bag (indices into inv.bag); the bag order itself never changes
+  P.bagView = function () {
+    const inv = this.g.inv, f = this.bagFilter || 'all', s = this.bagSort || 'new';
+    const ok = it => f === 'all' || (f === 'weapon' && it.slot === 'weapon') || (f === 'armour' && ['helm', 'armor', 'arms', 'legs', 'boots'].includes(it.slot)) || (f === 'jewel' && (it.slot === 'charm' || it.slot === 'ring')) || (f === 'set' && it.set) || (f === 'named' && it.unique);
+    const matches = it => {
+      const rank=it.prismatic?'Prismatic':RARITY[it.r].name;
+      return (this.bagRarity===undefined||this.bagRarity==='all'||(this.bagRarity==='prismatic'?it.prismatic:!it.prismatic&&it.r===+this.bagRarity))
+        && (!this.bagOwnClass||!it.cls||it.cls===inv.cls) && (!this.bagProtected||this.g.isLocked(it))
+        && (this.bagSearch||'').toLowerCase().trim().split(/\s+/).every(word=>(it.name+' '+it.slot+' '+(it.kind||'')+' '+(it.cls||'universal')+' '+rank+' '+(it.utext||'')).toLowerCase().includes(word));
+    };
+    const idx = inv.bag.map((it, i) => i).filter(i => inv.bag[i] && ok(inv.bag[i]) && matches(inv.bag[i]));
+    const order = { weapon: 0, helm: 1, armor: 2, arms: 3, legs: 4, boots: 5, charm: 6, ring: 7 };
+    if (s === 'new') idx.reverse();
+    if (s === 'rarity') idx.sort((a, b) => (inv.bag[b].prismatic?5:inv.bag[b].r) - (inv.bag[a].prismatic?5:inv.bag[a].r) || itemPower(inv.bag[b]) - itemPower(inv.bag[a]));
+    if (s === 'name') idx.sort((a,b)=>inv.bag[a].name.localeCompare(inv.bag[b].name));
+    if (s === 'power') idx.sort((a, b) => itemPower(inv.bag[b]) - itemPower(inv.bag[a]));
+    if (s === 'slot') idx.sort((a, b) => (order[inv.bag[a].slot] ?? 9) - (order[inv.bag[b].slot] ?? 9) || inv.bag[b].r - inv.bag[a].r);
+    return idx;
+  };
+  P.cycleSort = function () { const S = ['new', 'rarity', 'power', 'slot', 'name']; this.bagSort = S[(S.indexOf(this.bagSort || 'new') + 1) % S.length]; sfx('select'); this.renderInventory(); };
   P.updateInventory = function (input) {
     if (!this.invOpen) return false;
     const g = this.g, inv = g.inv;
+    if (input.pressed('inventory') && this.invTab === 'skills') { this.invTab = 'bag'; this.renderInventory(); return true; }
     if (input.pressed('inventory') || input.pressed('pause')) { this.closeInventory(); input.consume('pause'); return true; }
+    if (this.creativeActive && g.area?.id === 'devroom') return true;
     if (input.pressed('shield')) { this.invTab = this.invTab === 'bag' ? 'skills' : 'bag'; sfx('select'); this.renderInventory(); return true; }
-    if (this.invTab === 'skills') {
-      if (input.pressed('up')) { this.skSel = (this.skSel + 2) % 3; this.renderSkills(); }
-      if (input.pressed('down')) { this.skSel = (this.skSel + 1) % 3; this.renderSkills(); }
-      if (input.pressed('interact')) this.rankUp();
+    if (this.invTab === 'skills') { this.updateSkillsInput(input); return true; }
+    if (input.pressed('sort')) { this.cycleSort(); return true; }
+    if (input.pressed('filter')) { const F = ['all', 'weapon', 'armour', 'jewel', 'set', 'named']; this.bagFilter = F[(F.indexOf(this.bagFilter || 'all') + 1) % F.length]; sfx('select'); this.renderInventory(); return true; }
+    if (input.pressed('lock')) { const it = this.invSel >= 0 ? inv.bag[this.invSel] : null; if (it) { g.toggleLock(it); this.renderInventory(); } return true; }
+    // navigate in the order the bag is shown (filtered / sorted)
+    const view = this.bagView();
+    const columns = getComputedStyle($('baggrid')).gridTemplateColumns.split(' ').length;
+    let s = this.invSel, moved = false;
+    if (s >= 0) {
+      let v = view.indexOf(s); if (v < 0) v = 0;
+      if (input.pressed('left')) { v = Math.max(0, v - 1); moved = true; }
+      if (input.pressed('right')) { v = Math.min(Math.max(0, view.length - 1), v + 1); moved = true; }
+      if (input.pressed('down')) { v = Math.min(Math.max(0, view.length - 1), v + columns); moved = true; }
+      if (input.pressed('up')) { if (v < columns) { this.invSel = -1; sfx('select'); this.renderInventory(); return true; } v -= columns; moved = true; }
+      if (input.pressed('interact')) { g.equipItem(s, inv.bag[s]?.slot === 'ring' ? (this.compareRing || 'ring1') : undefined); this.renderInventory(); }
+      if (input.pressed('salvage')) { g.salvageItem(s); g.save(); this.renderInventory(); }
+      if (moved) { this.invSel = view[v] ?? s; sfx('select'); this.renderInventory(); document.querySelector('#baggrid .cell.sel')?.scrollIntoView({block:'nearest'}); }
       return true;
     }
-    let s = this.invSel, moved = false;
     if (s < 0) {
       if (input.pressed('left')) { s = Math.min(-1, s + 1); moved = true; }
-      if (input.pressed('right')) { s = Math.max(-4, s - 1); moved = true; }
-      if (input.pressed('down')) { s = 0; moved = true; }
+      if (input.pressed('right')) { s = Math.max(-this.dollSlots().length, s - 1); moved = true; }
+      if (input.pressed('down')) { s = this.bagView()[0] ?? 0; moved = true; }
     } else {
       if (input.pressed('left')) { s = Math.max(0, s - 1); moved = true; }
       if (input.pressed('right')) { s = Math.min(29, s + 1); moved = true; }
       if (input.pressed('down')) { s = Math.min(29, s + 10); moved = true; }
       if (input.pressed('up')) { s = s < 10 ? -1 : s - 10; moved = true; }
-      if (input.pressed('interact')) { g.equipItem(s); this.renderInventory(); }
-      if (input.pressed('salvage')) { g.salvageItem(s); this.renderInventory(); }
+      if (input.pressed('interact')) { g.equipItem(s, inv.bag[s]?.slot === 'ring' ? (this.compareRing || 'ring1') : undefined); this.renderInventory(); }
+      if (input.pressed('salvage')) { g.salvageItem(s); g.save(); this.renderInventory(); }
     }
     if (moved) { this.invSel = s; sfx('select'); this.renderInventory(); }
     return true;
@@ -203,12 +316,12 @@ export function installRpgUI(UI) {
 
   // ---------------- class select
   P.classSelect = function (input, onPick) {
-    const ids = ['samurai', 'archer', 'witch'];
+    const ids = ['samurai', 'archer', 'witch', 'soulbound'];
     this.csSel = this.csSel ?? 0;
     const render = () => {
       $('classcards').innerHTML = ids.map((id, i) => {
         const C = CLASSES[id];
-        return `<div class="ccard ${i === this.csSel ? 'on' : ''}" data-i="${i}"><div class="ico">${CLASS_ICON[id]}</div><h3>${C.name}</h3><div class="role">${C.role}</div><p>${C.blurb}</p>
+        return `<div class="ccard ${i === this.csSel ? 'on' : ''}" data-i="${i}"><div class="ico">${CLASS_ICON[id]}</div><h3>${C.name}</h3><div class="role">${C.role}</div>${C.tagline ? `<div class="tagline">“${C.tagline}”</div>` : ''}<p>${C.blurb}</p>
         <div class="st">${Object.entries(C.stats).map(([k, v]) => `<span>${k}</span><i style="width:${v * 20}%"></i>`).join('')}</div>
         <div style="font-size:12px;color:#ffd25e">${C.basic}</div><ul>${C.abilities.map(a => `<li>${AB_ICON[a.id]} ${a.name} <span style="color:#a99">(lv ${a.lvl})</span></li>`).join('')}</ul></div>`;
       }).join('');
@@ -222,8 +335,9 @@ export function installRpgUI(UI) {
   P.updateClassSelect = function (input) {
     const cs = this.csActive;
     if (!cs) return false;
-    if (input.pressed('left')) { this.csSel = (this.csSel + 2) % 3; sfx('select'); cs.render(); }
-    if (input.pressed('right')) { this.csSel = (this.csSel + 1) % 3; sfx('select'); cs.render(); }
+    const n = cs.ids.length;
+    if (input.pressed('left')) { this.csSel = (this.csSel + n - 1) % n; sfx('select'); cs.render(); }
+    if (input.pressed('right')) { this.csSel = (this.csSel + 1) % n; sfx('select'); cs.render(); }
     if (input.pressed('interact') || input.pressed('attack')) cs.done();
     return true;
   };

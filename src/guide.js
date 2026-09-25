@@ -1,20 +1,30 @@
 // Guided first-session tutorial: a live checklist that reacts to what you do.
 import { sfx } from './engine/audio.js';
 
-const CHARGE = { samurai: 'Hold <kbd>J</kbd>, release to spin-slash', archer: 'Hold <kbd>J</kbd> to charge a piercing shot', witch: 'Hold <kbd>J</kbd> to hurl a fireball' };
+const CHARGE = { samurai: 'Hold <kbd>C</kbd>, release to spin-slash', archer: 'Hold <kbd>C</kbd> to charge a piercing shot', witch: 'Hold <kbd>C</kbd> to hurl a fireball', soulbound: 'Hold <kbd>C</kbd> to wind the chain, release to whirl it round you' };
+// The same opening for everyone, taught the way each class actually fights.
+const CLS = {
+  samurai: { attack: 'Aim with the mouse and click: three taps make a combo (<kbd>C</kbd> cuts where you face)', guard: 'Tap <kbd>Q</kbd> right before a hit to <b>parry</b> — the next cut is a sure crit', ability: 'Press <kbd>1</kbd>: Iaido Dash. It spends <b>Ki</b>, which your blade earns with every hit' },
+  archer: { attack: 'Aim with the mouse and click to loose — you can walk while you aim', guard: 'Tap <kbd>Q</kbd> just before a hit to parry, or roll away and keep your distance', ability: 'Press <kbd>1</kbd>: Multishot. It spends <b>Focus</b>, which refills quickly' },
+  soulbound: { attack: 'Aim with the mouse and click: four lashes make a combo, and every lash that lands gathers <b>Soul Echoes</b>', guard: 'Tap <kbd>Q</kbd> just before a hit to parry — or slip away through the Veil', ability: 'Press <kbd>1</kbd>: Soul Hook. Small foes come to you; big ones pull you to them' },
+  witch: { attack: 'Aim with the mouse and click: bolts bend a little toward foes near your aim', guard: 'Tap <kbd>Q</kbd> just before a hit to parry — you are fragile, so roll often', ability: 'Press <kbd>1</kbd>: Frost Nova. Heavy blows shatter what it freezes. It spends <b>Mana</b>' },
+};
 export function guideSteps(cls) {
+  const C = CLS[cls] || CLS.samurai;
   return [
     { id: 'move', text: 'Move with <kbd>WASD</kbd>' },
-    { id: 'attack', text: 'Hit a Hushling with <kbd>J</kbd> / click' },
+    { id: 'attack', text: C.attack },
     { id: 'charge', text: CHARGE[cls] || CHARGE.samurai },
-    { id: 'roll', text: 'Roll through danger with <kbd>Space</kbd>' },
-    { id: 'guard', text: 'Guard with <kbd>K</kbd> (tap it just before a hit to parry)' },
-    { id: 'ability', text: 'Use your first ability: <kbd>1</kbd>' },
+    { id: 'roll', text: 'Roll through danger with <kbd>Space</kbd> — you are untouchable mid-roll' },
+    { id: 'guard', text: C.guard },
+    { id: 'ability', text: C.ability },
     { id: 'loot', text: 'Walk over dropped gear to pick it up' },
-    { id: 'equip', text: 'Open your bag <kbd>I</kbd> and equip gear <kbd>E</kbd>' },
-    { id: 'talk', text: 'Talk to Elder Tamsin <kbd>E</kbd>' },
+    { id: 'equip', text: 'Open your bag <kbd>E</kbd> and equip gear <kbd>F</kbd> — your hero wears it' },
+    { id: 'talk', text: 'Talk to Elder Tamsin <kbd>F</kbd>' },
+    { id: 'rest', text: 'Rest at a Bellstone <kbd>F</kbd>: it refills tonics, and you wake there if you fall' },
     { id: 'chest', text: 'Open a loot chest (◆ gold on your map <kbd>Esc</kbd>)' },
-    { id: 'level', text: 'Reach level 3 and spend a skill point (<kbd>I</kbd> → Skills)' },
+    { id: 'level', text: 'Level up, then spend the point in your skill tree (<kbd>K</kbd>)' },
+    { id: 'craft', text: 'Visit Posy\'s workbench: engravings change what a weapon <i>does</i>' },
     { id: 'dungeon', text: 'Find Rootwell Hollow in the west woods' },
   ];
 }
@@ -44,7 +54,8 @@ export class Guide {
     if (this.finished || !p) return;
     if (!this.done.move && g.input.mx ** 2 + g.input.mz ** 2 > 0.1 && !g.locked()) { this.moved += dt; if (this.moved > 1.2) this.event('move'); }
     if (!this.done.talk && (g.flags.stage || 0) >= 1) this.event('talk');
-    if (!this.done.level && g.inv.level >= 3 && g.inv.skills.some((r, i) => r > 1)) this.event('level');
+    if (!this.done.level && g.inv.tree && Object.keys(g.inv.tree).some(id => { const n = window.__skills && window.__skills.nodeById(id); return n && g.inv.tree[id] > (n.free ? 1 : 0); })) this.event('level');
+    if (!this.done.craft && g.ui.craftOpen) this.event('craft');
     if (!this.done.dungeon && g.area && g.area.id === 'dungeon') this.event('dungeon');
   }
   render(justDone) {

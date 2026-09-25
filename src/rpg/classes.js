@@ -1,5 +1,10 @@
+import {BOONS} from './relics.js';
+import { reinforcementMultiplier } from '../persistence/model.js';
+import { XP_PROGRESSION } from './progression.js';
 // Classes, derived stats, experience.
 import { unitAt } from './items.js';
+import { treeStats, rankOf, ensureTree } from './skills.js';
+import { SETS, weaponFamily, CLASS_FAMILIES, OFFCLASS_SCALING } from './gear.js';
 
 export const CLASSES = {
   samurai: {
@@ -41,32 +46,94 @@ export const CLASSES = {
       { id: 'familiar', name: 'Hex Familiar', key: '3', lvl: 6, cost: 50, cd: 18, desc: 'Summon a spectral cat that hexes your enemies.' },
     ],
   },
+  soulbound: {
+    id: 'soulbound', name: 'Soulbound', role: 'Veil-walker · melee',
+    tagline: 'Between life and death, the path remains.',
+    blurb: 'A wandering Mossling who walks with the spirits, not over them. Lashes with the SoulChain, builds Soul Echoes, steps through the Veil and calls kindred spirits to fight alongside.',
+    res: 'Soul Echoes', resColor: '#8fe3dc', resRegen: 0, echo: true, hp: 55, hpLv: 10, armor: 4, armorLv: 0.8, crit: 7, speed: 5.3,
+    colors: { tunic: 0x39414a, tunicD: 0x2a3038, scarf: 0x5fb8b0, trim: 0xc8b0e8 },
+    stats: { Power: 4, Toughness: 3, Range: 2, Mobility: 5 },
+    basic: 'SoulChain lashes (tap ×4) · builds Soul Echoes',
+    abilities: [
+      { id: 'soulhook', name: 'Soul Hook', key: '1', lvl: 1, cost: 0, cd: 4.5, desc: 'Throw the SoulChain: small foes are pulled to you, large ones pull you to them.' },
+      { id: 'veilshift', name: 'Veilshift', key: '2', lvl: 3, cost: 0, cd: 5, desc: 'Slip into the Veil and reappear past your target with a cut.' },
+      { id: 'kindred', name: 'Kindred Lantern', key: '3', lvl: 6, cost: 40, cd: 18, desc: 'A lantern-fox spirit answers your call and fights beside you.' },
+    ],
+  },
 };
 
-export const MAX_LEVEL = 30;
-export const xpNeed = l => Math.round(30 * Math.pow(l, 1.55) + 20);
+// Soul Echoes are the class resource of the Soulbound: the usual 0-100 pool, counted in
+// Echoes of 20 each (five at most). Every other class reads the number as before.
+export const ECHO = 20, MAX_ECHOES = 5;
+export const echoCount = res => Math.floor((res + 1e-6) / ECHO);
+// "25 Ki", "2 Soul Echoes", "Free"
+export function costLabel(cls, cost) {
+  const C = CLASSES[cls] || CLASSES.samurai;
+  if (!cost) return 'Free';
+  if (C.echo) { const n = cost / ECHO; return `${n} ${n === 1 ? 'Soul Echo' : 'Soul Echoes'}`; }
+  return `${cost} ${C.res}`;
+}
+export function resLabel(cls, res) {
+  const C = CLASSES[cls] || CLASSES.samurai;
+  if (C.echo) return `${C.res} ${echoCount(res)} / ${MAX_ECHOES}`;
+  return `${C.res} ${Math.floor(res)}`;
+}
+
+export const MAX_LEVEL = XP_PROGRESSION.maxLevel;
+export const xpNeed = l => XP_PROGRESSION.thresholds[l - 1] ?? Infinity;
 
 export function computeStats(inv) {
   const C = CLASSES[inv.cls] || CLASSES.samurai;
   const L = inv.level;
-  const s = { dmgPct: 0, crit: C.crit, critDmg: 50, atkSpd: 0, lifesteal: 0, regen: 0, resRegen: 0, moveSpd: 0, cdr: 0, abilityDmg: 0, mf: 0, xpPct: 0, burn: 0, chill: 0, shock: 0, armor: Math.round(C.armor + C.armorLv * (L - 1)), hp: C.hp + C.hpLv * (L - 1) + 15 * (inv.vessels || 0) };
-  s.uniques = new Set();
-  for (const slot of ['weapon', 'helm', 'armor', 'charm']) {
-    const it = inv.equip[slot];
+  if (!inv.tree) ensureTree(inv);
+  const s = { dmgPct: 0, crit: C.crit, critDmg: 50, atkSpd: 0, lifesteal: 0, regen: 0, resRegen: 0, moveSpd: 0, cdr: 0, abilityDmg: 0, mf: 0, xpPct: 0, burn: 0, chill: 0, shock: 0, echoDmg: 0, projSize: 0, reach: 0, armor: Math.round(C.armor + C.armorLv * (L - 1)), hp: C.hp + C.hpLv * (L - 1) + 15 * (inv.vessels || 0) };
+  s.uniques = new Set(); s.qual = new Set(); s.sets = {};
+  for (const it of Object.values(inv.equip)) {
     if (!it) continue;
     for (const k in it.stats) s[k] = (s[k] || 0) + it.stats[k];
     if (it.unique) s.uniques.add(it.unique);
+    if (it.set) s.sets[it.set] = (s.sets[it.set] || 0) + 1;
+    if (it.rolledAffixes) for (const a of it.rolledAffixes) if (a.qualitative) s.qual.add(a.qualitative.id);
+  }
+  if(s.uniques.has('worldseed')){for(const [k,v] of Object.entries(BOONS[inv.areaBoon]?.stats||{}))s[k]=(s[k]||0)+v;}
+  // skill tree passives
+  const T = treeStats(inv);
+  for (const k in T) s[k] = (s[k] || 0) + T[k];
+  // armour sets: 2-piece and full (5-piece) bonuses
+  s.setBonus = {};
+  for (const [id, n] of Object.entries(s.sets)) {
+    const S = SETS[id]; if (!S) continue;
+    const tier = n >= 5 ? 5 : n >= 2 ? 2 : 0;
+    s.setBonus[id] = tier;
+    if (tier >= 2) for (const k in S.bonus2.stats) s[k] = (s[k] || 0) + S.bonus2.stats[k];
+    if (tier >= 5) for (const k in S.bonus5.stats) s[k] = (s[k] || 0) + S.bonus5.stats[k];
   }
   const w = inv.equip.weapon;
+  // weapon affinity: any class can wield anything; your own class's weapons scale fully
+  s.family = weaponFamily(w) || CLASS_FAMILIES[inv.cls][0];
+  s.specialist = !w || !w.cls || w.cls === inv.cls;
+  s.affinity = s.specialist ? 1 : OFFCLASS_SCALING;
   const fallback = unitAt(L) * 0.5;
-  s.wmin = w ? w.min : Math.round(fallback * 0.8); s.wmax = w ? w.max : Math.round(fallback * 1.2);
+  s.wmin = w ? w.min * reinforcementMultiplier(w) * s.affinity : Math.round(fallback * 0.8); s.wmax = w ? w.max * reinforcementMultiplier(w) * s.affinity : Math.round(fallback * 1.2);
+  // keystone trade-offs
+  if (rankOf(inv, 'bellofruin')) s.atkSpd -= 15;
+  if (rankOf(inv, 'tempestquiver')) s.resRegen -= 25;
+  if (rankOf(inv, 'mothcovenant')) s.resRegen -= 20;
+  if (rankOf(inv, 'wardenoath')) s.moveSpd -= 10;
   s.wspd = (w ? w.spd : 1) * (1 + s.atkSpd / 100);
-  s.maxHp = Math.round(s.hp);
+  s.maxHp = Math.round(s.hp * (rankOf(inv, 'endlessgale') ? 0.85 : 1));
   s.speed = C.speed * (1 + s.moveSpd / 100);
   s.resRegenRate = C.resRegen * (1 + s.resRegen / 100);
   s.crit = Math.min(75, s.crit);
   s.cdr = Math.min(40, s.cdr);
-  s.dr = 100 / (100 + s.armor * 2.2); // damage multiplier after armour
+  s.dr = 100 / (100 + s.armor * 1.8); // damage multiplier after armour
+  if (s.setBonus.bellwarden >= 5) s.dr *= 0.9;
+  if (rankOf(inv, 'cinderheart')) s.dr *= 1.15;
+  if (s.uniques.has('tuningfork')) s.surgeGain = 0.75;
+  // Pass 6 accessories
+  if (s.uniques.has('crowmantle')) s.speed *= 1.15;
+  if (s.uniques.has('nestcarapace')) s.dr = 100 / (100 + s.armor * 1.15 * 1.8) * (s.dr / (100 / (100 + s.armor * 1.8)));
+  if (s.uniques.has('mirrorshard')) s.projSize = (s.projSize || 0) + 25;
   return s;
 }
 

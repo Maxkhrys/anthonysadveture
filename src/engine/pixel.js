@@ -32,13 +32,14 @@ export class PixelRenderer {
         tColor: { value: null }, tDepth: { value: null }, texel: { value: new THREE.Vector2() },
         offset: { value: new THREE.Vector2() }, flash: { value: 0 }, flashColor: { value: new THREE.Color() },
         vignette: { value: 0.35 }, grade: { value: new THREE.Vector3(1, 1, 1) }, near: { value: 0.1 }, far: { value: 120 },
-        desat: { value: 0 }, bloom: { value: 0.22 },
+        desat: { value: 0 }, bloom: { value: 0.22 }, bloomScale: { value: 1 },
+        fogColor: { value: new THREE.Color(0xc8d8f0) }, fogAmt: { value: 0 }, fogNear: { value: 44 }, fogFar: { value: 60 }, contrast: { value: 1.0 },
       },
       vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy,0.,1.); }`,
       fragmentShader: `
         uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 texel; uniform vec2 offset;
         uniform float flash; uniform vec3 flashColor; uniform float vignette; uniform vec3 grade;
-        uniform float near; uniform float far; uniform float desat; uniform float bloom;
+        uniform float near; uniform float far; uniform float desat; uniform float bloom; uniform float bloomScale; uniform vec3 fogColor; uniform float fogAmt; uniform float fogNear; uniform float fogFar; uniform float contrast;
         varying vec2 vUv;
         float dep(vec2 uv){ return texture2D(tDepth, uv).r * (far-near); }
         void main(){
@@ -60,8 +61,12 @@ export class PixelRenderer {
             vec2 o = vec2(cos(a), sin(a)) * texel;
             glow += max(texture2D(tColor, px + o * 2.0).rgb - 0.7, 0.0) + max(texture2D(tColor, px + o * 4.5).rgb - 0.7, 0.0) * 0.6;
           }
-          c += glow * bloom;
+          c += glow * bloom * bloomScale;
+          // aerial perspective: things further up the screen (further from the camera) haze out
+          float fd = clamp((d - fogNear) / (fogFar - fogNear), 0.0, 1.0);
+          c = mix(c, fogColor, fd * fogAmt * (1.0 - edge * 0.5));
           c *= grade;
+          c = (c - 0.5) * contrast + 0.5;
           float l = dot(c, vec3(0.299,0.587,0.114));
           c = mix(c, vec3(l), desat);
           // gentle palette banding with ordered dither
@@ -124,9 +129,12 @@ export class PixelRenderer {
     const back = new THREE.Vector3(0, Math.sin(PITCH), Math.cos(PITCH));
     const t = this.target.clone();
     this.shakeT += dt * 60;
+    this.shakeOff = this.shakeOff || new THREE.Vector3();
+    this.shakeOff.set(0, 0, 0);
     if (this.shake > 0.001) {
-      t.x += Math.sin(this.shakeT * 1.7) * this.shake * 0.25;
-      t.z += Math.cos(this.shakeT * 2.3) * this.shake * 0.25;
+      this.shakeOff.x = Math.sin(this.shakeT * 1.7) * this.shake * 0.25;
+      this.shakeOff.z = Math.cos(this.shakeT * 2.3) * this.shake * 0.25;
+      t.add(this.shakeOff);
       this.shake *= Math.pow(0.02, dt);
     }
     // snap to texel grid in the camera plane
@@ -161,9 +169,27 @@ export class PixelRenderer {
     r.render(this.postScene, this.postCam);
   }
 
-  // world -> screen pixels (CSS)
+  // world -> screen pixels (CSS). Uses the continuous (un-snapped) view the post pass
+  // actually shows, so it agrees exactly with screenToWorld.
   project(v) {
-    const p = v.clone().project(this.camera);
-    return { x: (p.x + 1) / 2 * innerWidth, y: (1 - p.y) / 2 * innerHeight };
+    const T = this.viewCenter(), u = this.unitsPerPx;
+    const dx = v.x - T.x, dy = v.y - T.y, dz = v.z - T.z;
+    const a = dx, b = dy * Math.cos(PITCH) - dz * Math.sin(PITCH);
+    const fx = a / (this.rw * u) + 0.5, fy = b / (this.rh * u) + 0.5;
+    const r = this.renderer.domElement.getBoundingClientRect();
+    return { x: r.left + fx * r.width, y: r.top + (1 - fy) * r.height };
+  }
+  viewCenter() { const t = this.target.clone(); if (this.shakeOff) t.add(this.shakeOff); return t; }
+  // screen pixels (CSS client coords) -> point on the horizontal plane y = h
+  screenToWorld(cx, cy, h = 0) {
+    const r = this.renderer.domElement.getBoundingClientRect();
+    const fx = (cx - r.left) / r.width, fy = 1 - (cy - r.top) / r.height;
+    const T = this.viewCenter(), u = this.unitsPerPx;
+    const ca = Math.cos(PITCH), sa = Math.sin(PITCH);
+    const du = (fx - 0.5) * this.rw * u, dv = (fy - 0.5) * this.rh * u;
+    // point on the camera plane through the target, then along the view ray (-back)
+    const Cx = T.x + du, Cy = T.y + dv * ca, Cz = T.z - dv * sa;
+    const lam = (Cy - h) / sa;
+    return { x: Cx, y: h, z: Cz - ca * lam };
   }
 }

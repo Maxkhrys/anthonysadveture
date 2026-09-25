@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="journal.css">
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
 </head>
 <body>
@@ -14,20 +15,24 @@
 <div id="loading"><div class="ld-logo">MOSSLING</div><div class="ld-sub">The Silent Bell</div><div class="ld-bar"><div class="ld-fill"></div></div><div class="ld-step">Waking the world…</div><div class="ld-tip"></div></div>
 <div id="ui">
   <div id="hud" class="hidden">
-    <div id="vitals">
-      <div id="lvl">1</div>
-      <div class="bar" id="hpbar"><div class="fill"></div><span></span></div>
-      <div class="bar" id="resbar"><div class="fill"></div><span></span></div>
-      <div class="bar thin" id="xpbar"><div class="fill"></div></div>
+    <div id="chud">
+      <div class="ch-wing ch-left">
+        <div class="globe hp" id="hpbar"><div class="fill"></div><div class="gloss"></div><span></span><div id="lvl">1</div></div>
+        <div class="slot" id="slot-potion" title="Tonic (H)"><b>H</b><div class="icon potion"></div><div class="cap" id="potion-count"></div></div>
+      </div>
+      <div class="ch-center">
+        <div id="surge" title="Bell Surge (R)"><div id="surge-fill"></div><div class="bell"></div><span>R</span></div>
+        <div id="abilities"></div>
+        <div class="bar thin" id="xpbar"><div class="fill"></div></div>
+      </div>
+      <div class="ch-wing ch-right">
+        <div class="slot" id="slot-item" title="Tool (L)"><b>L</b><div class="icon"></div><div class="cap"></div></div>
+        <div class="globe res" id="resbar"><div class="fill"></div><div class="gloss"></div><span></span></div>
+        <div id="purse"><i class="pip"></i><span id="coins">0</span></div>
+      </div>
+      <div id="buffs"></div>
     </div>
     <div id="hearts" class="hidden"></div>
-    <div id="abilities"></div>
-    <div id="surge"><div id="surge-fill"></div><span>BELL SURGE</span></div>
-    <div id="purse"><i class="pip"></i><span id="coins">0</span></div>
-    <div id="slots">
-      <div class="slot" id="slot-item"><b>L</b><div class="icon"></div><div class="cap"></div></div>
-      <div class="slot" id="slot-potion"><b>Q</b><div class="icon potion"></div><div class="cap" id="potion-count"></div></div>
-    </div>
     <div id="keys"></div>
     <div id="chimes"></div>
     <div id="guide" class="hidden"><div class="gd-h">GUIDE <span>(toggle in Settings)</span></div><div class="gd-list"></div></div>
@@ -41,13 +46,15 @@
   <div id="prompt" class="hidden"></div>
   <div id="toast" class="hidden"></div>
   <div id="dialog" class="hidden"><div class="who"></div><div class="text"></div><div class="more">▼</div><div class="choices"></div></div>
+  <div id="letterbox" class="hidden"><i></i><i></i></div>
+  <div id="namecard" class="hidden"><div class="nc-sub"></div><div class="nc-name"></div><div class="nc-line"></div></div>
   <div id="banner" class="hidden"><div class="small"></div><div class="big"></div></div>
   <div id="fade"></div>
   <div id="title" class="screen">
     <div class="logo"><div class="sub">a tiny adventure in a very big world</div><h1>MOSSLING</h1><h2>The Silent Bell</h2></div>
     <div class="menu" id="title-menu"></div>
     <div id="title-settings" class="panel hidden"></div>
-    <div class="foot">WASD move · J attack · K guard · Space roll · 1-3 abilities · I bag · L tool · E interact · R surge · Q tonic · Esc menu</div>
+    <div class="foot">WASD move · Mouse aim / attack · Q guard · Space dodge · F interact · H tonic · E inventory · K skills · J journal · M map</div>
   </div>
   <div id="pause" class="screen hidden">
     <div class="panel">
@@ -55,37 +62,23 @@
       <div class="tab-body" id="tab-map"><canvas id="bigmap" width="560" height="400"></canvas></div>
       <div class="tab-body hidden" id="tab-quests"></div>
       <div class="tab-body hidden" id="tab-gear"></div>
-      <div class="tab-body hidden" id="tab-controls">
-        <table>
-          <tr><td>Move</td><td>WASD / Arrows / Left stick</td></tr>
-          <tr><td>Attack (hold to charge)</td><td>J / Left click / Pad X</td></tr>
-          <tr><td>Abilities</td><td>1 / 2 / 3</td></tr>
-          <tr><td>Bag, gear &amp; skills</td><td>I</td></tr>
-          <tr><td>Guard (tap just before a hit to parry)</td><td>K / Right click / Pad LB</td></tr>
-          <tr><td>Roll (invulnerable)</td><td>Space / Shift / Pad A</td></tr>
-          <tr><td>Tool (hold to charge)</td><td>L / Pad Y</td></tr>
-          <tr><td>Interact / talk / advance</td><td>E / Enter / Pad B</td></tr>
-          <tr><td>Bell Surge (when full)</td><td>R / Pad RB</td></tr>
-          <tr><td>Drink tonic</td><td>Q / Pad Back</td></tr>
-          <tr><td>Menu</td><td>Esc / Tab / Pad Start</td></tr>
-          <tr><td>Toggle music</td><td>M</td></tr>
-        </table>
-      </div>
+      <div class="tab-body hidden" id="tab-controls"></div>
       <div class="tab-body hidden" id="tab-settings"></div>
       <div class="pause-foot">Esc to resume · <a id="btn-save">Save now</a> · <a id="btn-title">Quit to title</a></div>
     </div>
   </div>
-  <div id="shop" class="screen hidden"><div class="panel"><h3>Posy's Bramble &amp; Bolt</h3><div id="shop-list"></div><div class="pause-foot">W/S choose · E buy · Esc leave</div></div></div>
+  <div id="craft" class="screen hidden"><div class="panel craftpanel"><h3>Posy's Workbench</h3><div class="craft-body"><div id="craft-list"></div><div id="craft-detail"></div></div><div id="craft-mats"></div><div class="pause-foot">W/S recipe · A/D weapon · F craft · X remove sigil · Esc leave</div></div></div>
+  <div id="shop" class="screen hidden"><div class="panel"><h3>Posy's Bramble &amp; Bolt</h3><div id="shop-list"></div><div class="pause-foot">W/S choose · F buy · Esc leave</div></div></div>
   <div id="inventory" class="screen hidden"><div class="panel inv-panel">
-    <div class="tabs"><span data-itab="bag" class="on">Bag</span><span data-itab="skills">Skills</span><span class="inv-hint">I / Esc close</span></div>
+    <div class="tabs"><span data-itab="bag" class="on">Bag</span><span data-itab="skills">Skill Tree</span><span class="inv-hint">E / Esc close</span></div>
     <div id="inv-bag" class="inv-body">
       <div class="inv-left"><div id="paperdoll"></div><div id="statsheet"></div></div>
-      <div class="inv-right"><div id="baggrid"></div><div id="tooltip"></div><div class="inv-keys">Arrows / click select · <b>E</b> / double-click equip · <b>X</b> / right-click salvage</div></div>
+      <div class="inv-right"><div id="baggrid"></div><div id="tooltip"></div><div class="inv-keys">Arrows / click select · <b>F</b> / double-click equip · <b>X</b> / right-click salvage · <b>V</b> favourite · <b>T</b> sort · <b>G</b> filter</div></div>
     </div>
     <div id="inv-skills" class="inv-body hidden"></div>
   </div></div>
-  <div id="classsel" class="screen hidden"><h2 class="cs-title">Choose your path</h2><div id="classcards"></div><div class="cs-foot">← → choose · E / click to begin</div></div>
-  <div id="gameover" class="screen hidden"><h1>The bell falls quiet…</h1><p>Press E to rise again</p></div>
+  <div id="classsel" class="screen hidden"><h2 class="cs-title">Choose your path</h2><div id="classcards"></div><div class="cs-foot">← → choose · F / click to begin</div></div>
+  <div id="gameover" class="screen hidden"><h1>The bell falls quiet…</h1><p class="recap"></p><p>Press F to rise again</p></div>
 </div>
 <script type="module" src="src/main.js"></script>
 </body>

@@ -2,6 +2,13 @@ export const T = {
   GRASS: 0, PATH: 1, SAND: 2, ASH: 3, WATER: 4, DEEP: 5, CLIFF: 6, TREE: 7, WALL: 8, FLOOR: 9, PIT: 10,
   BRIDGE: 11, LAVA: 12, PROP: 13, FILLED: 14, MOSS: 15, FLOWERS: 16, FOREST: 17, STONE: 18, CAVE: 19,
   ROCK: 20, DOCK: 21, SANDSTONE: 22, PILLAR: 23,
+  SHALLOW: 24, // Pass 5: ankle-deep water you can wade through (the fen). Soaks what stands in it.
+  // Pass 6: new ground for the wider world (all walkable)
+  MUD: 25,     // Moonfen: wet black soil
+  CLAY: 26,    // Sunscald: cracked, sun-baked ceramic earth
+  FIELD: 27,   // Heartland farms: tilled rows
+  EMBER: 28,   // Cinderpeak: black rock with glowing cracks
+  STAIRS: 29,  // cut steps between terraces (their heights come from the area's height map)
 };
 // solid for normal walking
 const SOLID = new Set([T.CLIFF, T.TREE, T.WALL, T.PROP, T.ROCK, T.SANDSTONE, T.PILLAR, T.WATER, T.DEEP, T.LAVA]);
@@ -36,4 +43,10 @@ export const TILE_INFO = {
   [T.DOCK]: { h: 0.05, top: [0xa87a48, 0x9a6c3e], side: 0x6a4a2a },
   [T.STONE]: { h: 0, top: [0xbfb3a0, 0xb3a792, 0xc9bda8] },
   [T.CAVE]: { h: 0, top: [0x5e5566, 0x564d5e, 0x665d6e] },
+  [T.SHALLOW]: { h: -0.12, top: [0x4a8a7a, 0x468272, 0x4e907e], side: 0x3a6a5a },
+  [T.MUD]: { h: 0, top: [0x2e3230, 0x282c2a, 0x343834], side: 0x1e201c },
+  [T.CLAY]: { h: 0, top: [0xd0905e, 0xc48454, 0xda9a68], side: 0xa0643e, side2: 0x8a5434 },
+  [T.FIELD]: { h: 0, top: [0x8a6a3a, 0x7e5e32, 0x946f40] },
+  [T.EMBER]: { h: 0, top: [0x2e2628, 0x362c2c, 0x2a2224], side: 0x1e1818, side2: 0x2a1c1a },
+  [T.STAIRS]: { h: 0, top: [0xbcb09c, 0xb0a490, 0xc4b8a4], side: 0x8a7e6a, side2: 0x7a6e5a },
 };

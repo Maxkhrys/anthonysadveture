@@ -37,7 +37,7 @@ class Lob extends Entity {
       if (Math.hypot(p.x - this.x, p.z - this.z) < this.r + p.r) p.hurt({ dmg: this.dmg, x: this.x, z: this.z, src: this.src, kb: 6 });
       return this.remove();
     }
-    this.sync(); this.obj.position.y = this.y;
+    this.sync(); this.obj.position.y = this.y + (this.gy || 0);
   }
   remove() { unmark(this.mk); super.remove(); }
 }
@@ -117,7 +117,7 @@ class Imp extends Enemy {
       case 'aim': {
         if (!this.playerVisible()) { this.setState('idle'); return [0, 0]; }
         this.facing = angleLerp(this.facing, this.angleTo(p), dt * 6);
-        if (this.cool <= 0 && d < 8) { this.setState('windup'); sfx('windup'); return [0, 0]; }
+        if (this.cool <= 0 && d < 8 && g.onScreen(this.x, this.z, 0.5)) { this.setState('windup'); sfx('windup'); return [0, 0]; }
         const a = this.angleTo(p) + (d < 4 ? Math.PI : Math.PI / 2);
         return [Math.sin(a) * this.speed * 0.7, Math.cos(a) * this.speed * 0.7];
       }
@@ -325,7 +325,7 @@ class Treant extends Enemy {
         this.telegraph(this.st);
         if (this.st > wt) {
           this.setState('attack'); this.m.eyes.visible = true; unmark(this.mk);
-          if (this.atk === 'stomp') { g.fx.ring(this.x, this.z, 0.4, 2.6, 0x7fd36a, 0.4); g.fx.dust(this.x, this.z, 14, 0x6a5a4a); g.pr.addShake(0.6); sfx('thud'); if (d < 2.6 + p.r) p.hurt({ dmg: 3, x: this.x, z: this.z, src: this, kb: 9 }); }
+          if (this.atk === 'stomp') { g.fx.ring(this.x, this.z, 0.4, 2.6, 0x7fd36a, 0.4); g.fx.dust(this.x, this.z, 14, 0x6a5a4a); g.pr.addShake(0.6); sfx('thud'); if (d < 2.6 + p.r) p.hurt({ dmg: 3, x: this.x, z: this.z, src: this, kb: 9, heavy: true }); }
           else { g.fx.arc(this.x, 0.6, this.z, this.facing, 2.3, 2.6, 0x7fd36a, 0.2, 0.5); sfx('swing2'); if (d < 2.3 + p.r && Math.abs(angDiff(this.facing, this.angleTo(p))) < 1.3) p.hurt({ dmg: 2, x: this.x, z: this.z, src: this, kb: 8 }); }
         }
         return [0, 0];
@@ -373,7 +373,7 @@ class Golem extends Enemy {
         this.telegraph(this.st);
         if (this.st > 1.1) {
           this.setState('attack'); this.m.eyes.visible = true;
-          if (this.atk === 'smash') { const mx = this.mk.position.x, mz = this.mk.position.z; unmark(this.mk); g.fx.ring(mx, mz, 0.3, 1.8, 0x7ad8ff, 0.4); g.pr.addShake(0.8); sfx('thud'); g.fx.dust(mx, mz, 16, 0x8a8a9a); if (Math.hypot(p.x - mx, p.z - mz) < 1.8 + p.r) p.hurt({ dmg: 3, x: mx, z: mz, src: this, kb: 10 }); }
+          if (this.atk === 'smash') { const mx = this.mk.position.x, mz = this.mk.position.z; unmark(this.mk); g.fx.ring(mx, mz, 0.3, 1.8, 0x7ad8ff, 0.4); g.pr.addShake(0.8); sfx('thud'); g.fx.dust(mx, mz, 16, 0x8a8a9a); if (Math.hypot(p.x - mx, p.z - mz) < 1.8 + p.r) p.hurt({ dmg: 3, x: mx, z: mz, src: this, kb: 10, heavy: true }); }
           else { g.spawn(new Lob(g, this, this.x, this.z, p.x, p.z, { dmg: 3, radius: 1.3, rock: true, color: 0x9a9aa8, flight: 1.1 })); sfx('roar'); }
         }
         return [0, 0];

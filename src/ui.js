@@ -1,7 +1,12 @@
+import { glyph } from './engine/actions.js';
+import { installJournalUI } from './ui_journal.js';
 // HTML overlay: HUD, dialogue, prompts, menus, maps.
+import { drawDevOverlay } from './dev/pass6.js';
 import { sfx, duckMusic } from './engine/audio.js';
 import { T } from './world/tiles.js';
 import { installRpgUI } from './ui_rpg.js';
+import { installCraftUI } from './ui_craft.js';
+import { installSkillUI } from './ui_skills.js';
 import { SettingsPanel } from './settings.js';
 
 const $ = id => document.getElementById(id);
@@ -32,8 +37,8 @@ export class UI {
     this.miniCache = null;
     $('slot-potion').querySelector('.icon').style.backgroundImage = `url(${ICONS.potion})`;
     document.querySelectorAll('#pause .tabs span').forEach(s => s.onclick = () => this.tab(s.dataset.tab));
-    $('btn-save').onclick = () => { this.g.save(); this.toast('Saved.', '', 1); };
-    $('btn-title').onclick = () => { this.g.save(); location.reload(); };
+    $('btn-save').onclick = async () => { if (await this.g.save()) this.toast('Saved.', '', 1); };
+    $('btn-title').onclick = async () => { if (await this.g.save()) location.reload(); };
   }
   show(id, on = true) { $(id).classList.toggle('hidden', !on); }
 
@@ -70,7 +75,7 @@ export class UI {
   prompt(text) {
     const el = $('prompt');
     if (!text) { el.classList.add('hidden'); return; }
-    el.innerHTML = `<kbd>E</kbd>${text}`; el.classList.remove('hidden');
+    el.innerHTML = `<kbd>${glyph('interact')}</kbd>${text}`; el.classList.remove('hidden');
   }
   toast(text, small = '', dur = 2) {
     const el = $('toast');
@@ -142,15 +147,23 @@ export class UI {
     if (this.choice) {
       if (input.pressed('left') || input.pressed('up')) { this.choice.i = (this.choice.i + this.choice.opts.length - 1) % this.choice.opts.length; sfx('select'); this.renderChoices(); }
       if (input.pressed('right') || input.pressed('down')) { this.choice.i = (this.choice.i + 1) % this.choice.opts.length; sfx('select'); this.renderChoices(); }
-      if (input.pressed('interact')) { const o = this.choice.opts[this.choice.i]; this.choice = null; this.typing = null; this.dialogQ.length = 0; this.dialogCb = null; el.classList.add('hidden'); duckMusic(false); o.cb && o.cb(); }
+      if (input.pressed('interact')) this.pick(this.choice.i);
+      else if (input.pressed('pause')) { input.consume('pause'); this.pick(this.choice.opts.length - 1); } // Esc: the last option (Goodbye / Not now)
       return true;
     }
     if (input.pressed('interact') || input.pressed('attack')) { sfx('select'); this.next(); }
     return true;
   }
+  pick(i) {
+    const el = $('dialog'), o = this.choice && this.choice.opts[i];
+    if (!o) return;
+    this.choice = null; this.typing = null; this.dialogQ.length = 0; this.dialogCb = null; el.classList.add('hidden'); duckMusic(false); sfx('select');
+    o.cb && o.cb();
+  }
   renderChoices() {
     const c = $('dialog').querySelector('.choices');
-    c.innerHTML = this.choice.opts.map((o, i) => `<span class="${i === this.choice.i ? 'on' : ''}">${o.label}</span>`).join('');
+    c.innerHTML = this.choice.opts.map((o, i) => `<span class="${i === this.choice.i ? 'on' : ''}" data-i="${i}">${o.label}</span>`).join('');
+    c.querySelectorAll('span').forEach(s => { s.onclick = () => this.pick(+s.dataset.i); s.onmouseenter = () => { if (this.choice) { this.choice.i = +s.dataset.i; c.querySelectorAll("span").forEach(n => n.classList.toggle("on", n === s)); } }; });
   }
   ask(who, text, opts) { this.lines([[who, text, opts]]); }
 
@@ -202,10 +215,11 @@ export class UI {
     switch (t) {
       case T.GRASS: case T.FLOWERS: return '#5da843'; case T.FOREST: return '#3a7a36'; case T.TREE: return '#2a5a2a';
       case T.PATH: return '#d8b37a'; case T.SAND: return '#f1d38e'; case T.ASH: return '#5b4a4a'; case T.WATER: return '#4aa8c8';
-      case T.DEEP: return '#2a6a9a'; case T.CLIFF: return '#8a7a68'; case T.ROCK: return '#4a4054'; case T.SANDSTONE: return '#c98a58';
+      case T.DEEP: return '#2a6a9a'; case T.SHALLOW: return '#5a9a8a'; case T.CLIFF: return '#8a7a68'; case T.ROCK: return '#4a4054'; case T.SANDSTONE: return '#c98a58';
       case T.LAVA: return '#ff7a2a'; case T.PROP: return '#a06a4a'; case T.STONE: return '#c8bca8'; case T.BRIDGE: case T.DOCK: return '#a87a48';
       case T.WALL: return '#2a2034'; case T.PILLAR: return '#4a3a58'; case T.PIT: return '#000'; case T.FILLED: return '#a0703e';
       case T.FLOOR: case T.MOSS: return '#8c7a6a'; case T.CAVE: return '#5e5566';
+      case T.MUD: return '#343a36'; case T.CLAY: return '#d0905e'; case T.FIELD: return '#8a6a3a'; case T.EMBER: return '#4a2a24'; case T.STAIRS: return '#d8ccb4';
     }
     return '#555';
   }
@@ -213,7 +227,14 @@ export class UI {
     const a = this.g.area;
     const c = document.createElement('canvas'); c.width = a.w; c.height = a.h;
     const x = c.getContext('2d');
-    for (let j = 0; j < a.h; j++) for (let i = 0; i < a.w; i++) { x.fillStyle = this.tileColor(a.tiles[j * a.w + i]); x.fillRect(i, j, 1, 1); }
+    // one pixel per tile, written straight into an ImageData (fast even for the big world)
+    const img = x.createImageData(a.w, a.h), px = img.data, cache = {};
+    for (let k = 0, n = a.w * a.h; k < n; k++) {
+      const t = a.tiles[k];
+      const rgb = cache[t] || (cache[t] = (() => { const h = parseInt(this.tileColor(t).slice(1), 16); return [h >> 16, (h >> 8) & 255, h & 255]; })());
+      px[k * 4] = rgb[0]; px[k * 4 + 1] = rgb[1]; px[k * 4 + 2] = rgb[2]; px[k * 4 + 3] = 255;
+    }
+    x.putImageData(img, 0, 0);
     this.miniCache = c; this.miniArea = a;
   }
   drawMini() {
@@ -241,7 +262,7 @@ export class UI {
   drawDungeon(x, W, H, sc) {
     const g = this.g, a = g.area, p = g.player;
     const ox = (W - a.w * sc) / 2, oz = (H - a.h * sc) / 2;
-    for (const r of a.rooms) {
+    for (const r of (a.rooms || [])) {
       if (!g.flags['visited:' + a.id + ':' + r.id] && g.room !== r) continue;
       x.drawImage(this.miniCache, r.x0, r.z0, r.x1 - r.x0, r.z1 - r.z0, ox + r.x0 * sc, oz + r.z0 * sc, (r.x1 - r.x0) * sc, (r.z1 - r.z0) * sc);
       if (r.def && r.def.boss) { x.fillStyle = '#e8424f'; x.fillRect(ox + (r.x0 + 8) * sc - 2, oz + (r.z0 + 5) * sc - 2, 5, 5); }
@@ -249,20 +270,110 @@ export class UI {
     for (const e of g.entities) if (e.constructor.name === 'Chest' && e.visible && !e.opened && g.flags['visited:' + a.id + ':' + g.roomAt(e.x, e.z)?.id]) { x.fillStyle = '#ffd25e'; x.fillRect(ox + e.x * sc - 1, oz + e.z * sc - 1, 3, 3); }
     x.fillStyle = '#fff'; x.fillRect(ox + p.x * sc - 2, oz + p.z * sc - 2, 4, 4);
   }
+  // An illustrated parchment map (4 px per tile), built once per area.
+  buildIllustrated() {
+    const a = this.g.area, S = 4;
+    const c = document.createElement('canvas'); c.width = a.w * S; c.height = a.h * S;
+    const x = c.getContext('2d');
+    const H = (i, j, k = 0) => { let h = (i * 374761393 + j * 668265263 + k * 982451653) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967295; };
+    const PAL = { land: '#e8d6a8', land2: '#dcc592', forest: '#9fb07a', forest2: '#8a9c68', sand: '#f0dca6', ash: '#a8908a', water: '#8fb8c8', deep: '#6e9ab4', cliff: '#b8a07a', rock: '#8a7a78', path: '#c89a62', stone: '#d8cbb0', lava: '#e07a4a' };
+    const T_ = a.tiles, tl = (i, j) => (i < 0 || j < 0 || i >= a.w || j >= a.h) ? T.CLIFF : T_[j * a.w + i];
+    // base colours straight into pixels (the Pass 6 world is 83k tiles)
+    const base = x.createImageData(c.width, c.height), bp = base.data, rgb = {};
+    const RGB = hex => rgb[hex] || (rgb[hex] = [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)]);
+    Object.assign(PAL, { mud: '#7a8878', clay: '#e0b48a', field: '#c8aa6a', ember: '#8a6a60', high: '#e4e2cc', fen: '#8a9c88' });
+    for (let j = 0; j < a.h; j++) for (let i = 0; i < a.w; i++) {
+      const t = tl(i, j), n = H(i, j);
+      let col = PAL.land;
+      const bio = a.biome ? a.biome[j * a.w + i] : -1;
+      if (t === T.FOREST || t === T.TREE) col = n < 0.5 ? PAL.forest : PAL.forest2;
+      else if (t === T.SAND || t === T.SANDSTONE) col = PAL.sand; else if (t === T.ASH) col = PAL.ash;
+      else if (t === T.WATER || t === T.SHALLOW) col = PAL.water; else if (t === T.DEEP) col = PAL.deep;
+      else if (t === T.CLIFF) col = PAL.cliff; else if (t === T.ROCK) col = PAL.rock; else if (t === T.PATH || t === T.BRIDGE || t === T.DOCK || t === T.STAIRS) col = PAL.path;
+      else if (t === T.STONE) col = PAL.stone; else if (t === T.LAVA) col = PAL.lava;
+      else if (t === T.MUD) col = PAL.mud; else if (t === T.CLAY) col = PAL.clay; else if (t === T.FIELD) col = PAL.field; else if (t === T.EMBER) col = PAL.ember;
+      else if (bio === 8) col = PAL.high; else if (bio === 7) col = PAL.fen; else if (n < 0.3) col = PAL.land2;
+      const [r, g2, b] = RGB(col);
+      for (let yy = 0; yy < S; yy++) for (let xx = 0; xx < S; xx++) { const o = ((j * S + yy) * c.width + i * S + xx) * 4; bp[o] = r; bp[o + 1] = g2; bp[o + 2] = b; bp[o + 3] = 255; }
+    }
+    x.putImageData(base, 0, 0);
+    // ink details
+    for (let j = 0; j < a.h; j++) for (let i = 0; i < a.w; i++) {
+      const t = tl(i, j), n = H(i, j, 1), X = i * S, Y = j * S;
+      if (t === T.TREE && n < 0.55) { x.fillStyle = n < 0.25 ? '#5a7a44' : '#6a8a4e'; x.fillRect(X + 1, Y, 2, 2); x.fillRect(X, Y + 1, 4, 2); x.fillStyle = '#4a3a2a'; x.fillRect(X + 1, Y + 3, 1, 1); }
+      if ((t === T.WATER || t === T.DEEP) && n < 0.12) { x.fillStyle = '#e8f4f8a0'; x.fillRect(X, Y + 1, 2, 1); x.fillRect(X + 2, Y + 2, 2, 1); }
+      if ((t === T.CLIFF || t === T.ROCK) && ((i + j) % 2 === 0)) { x.fillStyle = '#6a5a4a80'; x.fillRect(X, Y + 3, 3, 1); }
+      if ((t === T.WATER || t === T.DEEP) && tl(i, j - 1) !== T.WATER && tl(i, j - 1) !== T.DEEP) { x.fillStyle = '#5a7a8a'; x.fillRect(X, Y, S, 1); }
+      if (t === T.PATH && n < 0.35) { x.fillStyle = '#9a6a3a'; x.fillRect(X + 1, Y + 1, 1, 1); }
+    }
+    for (const d of a.defs) if (d.type === 'deco' && ['house', 'shop', 'windmill', 'belltower', 'tent', 'hollowtree', 'chimegate', 'shrine', 'stilthouse', 'forgehut', 'farmhouse', 'bigforge', 'glasshouse'].includes(d.model)) {
+      const X = (d.x - d.w / 2) * S, Y = (d.z - d.d / 2) * S, W = d.w * S, D = d.d * S;
+      x.fillStyle = d.model === 'hollowtree' ? '#5a7a44' : d.model === 'tent' ? '#6a4a6a' : '#b05a42';
+      x.fillRect(X + 1, Y + 1, W - 2, D - 2); x.fillStyle = '#3a2a2a'; x.fillRect(X + 1, Y + D - 2, W - 2, 1);
+    }
+    // paper grain + deckled edge
+    const img = x.getImageData(0, 0, c.width, c.height), px = img.data;
+    const GR = new Float32Array(4096); for (let i = 0; i < 4096; i++) GR[i] = (H(i, 7, 3) - 0.5) * 14; // a tiled grain table (one hash per cell, not per pixel)
+    for (let k = 0, j = 0; k < px.length; k += 4, j++) { const v = GR[(j * 2654435761 >>> 20) & 4095]; px[k] += v; px[k + 1] += v; px[k + 2] += v * 0.8; }
+    x.putImageData(img, 0, 0);
+    const gr = x.createRadialGradient(c.width / 2, c.height / 2, c.height * 0.35, c.width / 2, c.height / 2, c.width * 0.62);
+    gr.addColorStop(0, '#0000'); gr.addColorStop(1, '#5a3a1a70'); x.fillStyle = gr; x.fillRect(0, 0, c.width, c.height);
+    x.strokeStyle = '#5a3a1a'; x.lineWidth = 3; x.strokeRect(4, 4, c.width - 8, c.height - 8); x.strokeStyle = '#8a6a3a'; x.lineWidth = 1; x.strokeRect(9, 9, c.width - 18, c.height - 18);
+    // compass rose
+    const cx = c.width - 44, cy = c.height - 50;
+    x.fillStyle = '#5a3a1a'; x.beginPath(); x.moveTo(cx, cy - 24); x.lineTo(cx + 6, cy); x.lineTo(cx, cy + 24); x.lineTo(cx - 6, cy); x.fill();
+    x.beginPath(); x.moveTo(cx - 24, cy); x.lineTo(cx, cy - 6); x.lineTo(cx + 24, cy); x.lineTo(cx, cy + 6); x.fill();
+    x.fillStyle = '#c8402a'; x.beginPath(); x.moveTo(cx, cy - 24); x.lineTo(cx + 6, cy); x.lineTo(cx - 6, cy); x.fill();
+    x.font = 'bold 13px Pixelify Sans, monospace'; x.fillStyle = '#5a3a1a'; x.fillText('N', cx - 4, cy - 28);
+    this.illus = c; this.illusArea = a;
+  }
+  // one soft parchment patch over every undiscovered 8x8-tile cell
+  fogCanvas() {
+    const g = this.g, a = g.area, D = g.world6.discovery;
+    if (this.fogKey === D.fog && this.fogC) return this.fogC;
+    this.fogKey = D.fog;
+    const S = 4, c = this.fogC || (this.fogC = document.createElement('canvas'));
+    c.width = a.w * S; c.height = a.h * S;
+    const x = c.getContext('2d'); x.clearRect(0, 0, c.width, c.height);
+    const cols = Math.ceil(a.w / 8), rows = Math.ceil(a.h / 8);
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+      const k = j * cols + i, nib = parseInt(D.fog[k >> 2] || '0', 16);
+      if (nib & (1 << (k & 3))) continue;
+      x.fillStyle = (i + j) % 2 ? '#c8b48ae8' : '#c4ae84e8'; x.fillRect(i * 8 * S - 2, j * 8 * S - 2, 8 * S + 4, 8 * S + 4);
+    }
+    x.globalCompositeOperation = 'source-atop'; x.fillStyle = '#8a6a3a30';
+    for (let k = 0; k < c.width + c.height; k += 12) { x.fillRect(k, 0, 2, c.height); }
+    x.globalCompositeOperation = 'source-over';
+    return c;
+  }
   drawBigMap() {
     const g = this.g, a = g.area;
     const cv = $('bigmap'), x = cv.getContext('2d');
     if (this.miniArea !== a) this.buildMapCanvas();
     x.imageSmoothingEnabled = false;
-    x.fillStyle = '#0d0a14'; x.fillRect(0, 0, cv.width, cv.height);
+    x.fillStyle = '#1b1426'; x.fillRect(0, 0, cv.width, cv.height);
     if (a.dungeon) { this.drawDungeon(x, cv.width, cv.height, Math.min(cv.width / a.w, cv.height / a.h) * 0.9); x.fillStyle = '#fff'; x.font = '16px Pixelify Sans, monospace'; x.fillText(a.name, 10, 22); return; }
+    if (this.illusArea !== a) this.buildIllustrated();
     const sc = Math.min(cv.width / a.w, cv.height / a.h);
-    x.drawImage(this.miniCache, 0, 0, a.w * sc, a.h * sc);
-    this.markers(x, (mx, mz) => [mx * sc, mz * sc], 7);
-    x.font = '12px Pixelify Sans, monospace'; x.fillStyle = '#fff';
-    for (const l of this.g.story.labels()) { x.fillStyle = '#000a'; x.fillText(l.t, l.x * sc + 1, l.z * sc + 1); x.fillStyle = '#fff3cf'; x.fillText(l.t, l.x * sc, l.z * sc); }
+    x.drawImage(this.illus, 0, 0, a.w * sc, a.h * sc);
+    // Pass 6: land you haven't seen stays under the fog (the map remembers what you walked)
+    if (g.world6 && a.id === 'overworld' && !g.devMapOverlay) { const fog = this.fogCanvas(); if (fog) x.drawImage(fog, 0, 0, a.w * sc, a.h * sc); }
+    if (g.devMapOverlay && g.world6 && a.id === 'overworld') drawDevOverlay(g, x, sc);
+    // markers: friendly pins, the current objective pulses
+    const t = performance.now() / 1000;
+    for (const m of this.g.story.markers()) {
+      const px = m.x * sc, pz = m.z * sc;
+      if (m.pulse) { x.strokeStyle = m.color; x.lineWidth = 2; x.beginPath(); x.arc(px, pz, 7 + (t * 8) % 8, 0, 6.3); x.stroke(); }
+      x.fillStyle = '#2a1a10'; x.beginPath(); x.moveTo(px, pz + 2); x.lineTo(px - 5, pz - 6); x.lineTo(px + 5, pz - 6); x.fill();
+      x.fillStyle = m.color; x.beginPath(); x.arc(px, pz - 7, 5, 0, 6.3); x.fill(); x.strokeStyle = '#2a1a10'; x.lineWidth = 1.5; x.stroke();
+    }
+    x.font = '13px Pixelify Sans, monospace'; x.textAlign = 'center';
+    for (const l of this.g.story.labels()) { const hw = x.measureText(l.t).width / 2 + 8, lx = Math.max(hw, Math.min(a.w * sc - hw, l.x * sc)); x.lineWidth = 3; x.strokeStyle = '#f0e0b8'; x.strokeText(l.t, lx, l.z * sc); x.fillStyle = '#4a2a14'; x.fillText(l.t, lx, l.z * sc); }
+    x.textAlign = 'left';
     const p = g.player;
-    x.fillStyle = '#fff'; x.fillRect(p.x * sc - 4, p.z * sc - 4, 8, 8); x.fillStyle = '#e0463c'; x.fillRect(p.x * sc - 2, p.z * sc - 2, 4, 4);
+    x.save(); x.translate(p.x * sc, p.z * sc); x.rotate(-p.facing + Math.PI);
+    x.fillStyle = '#fff'; x.beginPath(); x.moveTo(0, -8); x.lineTo(6, 6); x.lineTo(0, 3); x.lineTo(-6, 6); x.fill(); x.strokeStyle = '#c8302a'; x.lineWidth = 2; x.stroke();
+    x.restore();
   }
 
   update(dt) {
@@ -272,3 +383,7 @@ export class UI {
   }
 }
 installRpgUI(UI);
+installSkillUI(UI);
+installCraftUI(UI);
+
+installJournalUI(UI);

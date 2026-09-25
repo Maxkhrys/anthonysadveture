@@ -57,12 +57,12 @@ export class Pickup extends Entity {
     this.spin.rotation.y += dt * 4;
     if (d < 0.45 && this.t > 0.25 && p.state !== 'dead') this.collect();
     this.sync();
-    this.obj.position.y = this.y + Math.sin(this.t * 4) * 0.03;
+    this.obj.position.y = this.y + (this.gy || 0) + Math.sin(this.t * 4) * 0.03;
   }
   collect() {
     const g = this.g;
     if (this.kind === 'pip') { g.addCoins(this.value); sfx(this.value >= 20 ? 'pipbig' : 'pip'); g.fx.burst(this.x, 0.3, this.z, 4, 0xfff3b0, 1.5, { life: 0.3, size: 0.05 }); }
-    else if (this.kind === 'heart') { g.heal(g.inv.maxHp * 0.15); sfx('heart'); }
+    else if (this.kind === 'heart') { g.heal(g.inv.maxHp * 0.12); sfx('heart'); }
     else if (this.kind === 'heartfull') { g.gainHeartContainer(); }
     this.remove();
   }
@@ -73,7 +73,8 @@ export function dropLoot(g, x, z, table) {
   const r = Math.random();
   const inv = g.inv;
   const hurt = inv.hp < inv.maxHp;
-  if (hurt && r < (table.heart ?? 0.15) * (inv.hp <= inv.maxHp * 0.3 ? 2.5 : 1)) { g.spawn(new Pickup(g, x, z, 'heart')); return; }
+  // hearts are a small top-up, not a second tonic belt; slightly likelier when you're low
+  if (hurt && r < (table.heart ?? 0.15) * 0.5 * (inv.hp <= inv.maxHp * 0.3 ? 2 : 1)) { g.spawn(new Pickup(g, x, z, 'heart')); return; }
   let n = table.pips ?? 1;
   if (Math.random() < (table.chance ?? 0.7)) {
     while (n > 0) {
