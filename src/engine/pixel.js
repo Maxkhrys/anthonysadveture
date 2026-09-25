@@ -38,6 +38,9 @@ export class PixelRenderer {
         vignette: { value: 0.35 }, grade: { value: new THREE.Vector3(1, 1, 1) }, near: { value: 0.1 }, far: { value: 120 },
         desat: { value: 0 }, bloom: { value: 0.22 }, bloomScale: { value: 1 },
         fogColor: { value: new THREE.Color(0xc8d8f0) }, fogAmt: { value: 0 }, fogNear: { value: 44 }, fogFar: { value: 60 }, contrast: { value: 1.0 },
+        // Pass 10 world look: ambient occlusion, drifting cloud shadows, split-tone grade, tilt-shift
+        aoAmt: { value: 0 }, cloudAmt: { value: 0 }, detailAmt: { value: 0 }, splitAmt: { value: 0 }, tilt: { value: 0 }, time: { value: 0 }, wind: { value: new THREE.Vector2(0.9, 0.5) },
+        camPos: { value: new THREE.Vector3() }, camUp: { value: new THREE.Vector3(0, 1, 0) }, camBack: { value: new THREE.Vector3(0, 0, 1) }, viewSize: { value: new THREE.Vector2(1, 1) },
       },
       vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy,0.,1.); }`,
       fragmentShader: `
@@ -45,13 +48,48 @@ export class PixelRenderer {
         uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 texel; uniform vec2 offset;
         uniform float flash; uniform vec3 flashColor; uniform float vignette; uniform vec3 grade;
         uniform float near; uniform float far; uniform float desat; uniform float bloom; uniform float bloomScale; uniform vec3 fogColor; uniform float fogAmt; uniform float fogNear; uniform float fogFar; uniform float contrast;
+        uniform float aoAmt; uniform float cloudAmt; uniform float detailAmt; uniform float splitAmt; uniform float tilt; uniform float time; uniform vec2 wind;
+        uniform vec3 camPos; uniform vec3 camUp; uniform vec3 camBack; uniform vec2 viewSize;
         varying vec2 vUv;
         float dep(vec2 uv){ return texture2D(tDepth, uv).r * (far-near); }
+        float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
+          return mix(mix(hash(i), hash(i+vec2(1.0,0.0)), f.x), mix(hash(i+vec2(0.0,1.0)), hash(i+vec2(1.0,1.0)), f.x), f.y); }
         void main(){
           vec2 uv = vUv + offset * texel;
           vec2 px = (floor(uv / texel) + 0.5) * texel;
           vec3 c = texture2D(tColor, px).rgb;
           float d = dep(px);
+          bool sky = d > (far-near) * 0.995;
+          // ambient occlusion: a pixel sitting in a crease (deeper than the average of the
+          // pixels on either side of it) is darkened. Comparing opposite neighbours cancels the
+          // steady depth slope of flat ground, so only real corners and contacts shade.
+          if (aoAmt > 0.0 && !sky) {
+            float ao = 0.0;
+            for (int i = 0; i < 4; i++) {
+              float a = float(i) * 0.785398;
+              vec2 dir = vec2(cos(a), sin(a)) * texel;
+              for (int j = 1; j <= 2; j++) {
+                vec2 o = dir * (float(j) * 1.5);
+                float crease = d - 0.5 * (dep(px + o) + dep(px - o));
+                // only small steps count: where things meet the ground or a wall, not the drop
+                // behind a tall object (that would draw a dark halo around everything)
+                ao += smoothstep(0.015, 0.09, crease) * (1.0 - smoothstep(0.16, 0.34, crease));
+              }
+            }
+            c *= 1.0 - clamp(ao / 5.0, 0.0, 1.0) * aoAmt;
+          }
+          // cloud shadows: rebuild this pixel's world position from the linear ortho depth and
+          // let slow noise clouds drift over the land
+          vec3 wp = camPos + vec3(1.0, 0.0, 0.0) * (px.x - 0.5) * viewSize.x + camUp * (px.y - 0.5) * viewSize.y - camBack * (near + d);
+          // ground detail: faint world-anchored mottling so broad grass and paths never read flat
+          if (detailAmt > 0.0 && !sky) c *= 1.0 + (vnoise(wp.xz * 1.7) - 0.5) * detailAmt + (vnoise(wp.xz * 0.35 + 3.1) - 0.5) * detailAmt * 0.8;
+          if (cloudAmt > 0.0 && !sky) {
+            vec2 q = wp.xz * 0.07 + wind * time * 0.026;
+            float n = vnoise(q) * 0.65 + vnoise(q * 2.3 + 7.1) * 0.35;
+            float cl = smoothstep(0.44, 0.64, n);
+            c *= 1.0 - cl * cloudAmt;
+          }
           float dn = min(min(dep(px+vec2(texel.x,0.)), dep(px-vec2(texel.x,0.))), min(dep(px+vec2(0.,texel.y)), dep(px-vec2(0.,texel.y))));
           float edge = step(0.55, d - dn);
           c = mix(c, c*0.28 + vec3(0.03,0.02,0.06), edge*0.85);
@@ -71,6 +109,11 @@ export class PixelRenderer {
           float fd = clamp((d - fogNear) / (fogFar - fogNear), 0.0, 1.0);
           c = mix(c, fogColor, fd * fogAmt * (1.0 - edge * 0.5));
           c *= grade;
+          // split tone: warm light, cool shadow
+          if (splitAmt > 0.0) { float lt = dot(c, vec3(0.299,0.587,0.114)); c = mix(c, c * mix(vec3(0.9, 0.97, 1.12), vec3(1.07, 1.01, 0.9), smoothstep(0.15, 0.75, lt)), splitAmt); }
+          // tilt-shift: the far top and near bottom soften, like a model village under glass
+          if (tilt > 0.0) { float k = smoothstep(0.3, 0.5, abs(vUv.y - 0.5)) * tilt;
+            if (k > 0.001) { vec3 b = vec3(0.0); for (int i = 0; i < 6; i++) { float a = float(i) * 1.0472; b += texture2D(tColor, px + vec2(cos(a), sin(a)) * texel * 1.6).rgb; } c = mix(c, b / 6.0 * grade, k * 0.7); } }
           c = (c - 0.5) * contrast + 0.5;
           float l = dot(c, vec3(0.299,0.587,0.114));
           c = mix(c, vec3(l), desat);
@@ -162,6 +205,9 @@ export class PixelRenderer {
     c.lookAt(snapped);
     this.postMat.uniforms.offset.value.set((sx - qx) / u, (sy - qy) / u);
     this.postMat.uniforms.near.value = c.near; this.postMat.uniforms.far.value = c.far;
+    const U = this.postMat.uniforms;
+    U.camPos.value.copy(c.position); U.camUp.value.copy(up); U.camBack.value.copy(back);
+    U.viewSize.value.set(this.rw * u, this.rh * u); U.time.value += dt;
 
     const r = this.renderer;
     r.setRenderTarget(this.rt);

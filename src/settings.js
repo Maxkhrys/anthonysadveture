@@ -19,6 +19,7 @@ const OPTS = [
   { k: 'preset', name: 'Graphics preset', vals: ['low', 'default', 'high', 'max', 'custom'], labels: ['Low', 'Default', 'High', 'Max', 'Custom'], preset: true },
   { k: 'bloom', name: 'Bloom', vals: [0, 0.5, 1, 1.4], labels: ['Off', 'Soft', 'Normal', 'Strong'] },
   { k: 'fx', name: 'Particles / effects', vals: [0.35, 0.65, 1], labels: ['Light', 'Medium', 'Full'] },
+  { k: 'world', name: 'World effects (occlusion, cloud shadows, grade)', vals: ['off', 'balanced', 'full'], labels: ['Off', 'Balanced', 'Full'] },
   { k: 'questGuide', name: 'Quest tracker', vals: [true, false], labels: ['Shown', 'Hidden'] },
   { k: 'reducedMotion', name: 'Reduced UI motion', vals: [false, true], labels: ['Off', 'On'] },
   { k: 'hudScale', name: 'HUD scale', vals: [0.8, 0.9, 1, 1.15, 1.3], pct: true },
@@ -27,12 +28,19 @@ const OPTS = [
 ];
 // Presets only touch settings that change rendering cost; everything stays individually adjustable.
 export const PRESETS = {
-  low: { quality: 'low', bloom: 0, fx: 0.35, pixel: 4 },
-  default: { quality: 'high', bloom: 1, fx: 1, pixel: 0 },
-  high: { quality: 'high', bloom: 1, fx: 1, pixel: 2 },
-  max: { quality: 'max', bloom: 1.4, fx: 1, pixel: 2 },
+  low: { quality: 'low', bloom: 0, fx: 0.35, pixel: 4, world: 'off' },
+  default: { quality: 'high', bloom: 1, fx: 1, pixel: 0, world: 'balanced' },
+  high: { quality: 'high', bloom: 1, fx: 1, pixel: 2, world: 'full' },
+  max: { quality: 'max', bloom: 1.4, fx: 1, pixel: 2, world: 'full' },
 };
-export const DEFAULTS = { zoom: 1, difficulty: 'normal', master: 1, music: 1, sfx: 1, shake: 1, numbers: true, guide: true, pixel: 0, quality: 'high', preset: 'default', bloom: 1, fx: 1, hudScale: 1, combatText: true, abilityLabels: false, questGuide: true, reducedMotion: false };
+// World effects levels (post pass, low-res so cheap): ambient occlusion, cloud shadows (the
+// atmosphere scales them by daylight), split-tone grade, tilt-shift
+export const WORLD_FX = {
+  off: { ao: 0, cloud: 0, split: 0, tilt: 0, detail: 0 },
+  balanced: { ao: 0.6, cloud: 0.16, split: 0.55, tilt: 0, detail: 0.1 },
+  full: { ao: 0.8, cloud: 0.2, split: 0.75, tilt: 0.55, detail: 0.13 },
+};
+export const DEFAULTS = { world: 'balanced', zoom: 1, difficulty: 'normal', master: 1, music: 1, sfx: 1, shake: 1, numbers: true, guide: true, pixel: 0, quality: 'high', preset: 'default', bloom: 1, fx: 1, hudScale: 1, combatText: true, abilityLabels: false, questGuide: true, reducedMotion: false };
 
 export function loadSettings() {
   try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { return { ...DEFAULTS }; }
@@ -47,6 +55,8 @@ export function applySettings(s, game) {
   if (pr.forceScale !== scale) { pr.forceScale = scale; pr.resize(); }
   const sz = s.quality === 'low' ? 1024 : s.quality === 'max' ? 4096 : 2048;
   pr.postMat.uniforms.bloomScale.value = s.bloom ?? 1;
+  const W = WORLD_FX[s.world] || WORLD_FX.balanced, U = pr.postMat.uniforms;
+  pr.worldFx = W; U.aoAmt.value = W.ao; U.splitAmt.value = W.split; U.tilt.value = W.tilt; U.detailAmt.value = W.detail || 0;
   if (game.fx) game.fx.density = s.fx ?? 1;
   if (typeof document !== 'undefined') document.documentElement.style.setProperty('--hud', s.hudScale ?? 1);
   if (game.sun.shadow.mapSize.x !== sz) { game.sun.shadow.mapSize.set(sz, sz); if (game.sun.shadow.map) { game.sun.shadow.map.dispose(); game.sun.shadow.map = null; } }
@@ -69,13 +79,13 @@ export class SettingsPanel {
     const idx = Math.max(0, o.vals.indexOf(s[o.k]));
     s[o.k] = o.vals[(idx + d + o.vals.length) % o.vals.length];
     if (o.preset && PRESETS[s.preset]) Object.assign(s, PRESETS[s.preset]);
-    else if (['quality', 'bloom', 'fx', 'pixel'].includes(o.k)) s.preset = Object.keys(PRESETS).find(p => Object.entries(PRESETS[p]).every(([k, v]) => s[k] === v)) || 'custom';
+    else if (['quality', 'bloom', 'fx', 'pixel', 'world'].includes(o.k)) s.preset = Object.keys(PRESETS).find(p => Object.entries(PRESETS[p]).every(([k, v]) => s[k] === v)) || 'custom';
     saveSettings(s); applySettings(s, this.g); sfx('select');
     this.render();
   }
   categoryOptions() {
     const groups = {
-      Graphics: ['preset','pixel','quality','bloom','fx','zoom'],
+      Graphics: ['preset','pixel','quality','world','bloom','fx','zoom'],
       Audio: ['master','music','sfx'], Gameplay: ['difficulty','shake'],
       Interface: ['hudScale','numbers','combatText','guide','questGuide','abilityLabels','reducedMotion'], Controls: []
     };

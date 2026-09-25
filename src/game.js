@@ -196,7 +196,7 @@ export class Game {
       // the Conservatory: sun through cracked glass, pollen hanging in green-gold air
       waterU.light.value = 1; waterU.night.value = 0; waterU.rain.value = 0;
       u.fogAmt.value = 0.16; u.fogColor.value.set(0xd8e8c0); u.contrast.value = 1.06; u.bloom.value = 0.45; u.vignette.value = 0.45;
-      u.grade.value.set(1.04, 1.04, 0.96); u.desat.value = 0;
+      u.grade.value.set(1.04, 1.04, 0.96); u.desat.value = 0; u.cloudAmt.value = 0;
       if (Math.random() < 0.5) this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 18, y: 0.5 + Math.random() * 2.5, z: this.cam.z + (Math.random() - 0.5) * 12, vx: 0.15, vy: -0.05, g: 0, drag: 0, color: Math.random() < 0.7 ? 0xfff3c8 : 0xc8f0a8, life: 3, size: 0.04, wob: 0.6, shrink: false });
       if (Math.random() < 0.06) { const x = this.cam.x + (Math.random() - 0.5) * 16, z = this.cam.z + (Math.random() - 0.5) * 10; for (let i = 0; i < 6; i++) this.fx.add({ x: x + i * 0.2, y: 3 - i * 0.4, z: z + i * 0.1, vy: -0.1, g: 0, drag: 0, color: 0xfff8e0, life: 1.6, size: 0.35, soft: true, grow: 1.2, shrink: false }); }
       this.lampTick(dt, 0);
@@ -204,7 +204,7 @@ export class Game {
     }
     if (!a || a.id !== 'overworld') {
       waterU.light.value = a && a.dark ? 0.75 : 1; waterU.night.value = 0; waterU.rain.value = 0;
-      u.fogAmt.value = a && a.dark ? 0.2 : 0; u.fogColor.value.set(a && a.rift ? 0x3a2a5a : 0x1a1426); u.contrast.value = 1.04;
+      u.fogAmt.value = a && a.dark ? 0.2 : 0; u.fogColor.value.set(a && a.rift ? 0x3a2a5a : 0x1a1426); u.contrast.value = 1.04; u.cloudAmt.value = 0;
       this.lampTick(dt, 0.8);
       return;
     }
@@ -250,6 +250,8 @@ export class Game {
     u.vignette.value = 0.3 + N * 0.5;
     u.bloom.value = 0.25 + N * 0.45;
     u.contrast.value = 1.13 + N * 0.02;
+    // cloud shadows drift over the land by day (fainter in rain, gone by night)
+    u.cloudAmt.value = (this.pr.worldFx ? this.pr.worldFx.cloud : 0) * L * (1 - r * 0.6);
     if (MOOD.grade) { const k = MOOD.gradeK ?? 0.5; u.grade.value.x *= 1 + (MOOD.grade[0] - 1) * k; u.grade.value.y *= 1 + (MOOD.grade[1] - 1) * k; u.grade.value.z *= 1 + (MOOD.grade[2] - 1) * k; }
     this.playerLamp.intensity = N > 0.45 ? (N - 0.45) * 7 : 0;
     this.playerLamp.color.setHex(0xffd8a0);
