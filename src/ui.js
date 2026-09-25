@@ -1,3 +1,4 @@
+import { installAtlasUI } from './ui_atlas.js';
 import { glyph } from './engine/actions.js';
 import { installJournalUI } from './ui_journal.js';
 // HTML overlay: HUD, dialogue, prompts, menus, maps.
@@ -387,3 +388,5 @@ installSkillUI(UI);
 installCraftUI(UI);
 
 installJournalUI(UI);
+
+installAtlasUI(UI);

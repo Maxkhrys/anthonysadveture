@@ -1,12 +1,15 @@
 // The Soulbound's data: class, save compatibility, SoulChain items, the tree, Echo costs.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CLASSES, costLabel, resLabel, echoCount, ECHO, MAX_ECHOES } from '../src/rpg/classes.js';
+import { CLASSES, costLabel, resLabel, echoCount, ECHO, MAX_ECHOES, computeStats } from '../src/rpg/classes.js';
 import { normalizeCharacter, createProfile, defaultInventory } from '../src/persistence/model.js';
 import { starterWeapon, genItem, makeNamed, WEAPONS } from '../src/rpg/items.js';
 import { weaponFamily, CLASS_FAMILIES } from '../src/rpg/gear.js';
 import { TREES, SKILLS, PATHS, ensureTree, spendNode, respecTree, treeOf, legacyAbilities } from '../src/rpg/skills.js';
 import { RECIPES } from '../src/rpg/crafting.js';
+import { chainColors } from '../src/hero.js';
+import { chainStyle } from '../src/weaponModels.js';
+import { Player } from '../src/entities/player.js';
 
 test('the Soulbound is a full class with Soul Echoes as its resource', () => {
   const C = CLASSES.soulbound;
@@ -31,7 +34,22 @@ test('a Soulbound character is created, saved and reloaded like any other', () =
   assert.throws(() => normalizeCharacter({ ...JSON.parse(JSON.stringify(p)), classId: 'necromancer' }), /Unsupported character class/);
 });
 
+test('the live Soulbound player routes its starting chain into the lash combo', () => {
+  const inv = defaultInventory('soulbound'); inv.equip.weapon = starterWeapon('soulbound');
+  const g = { inv, pstats: computeStats(inv), res: 100, time: 0, nearestEnemy: () => null };
+  const p = new Player(g, 10, 10);
+  p.basicAttack();
+  assert.equal(p.family, 'chain');
+  assert.equal(p.state, 'lash', 'a Soulbound attack enters the chain lash state, not the Samurai sword state');
+  assert.equal(p.combo, 1);
+  assert.ok(p.chainRange() >= 2.5);
+});
+
 test('SoulChains are a weapon family of their own and roll melee affixes', () => {
+  for (const base of ['tetherchain', 'veilchain']) {
+    const style = chainStyle({base});
+    assert.deepEqual(chainColors({base}), [style.a, style.spirit]);
+  }
   assert.deepEqual(CLASS_FAMILIES.soulbound, ['chain']);
   const chains = WEAPONS.filter(w => w.kind === 'chain');
   assert.ok(chains.filter(w => !w.named).length >= 8, 'eight chain bases');

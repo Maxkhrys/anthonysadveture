@@ -1,3 +1,4 @@
+import { CharacterCreator } from './character_creator.js';
 import { HEART } from './world/layout.js';
 import {BUILD,chooseImport} from './alpha.js';
 import { PixelRenderer } from './engine/pixel.js';
@@ -38,7 +39,7 @@ function progress(pct, text) { $('loading').querySelector('.ld-fill').style.widt
 const tick = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
 $('loading').querySelector('.ld-tip').innerHTML = '💡 ' + TIPS[Math.floor(Math.random() * TIPS.length)];
 
-let pr, input, game;
+let pr, input, game, creator;
 let mode = 'loading';
 // Test hook: deterministic fixed-step simulation with scripted held keys.
 window.__sim = (frames, keys = [], dt = 1 / 30) => {
@@ -144,29 +145,34 @@ async function boot() {
   requestAnimationFrame(frame);
 }
 
-async function start(fresh, cls, characterId, name = 'Mossling') {
-  if (mode !== 'title' && mode !== 'classsel') return;
+async function start(fresh, cls, characterId, name = 'Mossling', appearance) {
+  if (!['title','classsel','creator'].includes(mode)) return;
   initAudio();
   if (fresh && !cls) {
-    // choose a class first
-    mode = 'classsel';
+    mode = 'creator';
     $('title').classList.add('hidden');
-    game.ui.classSelect(input, c => {
-      mode = 'title';
-      const name = prompt('Name your new ' + c + ':', 'Mossling');
-      if (!name?.trim()) { $('title').classList.remove('hidden'); return; }
-      start(true, c, null, name.trim());
+    input.paused = true;
+    const clearInput = () => { input.keys.clear(); input.taps.clear(); input.mouse.clear(); input.mtaps.clear(); input.state={}; input.prev={}; };
+    clearInput();
+    creator = new CharacterCreator({
+      game,
+      onBack: () => { creator.dispose(); creator=null; input.paused=false; clearInput(); mode='title'; $('title').classList.remove('hidden'); document.querySelector('#title-menu button')?.focus(); },
+      onConfirm: async ({name,cls,appearance}) => {
+        const ok = await start(true,cls,null,name,appearance);
+        if (!ok) { mode='creator'; $('title').classList.add('hidden'); throw new Error('Could not save character. Check available browser storage and try again.'); }
+        creator.dispose(); creator=null; input.paused=false; clearInput();
+      },
     });
     return;
   }
   mode = 'starting';
   try {
-    if (fresh) await game.createCharacter(name, cls || 'samurai');
+    if (fresh) await game.createCharacter(name, cls || 'samurai', appearance);
     else await game.load(characterId);
   } catch (error) {
     mode = 'title'; $('title').classList.remove('hidden');
     game.ui.toast('Character could not be opened', error.message, 8);
-    return;
+    return false;
   }
   mode = 'play';
   $('title').classList.add('hidden');
@@ -182,10 +188,11 @@ async function start(fresh, cls, characterId, name = 'Mossling') {
   } else {
     game.loadArea(game.checkpoint.area, game.checkpoint.spawn);
     game.ui.areaName(game.area.name);
-    if (game.area.id === 'overworld' && !game.flags.introFought && (game.flags.stage || 0) === 0) game.startIntroFight();
+    if (!game.onboarding.active && game.area.id === 'overworld' && !game.flags.introFought && (game.flags.stage || 0) === 0) game.startIntroFight();
   }
   game.ui.updateHud();
   await game.save();
+  return true;
 }
 
 let last = performance.now();
@@ -194,6 +201,7 @@ function frame(now) {
   requestAnimationFrame(frame);
   let dt = Math.min(0.05, (now - last) / 1000);
   last = now;
+  if (mode === 'creator') { creator.frame(dt); return; }
   input.update();
   if (input.pressed('music')) { const on = toggleMusic(); game.ui.toast(on ? 'Music on' : 'Music off', '', 0.8); }
   if (mode === 'title') {

@@ -1,3 +1,5 @@
+import { normalizeAppearance, FRAMES } from './appearance.js';
+import { tailoredGeometry } from './character_geometry.js';
 import { HEIRLOOM_BY_ID } from './rpg/heirlooms.js';
 // Moss, the hero: a layered voxel figure whose equipment is drawn on the body.
 // Visual slots: head, neck, chest, arms, legs, boots, weapon. Each slot reads the equipped
@@ -18,7 +20,7 @@ export const CLASS_LOOK = {
   samurai: { shirt: 0x2f3f5a, shirtD: 0x223048, pants: 0x2a2f44, boots: 0x3a2a24, scarf: 0xd8342c, hair: 0x1a1420, sleeve: 0x2f3f5a },
   archer: { shirt: 0x4a7a3a, shirtD: 0x3a6a2e, pants: 0x5a4a32, boots: 0x5a3a24, scarf: 0xe0b83a, hair: 0x7a4a24, sleeve: 0x4a7a3a },
   witch: { shirt: 0x5a3a8a, shirtD: 0x44296e, pants: 0x3a2a5a, boots: 0x2a1e3a, scarf: 0x7fd36a, hair: 0x8a5ac0, sleeve: 0x5a3a8a },
-  // dark muted travelling cloth, aged leather, a pale spectral teal
+  // travelling cloth, aged leather, pale spectral teal
   soulbound: { shirt: 0x3c4450, shirtD: 0x2c323c, pants: 0x3a3b40, boots: 0x5a4432, scarf: 0x5fa8a2, hair: 0x2c2834, sleeve: 0x4a4e56 },
 };
 const SPIRIT = 0x8fe3dc, SPIRIT_L = 0xc8b0ff, IRON = 0x5c5a5e, IRON_L = 0x8a8890, PAPER = 0xe8dcc0, LEATHER = 0x6a4a30;
@@ -121,13 +123,17 @@ export function torsoParts(cls, chest) {
     P.push(B(0.12, 0.36, 0.1, 0.08, 0.2, -0.16, 0x7a4a2a, 0, 0, -0.35), B(0.02, 0.14, 0.02, 0.0, 0.52, -0.16, 0xf0f0f0, 0, 0, -0.35), B(0.03, 0.06, 0.03, -0.01, 0.62, -0.16, 0xe8424f, 0, 0, -0.35), B(0.02, 0.14, 0.02, 0.06, 0.54, -0.16, 0xf0f0f0, 0, 0, -0.35), B(0.03, 0.06, 0.03, 0.05, 0.64, -0.16, 0x7fd36a, 0, 0, -0.35)); // quiver + fletchings
     P.push(B(0.34, 0.28, 0.03, 0, 0.1, -0.13, 0x3a6a2e), B(0.3, 0.06, 0.03, 0, 0.06, -0.14, 0x2e5a24)); // short cape
   }
+  if (cls === 'witch') {
+    for (const x of [-.11,.09]) P.push(B(.018,.14,.018,x,.11,.14,0xb59a64),B(.05,.06,.035,x,.07,.145,0x92b5a0));
+    P.push(B(.13,.17,.06,-.16,.12,-.08,0x6c4f38),B(.1,.13,.012,-.16,.14,-.045,0xd8c59d));
+  }
   if (cls === 'soulbound') {
-    P.push(B(0.3, 0.05, 0.02, 0, 0.26, 0.116, shade(second, 1.25), 0, 0, -0.55), B(0.3, 0.04, 0.02, 0, 0.12, 0.116, LEATHER, 0, 0, 0.5)); // crossed wraps + a satchel strap
-    P.push(B(0.2, 0.3, 0.05, -0.12, 0.14, -0.1, 0x2a2e36, 0.12, 0, 0.1), B(0.16, 0.06, 0.26, -0.19, 0.38, -0.01, 0x2a2e36, 0, 0, 0.35), B(0.14, 0.06, 0.05, -0.16, -0.02, -0.11, 0x22262c, 0.2)); // short cloak, left shoulder only
-    P.push(B(0.3, 0.1, 0.12, 0, 0.36, -0.13, 0x30353e), B(0.22, 0.06, 0.06, 0, 0.44, -0.18, 0x30353e)); // hood, lowered
-    P.push(B(0.05, 0.09, 0.01, 0.09, 0.07, 0.125, PAPER), B(0.04, 0.07, 0.01, 0.15, 0.05, 0.11, PAPER, 0, -0.5)); // paper seals on the belt
-    P.push(G(0.02, 0.02, 0.012, 0.09, 0.12, 0.132, SPIRIT), G(0.018, 0.018, 0.012, 0.15, 0.09, 0.118, SPIRIT_L)); // their runes
-    P.push(B(0.09, 0.08, 0.07, -0.15, 0.1, 0.08, LEATHER), B(0.1, 0.02, 0.075, -0.15, 0.18, 0.08, shade(LEATHER, 1.3)), G(0.025, 0.025, 0.02, -0.15, 0.14, 0.12, SPIRIT)); // relic pouch
+    P.push(B(.3,.05,.02,0,.26,.116,shade(second,1.25),0,0,-.55),B(.3,.04,.02,0,.12,.116,LEATHER,0,0,.5));
+    P.push(B(.2,.3,.05,-.12,.14,-.1,0x2a2e36,.12,0,.1),B(.16,.06,.26,-.19,.38,-.01,0x2a2e36,0,0,.35),B(.14,.06,.05,-.16,-.02,-.11,0x22262c,.2));
+    P.push(B(.3,.1,.12,0,.36,-.13,0x30353e),B(.22,.06,.06,0,.44,-.18,0x30353e));
+    P.push(B(.05,.09,.01,.09,.07,.125,PAPER),B(.04,.07,.01,.15,.05,.11,PAPER,0,-.5));
+    P.push(G(.02,.02,.012,.09,.12,.132,SPIRIT),G(.018,.018,.012,.15,.09,.118,SPIRIT_L));
+    P.push(B(.09,.08,.07,-.15,.1,.08,LEATHER),B(.1,.02,.075,-.15,.18,.08,shade(LEATHER,1.3)),G(.025,.025,.02,-.15,.14,.12,SPIRIT));
   }
   if (cls === 'witch' || (A && (A.shape === 'robe' || A.shape === 'cinderwoven'))) {
     P.push(B(0.34, 0.12, 0.26, 0, 0.04, 0, second), B(0.4, 0.1, 0.3, 0, -0.04, 0, shade(second, 0.8)), B(0.44, 0.04, 0.32, 0, -0.06, 0, A ? trim : 0x2e1a4a)); // robe skirt to the ankles
@@ -159,11 +165,8 @@ export function armParts(cls, armsItem, chest, side = 1) {
   const P = [B(0.09, 0.12, 0.09, 0, -0.14, 0, sleeve), B(0.1, 0.06, 0.1, 0, -0.2, 0, bracer), B(0.085, 0.06, 0.085, 0, -0.26, 0, SKIN)];
   if (R && R.r >= 2) P.push(B(0.03, 0.03, 0.02, 0, -0.18, 0.055, R.rar));
   if (cls === 'witch') P.push(B(0.12, 0.05, 0.12, 0, -0.18, 0, shade(sleeve, 0.85))); // bell sleeves
-  if (cls === 'soulbound' && side > 0) { // the SoulChain lives on this arm: iron turns fading into a spectral band
-    for (let i = 0; i < 3; i++) P.push(B(0.112, 0.022, 0.112, 0, -0.1 - i * 0.045, 0, i % 2 ? IRON_L : IRON, 0, i * 0.4));
-    P.push(G(0.114, 0.014, 0.114, 0, -0.235, 0, SPIRIT));
-  }
-  if (cls === 'soulbound' && side < 0) P.push(B(0.104, 0.03, 0.104, 0, -0.12, 0, PAPER), B(0.104, 0.02, 0.104, 0, -0.17, 0, shade(PAPER, 0.85)));
+  if (cls === 'soulbound' && side > 0) { for (let i=0;i<3;i++) P.push(B(.112,.022,.112,0,-.1-i*.045,0,i%2?IRON_L:IRON,0,i*.4)); P.push(G(.114,.014,.114,0,-.235,0,SPIRIT)); }
+  if (cls === 'soulbound' && side < 0) P.push(B(.104,.03,.104,0,-.12,0,PAPER),B(.104,.02,.104,0,-.17,0,shade(PAPER,.85)));
   const as = setOf(armsItem);
   if (as === 'bellwarden') P.push(B(0.13, 0.08, 0.13, 0, -0.22, 0, BELL), B(0.14, 0.02, 0.14, 0, -0.17, 0, BELL_L));
   if (as === 'thornstalker') for (let i = 0; i < 3; i++) P.push(B(0.025, 0.07, 0.025, 0.05, -0.12 - i * 0.05, 0, THORN, 0, 0, -0.9));
@@ -172,18 +175,38 @@ export function armParts(cls, armsItem, chest, side = 1) {
   P.push(B(0.03, 0.035, 0.035, 0.035, -0.25, 0.035, SKIN_D));
   return P;
 }
-export function headParts(cls) {
-  const C = CLASS_LOOK[cls] || CLASS_LOOK.samurai;
-  const P = [
-    B(0.38, 0.32, 0.34, 0, 0, 0, SKIN), B(0.36, 0.04, 0.32, 0, -0.02, 0, SKIN_D), // head + jaw shade
-    B(0.06, 0.03, 0.01, -0.13, 0.06, 0.175, 0xf2968a), B(0.06, 0.03, 0.01, 0.13, 0.06, 0.175, 0xf2968a), // blush
-    B(0.05, 0.015, 0.01, 0, 0.05, 0.175, 0x9a4a4a), // small mouth
-    B(0.39, 0.1, 0.35, 0, 0.26, -0.01, C.hair), B(0.39, 0.16, 0.08, 0, 0.12, -0.14, C.hair), // hair cap + back
-  ];
-  if (cls === 'samurai') P.push(B(0.08, 0.12, 0.08, 0, 0.34, -0.06, C.hair), B(0.1, 0.03, 0.1, 0, 0.36, -0.06, 0xd8342c), B(0.4, 0.04, 0.36, 0, 0.26, 0, 0xd8342c)); // topknot + hachimaki
-  if (cls === 'archer') P.push(B(0.12, 0.06, 0.04, -0.08, 0.28, 0.16, C.hair, 0, 0, 0.3), B(0.1, 0.06, 0.04, 0.09, 0.27, 0.16, C.hair, 0, 0, -0.2)); // fringe
-  if (cls === 'witch') P.push(B(0.07, 0.24, 0.1, -0.2, 0.02, 0, C.hair), B(0.07, 0.24, 0.1, 0.2, 0.02, 0, C.hair), B(0.12, 0.1, 0.1, 0, 0.0, -0.18, C.hair)); // long hair
-  if (cls === 'soulbound') P.push(B(0.24, 0.08, 0.05, 0.06, 0.24, 0.16, C.hair, 0, 0, -0.35), B(0.06, 0.1, 0.05, -0.15, 0.2, 0.16, 0xcfe4e2, 0, 0, 0.25), B(0.07, 0.18, 0.08, -0.2, 0.08, 0.02, C.hair), B(0.1, 0.06, 0.1, 0.02, 0.32, -0.02, C.hair, 0, 0, 0.3)); // swept fringe, one pale streak
+export function headParts(cls, appearance) {
+  const a = normalizeAppearance(appearance), skin = Number(a.skin.replace('#','0x')), hair = Number(a.hairColor.replace('#','0x'));
+  const width = {soft:.29,angular:.28,round:.32,long:.26}[a.face];
+  const P = [B(width,.29,.275,0,.01,0,skin), B(.1,.065,.12,0,-.04,0,skin),
+    B(.035,a.face==='long'?.065:.044,.038,0,.09,.138,shade(skin,.88)),
+    B(.045,.012,.012,0,.05,.143,shade(skin,.58))];
+  for(const side of [-1,1]) P.push(B(.045,.075,.064,side*width*.49,.1,0,skin));
+  P[0].round = true;
+  const add = (w,h,d,x,y,z,rz=0) => { const part=B(w,h,d,x,y,z,hair,0,0,rz); part.round=true; P.push(part); };
+  if(a.hair !== 'shaved') {
+    add(width+.025,.07,.285,0,.267,-.01);
+    add(width+.018,.14,.065,0,.16,-.13);
+    if(['tousled','swept','undercut'].includes(a.hair)) for(let i=0;i<4;i++) add(.085,.065,.15,-.105+i*.066,.27+(i%2)*.025,.063,a.hair==='swept'?-.3:(i%2?-.18:.2));
+    if(a.hair==='cropped') add(width,.035,.07,0,.24,.115);
+    if(['topknot','ponytail','braided'].includes(a.hair)) {
+      add(.095,.09,.095,0,a.hair==='topknot'?.32:.2,-.115);
+      if(a.hair!=='topknot') for(let i=0;i<5;i++) add(a.hair==='braided'?.055:.075,.06,.07,(i%2)*.015,.17-i*.052,-.17-i*.009);
+      P.push(B(.1,.018,.1,0,a.hair==='topknot'?.33:.21,-.116,0xb89c5c));
+    }
+    if(a.hair==='long') for(const side of [-1,1]) { add(.065,.29,.135,side*.146,-.005,-.035,side*.07); add(.09,.26,.05,side*.06,.015,-.15); }
+    if(a.hair==='curly') for(let i=0;i<9;i++) { const angle=i/9*Math.PI*2; add(.09,.09,.09,Math.cos(angle)*.12,.25+(i%2)*.035,Math.sin(angle)*.11); }
+  }
+  if(a.beard!=='none') {
+    const h={stubble:.025,short:.06,full:.11,moustache:.024,forked:.13}[a.beard];
+    if(a.beard==='moustache') {add(.07,h,.025,-.036,.069,.15,-.15);add(.07,h,.025,.036,.069,.15,.15);}
+    else { add(.19,h,.045,0,.045-h,.125); if(a.beard==='forked') {add(.055,.04,.04,-.047,-.105,.124,.13);add(.055,.04,.04,.047,-.105,.124,-.13);} }
+  }
+  if(a.detail==='scar') P.push(B(.013,.083,.012,.075,.135,.147,shade(skin,.67),0,0,-.3));
+  if(a.detail==='freckles') for(const side of [-1,1]) for(let i=0;i<3;i++) P.push(B(.009,.009,.012,side*(.066+i*.022),.103+(i%2)*.012,.143,shade(skin,.53)));
+  if(a.detail==='warpaint') for(const side of [-1,1]) P.push(B(.078,.021,.013,side*.083,.112,.145,0x425e59,0,0,side*.16));
+  if(a.detail==='runes') for(let i=0;i<3;i++) P.push(B(.013,.025,.014,-.023+i*.023,.235-(i%2)*.01,.144,0x567974));
+  if(cls==='soulbound' && a.hair!=='shaved') { add(.24,.08,.05,.06,.24,.16,-.35); add(.06,.1,.05,-.15,.2,.16,.25); add(.07,.18,.08,-.2,.08,.02); }
   return P;
 }
 // hats / helms: the class hat when no helm is worn, so the silhouette always reads
@@ -413,6 +436,24 @@ export function weaponModel(item, cls = 'samurai') {
   W.kind = kind;
   return W;
 }
+
+export const CHAIN_LOOK = {
+  tetherchain:[0x6a6258,0x8fe3dc], shrinecord:[0xb89a6a,0xfff0c0], lanternlinks:[0x5a5a64,0xffd88a],
+  ferrymanchain:[0x4a4e58,0x9ad8ff], mothsilk:[0xd8d0c0,0xe0d0ff], gravechain:[0x3a3a42,0xb8a8ff],
+  wispwoven:[0x6a8a88,0xb8fff0], veilchain:[0x2e3440,0xc8b0ff], wayfarerlinks:[0xa8a298,0x8fe3dc],
+  tidewhisper:[0x5a7a8a,0x55bfff], duskcoil:[0x4a3a5a,0xb765ef], lanternchain:[0x6a5a48,0xffc860], threshold:[0x2a2e3a,0xc8b0ff],
+};
+export const chainColors = item => { const s = chainStyle(item || null); return [s.a, s.spirit]; };
+function chainWeapon(base, item, heirloom) {
+  const [iron, orb] = chainColors(item || { base });
+  const parts=[B(.055,.15,.055,0,-.02,0,LEATHER),B(.065,.025,.065,0,.12,0,shade(iron,1.3)),B(.07,.03,.07,0,-.04,0,shade(LEATHER,.7))], glow=[];
+  for(let i=0;i<8;i++){const a=i/8*Math.PI*2;parts.push(B(.05,.035,.028,Math.cos(a)*.1,.16+Math.sin(a)*.1,.02,i%2?iron:shade(iron,1.35),0,i%2?1.57:0,a));}
+  glow.push(B(.03,.03,.03,0,.26,.02,orb));
+  parts.push(B(.05,.08,.01,.05,-.1,.03,PAPER));glow.push(B(.018,.018,.012,.05,-.07,.037,orb));
+  if(item&&item.r>=2)glow.push(B(.02,.02,.02,-.07,.2,.05,RAR[item.r]));
+  if(heirloom?.prismatic)for(let i=0;i<4;i++)glow.push(B(.025,.025,.025,Math.cos(i*1.57)*.14,.16+Math.sin(i*1.57)*.14,.03,[0x75e9ff,0xb992ff,0xff79d9,0xffd763][i]));
+  return {parts,glow};
+}
 // legacy: flat part list (glow parts included) for callers that just want geometry
 export function weaponParts(item) { const W = weaponModel(item, item && item.cls); return [...W.parts, ...(W.glow || [])]; }
 export function weaponMesh(item, cls) {
@@ -432,69 +473,52 @@ export function weaponMesh(item, cls) {
   return g;
 }
 
-// SoulChains: a wrapped grip with a coil of links; the lash itself is drawn live by the
-// chain rig (rpg/soulbound.js), so in the hand this is only the grip and the gathered coil.
-export const CHAIN_LOOK = {
-  tetherchain: [0x6a6258, 0x8fe3dc], shrinecord: [0xb89a6a, 0xfff0c0], lanternlinks: [0x5a5a64, 0xffd88a], ferrymanchain: [0x4a4e58, 0x9ad8ff],
-  mothsilk: [0xd8d0c0, 0xe0d0ff], gravechain: [0x3a3a42, 0xb8a8ff], wispwoven: [0x6a8a88, 0xb8fff0], veilchain: [0x2e3440, 0xc8b0ff],
-  wayfarerlinks: [0xa8a298, 0x8fe3dc], tidewhisper: [0x5a7a8a, 0x55bfff], duskcoil: [0x4a3a5a, 0xb765ef], lanternchain: [0x6a5a48, 0xffc860], threshold: [0x2a2e3a, 0xc8b0ff],
-};
-// the lash colours now come from the visual registry (the sheet's chain designs)
-export const chainColors = item => { const s = chainStyle(item || null); return [s.a, s.spirit]; };
-function chainWeapon(base, it, H) {
-  const [iron, orb] = chainColors(it || { base });
-  const P = [B(0.055, 0.15, 0.055, 0, -0.02, 0, LEATHER), B(0.065, 0.025, 0.065, 0, 0.12, 0, shade(iron, 1.3)), B(0.07, 0.03, 0.07, 0, -0.04, 0, shade(LEATHER, 0.7))];
-  const G = [];
-  // the gathered coil: a ring of links around the grip's head
-  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; P.push(B(0.05, 0.035, 0.028, Math.cos(a) * 0.1, 0.16 + Math.sin(a) * 0.1, 0.02, i % 2 ? iron : shade(iron, 1.35), 0, i % 2 ? 1.57 : 0, a)); }
-  G.push(B(0.03, 0.03, 0.03, 0, 0.26, 0.02, orb)); // the first spectral link
-  P.push(B(0.05, 0.08, 0.01, 0.05, -0.1, 0.03, PAPER)); G.push(B(0.018, 0.018, 0.012, 0.05, -0.07, 0.037, orb)); // a seal tied to the grip
-  if (it && it.r >= 2) G.push(B(0.02, 0.02, 0.02, -0.07, 0.2, 0.05, RAR[it.r]));
-  if (H && H.prismatic) for (let i = 0; i < 4; i++) G.push(B(0.025, 0.025, 0.025, Math.cos(i * 1.57) * 0.14, 0.16 + Math.sin(i * 1.57) * 0.14, 0.03, [0x75e9ff, 0xb992ff, 0xff79d9, 0xffd763][i]));
-  return { parts: P, glow: G };
-}
-
 // ------------------------------------------------------------------ the figure
 function pivotG(x, y, z) { const g = new THREE.Group(); g.position.set(x, y, z); return g; }
 function setMesh(group, parts, mat = MAT) {
   while (group.children.length) { const c = group.children[0]; group.remove(c); if (c.geometry) c.geometry.dispose(); }
   if (!parts.length) return;
   const lit = parts.filter(p => !p.glow), glow = parts.filter(p => p.glow);
-  if (lit.length) { const m = new THREE.Mesh(geo(lit), mat); m.castShadow = true; m.layers.enable(1); group.add(m); }
+  if (lit.length) { const m = new THREE.Mesh(tailoredGeometry(lit), mat); m.castShadow = true; m.layers.enable(1); group.add(m); }
   if (glow.length) { const m = new THREE.Mesh(geo(glow), MAT_GLOW); m.layers.enable(1); group.add(m); }
 }
 
-export function makeHero(cls = 'samurai') {
+export function makeHero(cls = 'samurai', appearance) {
+  let look = normalizeAppearance(appearance);
   const C = CLASS_LOOK[cls] || CLASS_LOOK.samurai;
   const root = new THREE.Group();
-  const body = new THREE.Group(); root.add(body);
-  const legL = pivotG(-0.075, 0.22, 0), legR = pivotG(0.075, 0.22, 0);
+  const frame = new THREE.Group(); root.add(frame);
+  const body = new THREE.Group(); frame.add(body);
+  const legL = pivotG(-0.075, 0.28, 0), legR = pivotG(0.075, 0.28, 0);
   const legLm = new THREE.Group(), legRm = new THREE.Group(); legL.add(legLm); legR.add(legRm);
+  legLm.scale.y = legRm.scale.y = 1.27;
   body.add(legL, legR);
-  const torso = new THREE.Group(); torso.position.y = 0.02; body.add(torso);
-  const head = pivotG(0, 0.42, 0);
+  const torso = new THREE.Group(); torso.position.y = 0.08; body.add(torso);
+  const head = pivotG(0, 0.50, 0);
   const headM = new THREE.Group(), helm = new THREE.Group();
   head.add(headM, helm);
   // eyes: separate so they can blink and glance
   const eyes = new THREE.Group(); head.add(eyes);
-  eyes.add(new THREE.Mesh(geo([B(0.06, 0.09, 0.02, -0.085, 0.07, 0.172, INKC), B(0.06, 0.09, 0.02, 0.085, 0.07, 0.172, INKC), B(0.025, 0.03, 0.01, -0.07, 0.12, 0.183, 0xffffff), B(0.025, 0.03, 0.01, 0.1, 0.12, 0.183, 0xffffff), B(0.07, 0.02, 0.01, -0.085, 0.175, 0.176, shade(C.hair, 0.8)), B(0.07, 0.02, 0.01, 0.085, 0.175, 0.176, shade(C.hair, 0.8))]), MAT_GLOW));
+
   body.add(head);
-  const neck = new THREE.Group(); body.add(neck);
-  const scarfBase = new THREE.Mesh(geo([B(0.34, 0.07, 0.26, 0, 0.34, 0, C.scarf), B(0.1, 0.1, 0.03, 0.07, 0.26, 0.13, C.scarf, 0, 0, 0.3)]), MAT); scarfBase.castShadow = true; body.add(scarfBase);
-  const tail1 = pivotG(0.06, 0.38, -0.12); tail1.add(new THREE.Mesh(geo([B(0.1, 0.05, 0.18, 0, -0.03, -0.09, C.scarf)]), MAT));
+  const neck = new THREE.Group(); neck.position.y=.06; body.add(neck);
+  const scarfBase = new THREE.Mesh(geo([B(0.34, 0.07, 0.26, 0, 0.34, 0, C.scarf), B(0.1, 0.1, 0.03, 0.07, 0.26, 0.13, C.scarf, 0, 0, 0.3)]), MAT); scarfBase.castShadow = true; scarfBase.position.y=.08; body.add(scarfBase);
+  const tail1 = pivotG(0.06, 0.46, -0.12); tail1.add(new THREE.Mesh(geo([B(0.1, 0.05, 0.18, 0, -0.03, -0.09, C.scarf)]), MAT));
   const tail2 = pivotG(0, 0, -0.18); tail2.add(new THREE.Mesh(geo([B(0.09, 0.04, 0.16, 0, -0.02, -0.08, shade(C.scarf, 0.85))]), MAT));
   tail1.add(tail2); body.add(tail1);
-  const armR = pivotG(0.205, 0.38, 0), armL = pivotG(-0.205, 0.38, 0);
+  const armR = pivotG(0.205, 0.46, 0), armL = pivotG(-0.205, 0.46, 0);
   const armRm = new THREE.Group(), armLm = new THREE.Group(); armR.add(armRm); armL.add(armLm);
   body.add(armR, armL);
   const sword = pivotG(0, -0.27, 0.02); armR.add(sword);
   const offhand = pivotG(0, -0.27, 0.04); armL.add(offhand);
   const shield = new THREE.Group(); shield.visible = false; armL.add(shield);
-  headM.add(new THREE.Mesh(geo(headParts(cls)), MAT));
+
   root.scale.setScalar(1.12); // a touch larger on screen so faces and gear read
 
-  let lastKey = '';
+  let lastKey = '', currentEquip = {};
+  const skinParts = parts => parts.map(p => { const q=[...p]; if(q[6]===SKIN) q[6]=Number(look.skin.replace('#','0x')); if(q[6]===SKIN_D) q[6]=shade(Number(look.skin.replace('#','0x')),.82); q.glow=p.glow; return q; });
   const setGear = equip => {
+    currentEquip = equip || {};
     const V = gearVisual(equip);
     const key = ['head', 'neck', 'chest', 'arms', 'legs', 'boots', 'weapon'].map(k => V[k] ? V[k].uid || V[k].base + V[k].r : '-').join('|');
     if (key === lastKey) return;
@@ -502,21 +526,35 @@ export function makeHero(cls = 'samurai') {
     setMesh(torso, torsoParts(cls, V.chest));
     setMesh(legLm, legParts(cls, V.legs, V.boots, V.chest, -1));
     setMesh(legRm, legParts(cls, V.legs, V.boots, V.chest, 1));
-    setMesh(armLm, armParts(cls, V.arms, V.chest, -1));
-    setMesh(armRm, armParts(cls, V.arms, V.chest, 1));
-    setMesh(helm, helmParts(cls, V.head));
+    setMesh(armLm, skinParts(armParts(cls, V.arms, V.chest, -1)));
+    setMesh(armRm, skinParts(armParts(cls, V.arms, V.chest, 1)));
+    setMesh(helm, V.head ? helmParts(cls, V.head) : cls === 'witch' ? [B(.32,.025,.3,0,.24,0,0x695437),B(.065,.065,.025,0,.245,.16,0x91ba9b)] : []);
+    helm.scale.set(.82,.85,.86);
+    // Equipment hides hair cap and long strands cleanly; cosmetics remain saved.
+    setMesh(headM, headParts(cls, V.head ? {...look,hair:'shaved'} : look));
     setMesh(neck, neckParts(V.neck));
     setWeapon(V.weapon);
   };
   const setWeapon = item => {
-    for (const g of [sword, offhand]) while (g.children.length) g.remove(g.children[0]);
+    for (const g of [sword, offhand]) while (g.children.length) { const child=g.children[0]; child.traverse(o=>o.geometry?.dispose()); g.remove(child); }
     const w = weaponMesh(item, cls);
     if (w.userData.kind === 'bow') { offhand.add(w); w.rotation.x = Math.PI / 2 * 0.2; }
     else sword.add(w);
   };
   root.traverse(o => { if (o.isMesh) o.layers.enable(1); });
-  const hero = { root, body, head, eyes, helm, neck, legL, legR, armL, armR, sword, shield, torso, tail1, tail2, offhand, setWeapon, setGear, cls };
-  setGear({});
+  const setAppearance = raw => {
+    look = normalizeAppearance(raw);
+    frame.scale.set(...FRAMES[look.frame]);
+    const hair=Number(look.hairColor.replace('#','0x')), iris=Number(look.eyes.replace('#','0x'));
+    const P=[];
+    for(const side of [-1,1]) {
+      P.push(B(.049,.052,.015,side*.068,.151,.126,INKC),B(.025,.035,.012,side*.068,.155,.136,iris),B(.009,.011,.01,side*.068-.006,.177,.144,0xf8edd5),B(.062,.016,.017,side*.068,.219,.114,hair,0,0,look.face==='angular'?side*.16:0));
+    }
+    setMesh(eyes,P,MAT_GLOW); lastKey=''; setGear(currentEquip);
+  };
+  const dispose = () => root.traverse(o=>o.geometry?.dispose());
+  const hero = { root, frame, body, head, eyes, helm, neck, legL, legR, armL, armR, sword, shield, torso, tail1, tail2, offhand, setWeapon, setGear, setAppearance, dispose, cls };
+  setAppearance(look);
   return hero;
 }
 
@@ -541,4 +579,14 @@ function heirloomModel(H) {
  }
  if(H.prismatic)for(let i=0;i<5;i++)G.push(B(.028,.08,.03,.13*Math.cos(i*1.26),.35+i*.055,.1*Math.sin(i*1.26),[0x75e9ff,0xb992ff,0xff79d9,0xffd763,0x66eeb6][i]));
  return {parts:P,glow:G};
+}
+
+// Canonical relaxed pose, shared by the live character and both character previews.
+export function poseHeroIdle(m, family, time, blink=false) {
+ const br=Math.sin(time*2.4);
+ m.body.rotation.set(0,0,0);m.body.position.set(0,Math.sin(time*2.5)*.008,0);m.body.scale.set(1+br*.012,1-br*.015+.015,1);
+ m.armL.rotation.set(0,0,-.1-br*.04);m.armR.rotation.set(0,0,.1+br*.04);m.legL.rotation.set(0,0,0);m.legR.rotation.set(0,0,0);
+ m.head.rotation.set(Math.sin(time*.7)*.04,0,0);m.sword.rotation.set(family==='staff'||family==='wand'?.25:Math.PI/2*.9,0,0);
+ m.tail1.rotation.set(-.4+Math.sin(time*13)*.036,0,0);m.tail2.rotation.x=-.2+Math.sin(time*13+1)*.054;
+ m.eyes.scale.y=blink?.15:1;m.eyes.position.y=.175*(1-m.eyes.scale.y);
 }

@@ -45,7 +45,7 @@ export function renderCreative(ui){
   host.innerHTML=`<header class="creative-header"><div><h2>Creative armoury</h2><p>Every discovery in Lanternreach. Inspect an item, then add it to your adventure.</p></div><button type="button" id="creative-toggle">My bag</button></header>
   <div class="creative-body"><div class="creative-tools"><label class="creative-search">Search catalogue<div><input type="search" aria-label="Search every item" placeholder="Item name, class, rarity or effect…"><button type="button" aria-label="Clear search">×</button></div></label>
   <label>Category<select aria-label="Item category"><option>All items</option>${[...new Set(CREATIVE_ITEMS.map(x=>x.category))].map(x=>'<option>'+x+'</option>').join('')}</select></label>
-  <label>Rarity<select aria-label="Item rarity"><option>All rarities</option>${[...RARITY.map(x=>x.name),'Prismatic','Unranked'].map(x=>'<option>'+x+'</option>').join('')}</select></label>
+  <label>Rarity<select aria-label="Item rarity"><option>All rarities</option>${[...RARITY.map(x=>x.name),'Unranked'].map(x=>'<option>'+x+'</option>').join('')}</select></label>
   <label>Order<select aria-label="Item order"><option value="name">Name A–Z</option><option value="rarity">Rarest first</option></select></label><button type="button" class="creative-reset">Reset filters</button></div>
   <div class="creative-summary"><span class="creative-count"></span><span class="creative-capacity"></span></div>
   <div class="creative-workspace"><div class="creative-results" aria-label="Catalogue items"></div><aside class="creative-inspector" aria-label="Item preview"></aside></div>

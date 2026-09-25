@@ -60,9 +60,11 @@ export default async function (page, R) {
   await reload();
   await page.evaluate(() => { window.__game.story.opening = () => {}; });
   await page.locator('#title-menu div').filter({ hasText: /^New Character$/ }).click();
-  await page.locator('#classcards [data-i="1"]').click();
-  page.once('dialog', dialog => dialog.accept('Rowan'));
-  await page.locator('#classcards [data-i="1"]').click();
+  await page.locator('[data-category="Class"]').click();
+  await page.locator('[data-class="archer"]').click();
+  await page.locator('[data-action="next"]').click();
+  await page.locator('#creator-name').fill('Rowan');
+  await page.locator('[data-action="next"]').click();
   await page.waitForFunction(() => window.__game.profile?.name === 'Rowan');
   R.ok(await page.evaluate(() => window.__game.inv.cls === 'archer'), 'name/class creation flow creates an archer');
   await reload();

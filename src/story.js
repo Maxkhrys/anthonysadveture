@@ -19,6 +19,7 @@ export class Story {
 
   objective() {
     const f = this.f, g = this.g;
+    if(g.onboarding?.active)return g.onboarding.lesson()[1];
     if (g.area && g.area.rift) return `Hush Rift · Floor ${g.area.floor}: clear each room and defeat the Champion.`;
     if (g.area && g.area.id === 'dungeon' && !f.bossDead) {
       if (f.bossKilled) return 'Take the Verdant Chime from its pedestal.';
@@ -36,6 +37,7 @@ export class Story {
   }
   markers() {
     const f = this.f, m = [];
+    const target=this.g.onboarding?.target(); if(target)m.push({...target,color:'#e8c77e',pulse:true});
     if (this.stage === 1) m.push({ x: hx(17.5), z: hz(29.5), color: '#7fd36a', pulse: true });
     if (this.stage === 2) m.push({ x: hx(58), z: hz(56), color: '#ffd25e', pulse: true });
     m.push({ x: hx(58), z: hz(57), color: '#ffd25e' });
@@ -68,7 +70,7 @@ export class Story {
     switch (id) {
       case 'tamsin': return this.stage === 2 || (this.stage === 0 && f.introFought);
       case 'oswin': return !f.q_mill || (f.windmill && f.q_mill !== 2);
-      case 'brisk': return this.stage >= 1 && (!f.q_camp || (f.q_camp === 1 && this.g.signal('camp.clear')));
+      case 'brisk': if(this.g.onboarding?.active)return true; return this.stage >= 1 && (!f.q_camp || (f.q_camp === 1 && this.g.signal('camp.clear')));
       case 'ada': return !f.q_pier || (f.q_pier === 1 && this.pierDone());
     }
     return false;
@@ -77,26 +79,9 @@ export class Story {
 
   // ------------------------------------------------ opening
   opening() {
-    const g = this.g;
-    g.cutscene = true;
-    g.camFocus = { x: hx(58), z: hz(57.5) };
-    setTimeout(() => {
-      g.ui.lines([
-        ['Elder Tamsin', 'Moss! Oh, thank the roots you\'re awake. Come, quick — listen.'],
-      ], () => {
-        sfx('bellfail'); g.bell && g.bell.ring(false); g.pr.addShake(0.4);
-        setTimeout(() => g.ui.lines([
-          ['Elder Tamsin', '…Nothing. The *Dawnbell* has rung every morning for a thousand years. Today it only *thunks*.'],
-          ['Elder Tamsin', 'Without its voice, the ~Hush~ creeps closer — and there! At the south path! ~Hushlings~!'],
-          ['Elder Tamsin', 'You\'ve got your grandfather\'s sword and that pot-lid of a shield. Go on, little one — *drive them off!*'],
-        ], () => {
-          g.cutscene = false; g.camFocus = null;
-          g.startIntroFight();
-          g.ui.toast('Mouse: aim  ·  Click / J: attack  ·  K: guard  ·  Space: roll', '1-3: abilities  ·  Hold to charge  ·  A red ! means an attack is coming', 6);
-        }), 900);
-      });
-    }, 700);
+    this.g.onboarding.begin();
   }
+
   introWon() {
     const g = this.g;
     this.f.introFought = true;
@@ -159,6 +144,8 @@ export class Story {
   }
   talk(npc) {
     const g = this.g, f = this.f, ui = g.ui, s = this.stage, cw = this.cw, inv = g.inv;
+    if(npc.id==='brisk'&&!g.onboarding.bypassTalk)return g.onboarding.talk();
+    if(npc.id==='tamsin'&&g.onboarding.peaceful)return ui.say(npc.name,'The Dawnbell has gone quiet. Before you venture out, Captain Brisk can help you practise in the east yard. Take your time.');
     const L = (arr, cb) => ui.lines(arr.map(t => Array.isArray(t) ? t : [npc.name, t]), cb);
     const crafted = inv.equip.weapon && inv.equip.weapon.craft;
     switch (npc.id) {
@@ -170,7 +157,7 @@ export class Story {
           'Last night all three left the bell. Not stolen… it was as if they *walked away*.',
           'I can feel the *Verdant Chime* humming from the west — deep in Whisperwood, inside *Rootwell Hollow*.',
           'Take the west road. Rest at any *Bellstone* you find: it will mend you and remember you. And spend your pips at Posy\'s stall.',
-        ], () => { f.stage = 1; g.gainXp(40); g.ui.updateHud(); g.save(); ui.toast('New objective', 'Rootwell Hollow — west through Whisperwood. (Esc: map)', 3); });
+        ], () => { f.stage = 1; g.gainXp(40); g.ui.updateHud(); g.save(); ui.toast('New objective', 'Rootwell Hollow — west through Whisperwood. (M: map)', 3); });
         if (s === 2) return this.ringBell();
         const greet = () => {
           if (s === 1 && f.q_mill === 2 && !f['said:tamsin:mill']) { f['said:tamsin:mill'] = true; return 'Did you hear it? Oswin\'s mill, *humming*. First honest sound this village has made in days. You did that.'; }

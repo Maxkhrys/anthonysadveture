@@ -1,3 +1,5 @@
+import { poseHeroIdle } from '../hero.js';
+import { itemCombat } from '../rpg/arpg/runtime.js';
 import * as THREE from 'three';
 import { Entity, move } from './entity.js';
 import { mesh, B, MAT_GLOW, makeHero } from '../models.js';
@@ -5,7 +7,7 @@ import { sfx } from '../engine/audio.js';
 import { angDiff, angleLerp, clamp } from '../engine/util.js';
 import { T } from '../world/tiles.js';
 import { flashObj } from './common.js';
-import { CLASSES, abilityRankMult } from '../rpg/classes.js';
+import { CLASSES, abilityRankMult, ECHO } from '../rpg/classes.js';
 import { unitAt, baseById } from '../rpg/items.js';
 import { Projectile, Trap, RainZone, Familiar, frostNova, chainLightning, thornBurst, EchoShot, IaidoEcho, RimeField, blast, bolt } from '../rpg/combat.js';
 import { SKILLS, rankOf, rankCd, rankMult, LOADOUT_SIZE } from '../rpg/skills.js';
@@ -15,10 +17,9 @@ import { hasEngraving, hasSigil } from '../rpg/crafting.js';
 import { AIM_H } from '../aim.js';
 import { blocksObject, isLiquid } from '../world/tiles.js';
 import { SoulKit, startLash, soulState, soulAnimate, beginSoulAbility, whirlPull, onEchoSpent } from '../rpg/soulbound.js';
-import { ECHO } from '../rpg/classes.js';
 import { tickWeaponFx } from '../weaponFx.js';
 
-// the Soulbound's own states (rpg/soulbound.js runs them)
+// Soulbound-only states handled by the dedicated combat module.
 const SOUL_STATES = new Set(['lash', 'hook', 'hookzip', 'coil', 'veil', 'rend', 'rift']);
 
 const _v = new THREE.Vector3();
@@ -37,7 +38,7 @@ export class Player extends Entity {
     this.moveMode = 'player';
     this.r = 0.28;
     this.cls = g.inv.cls || 'samurai';
-    this.m = makeHero(this.cls);
+    this.m = makeHero(this.cls, g.inv.appearance);
     this.m.setGear(g.inv.equip || {});
     this.cdMap = {}; this.aimT = 0;
     this.obj.add(this.m.root);
@@ -151,6 +152,7 @@ export class Player extends Entity {
     // dodge follows the stick/keys; with no movement, a mouse/pad player backsteps away from the aim
     this.dodgeDir = mlen > 0.1 ? Math.atan2(mx, mz) : this.aiming ? this.aimDir + Math.PI : this.facing;
     this.rollDir = this.dodgeDir; this.facing = this.rollDir; this.targeting = null;
+    itemCombat(this.g).emit('dash');
     this.setState('roll'); sfx('roll'); this.g.guide.event('roll');
   }
   get inv() { return this.g.inv; }
@@ -163,7 +165,7 @@ export class Player extends Entity {
     const g = this.g;
     if (this.invuln > 0 || this.state === 'dead' || this.state === 'fall' || g.cutscene) return false;
     if (this.state === 'roll' && this.st < this.rollIframes) { this.perfectDodge(h); return false; }
-    // Warden Spirits: one of them takes the blow and answers it
+    // Warden Spirits: one of them takes the blow and answers it.
     if (this.wards) { this.wards = this.wards.filter(w => !w.dead); const w = this.wards.shift(); if (w) { w.answer(h.src); this.invuln = Math.max(this.invuln, 0.35); return 'block'; } }
     const fromAng = Math.atan2(h.x - this.x, h.z - this.z);
     if (this.state === 'block' && !h.unblockable && Math.abs(angDiff(this.facing, fromAng)) < 1.4) {
@@ -222,6 +224,7 @@ export class Player extends Entity {
     let n = Math.max(1, Math.round(raw * unitAt(L) * (1 + 0.05 * (L - 1)) * 1.05 * g.pstats.dr * g.diffMult()));
     // no unexplained one-shots: a single blow can take at most a set share of your life
     n = Math.min(n, Math.ceil(inv.maxHp * g.hitCap()));
+    n = itemCombat(g).incoming(n, src);
     inv.hp = Math.max(0, inv.hp - n);
     this.lastHit = { by: src ? g.nameOf(src) : 'a fall', lvl: src && src.level, n, raw };
     this.combatT = 4;
@@ -237,6 +240,7 @@ export class Player extends Entity {
     const g = this.g;
     if (this.pdT > g.time) return;
     this.pdT = g.time + 0.4;
+    itemCombat(g).emit('dodge', {target:h.src});
     g.stats.perfectDodges = (g.stats.perfectDodges || 0) + 1;
     if (hasEngraving(g, 'porcelainguard')) this.glaze();
     g.fx.ring(this.x, this.z, 0.1, 0.9, 0xdff4ff, 0.25);
@@ -291,7 +295,7 @@ export class Player extends Entity {
     const len = { nodachi: 0.35, onicleaver: 0.3 }[w.base] ?? (b && b.reach ? Math.max(0, b.reach - 1.25) : 0);
     return len + 1.25 * ((this.g.pstats.reach || 0) / 100);
   }
-  // how far the SoulChain carries: the chain's own length, then the Strike Reach affix and Long Chain
+  // Chain length plus Strike Reach; each SoulChain base carries its own reach.
   chainRange() {
     const w = this.inv.equip.weapon, b = w && w.kind === 'chain' ? baseById(w.base) : null;
     return ((b && b.reach) || 2.5) * (1 + (this.g.pstats.reach || 0) / 100);
@@ -372,7 +376,7 @@ export class Player extends Entity {
     }
     return false;
   }
-  costOf(id) { return (id === 'iaido' || id === 'ghostdraw') && this.counterT > 0 ? 0 : SKILLS[id].cost; }
+  costOf(id) { return (id === 'iaido' || id === 'ghostdraw') && this.counterT > 0 ? 0 : SKILLS[id].cost * (1 - Math.min(.5, (this.g.pstats.arpg?.stats.resourceCostReduction || 0) / 100)); }
   // costs are only paid once the ability actually goes off
   castAbility(id, at) {
     if (typeof id === 'number') id = this.inv.loadout[id]; // legacy callers pass a slot index
@@ -381,12 +385,16 @@ export class Player extends Entity {
     if (at && !at.ok) { sfx('error'); g.ui.toast('No clear line to that spot', '', 0.9); return false; }
     let first = null;
     if (S.target === 'unit') { first = this.chainTarget(S.range || 7); if (!first) { sfx('error'); g.ui.toast('No target in sight', 'Point at an enemy within range.', 0.9); return false; } }
-    g.res -= this.costOf(id);
+    const spent = this.costOf(id);
+    g.res -= spent;
+    itemCombat(g).emit('resourceSpend', { amount: spent, skill: id });
     if (CLASSES[this.cls].echo && this.costOf(id) > 0) onEchoSpent(g, this.costOf(id) / ECHO);
     const crit = (id === 'iaido' || id === 'ghostdraw') && this.counterT > 0;
     if (id === 'iaido' || id === 'ghostdraw') this.counterT = 0;
     this.cdMap[id] = rankCd(S, rank) * (1 - g.pstats.cdr / 100) * (id === 'nova' && g.talent('conductor') ? 1.3 : 1);
     this.useAbility(id, rankMult(rank), rank, at, first, crit);
+    itemCombat(g).emit('abilityUse', { skill: id, target: first || at });
+    itemCombat(g).emit('cast', { skill: id, target: first || at });
     g.guide.event('ability');
     g.stats.abilities = (g.stats.abilities || 0) + 1;
     g.stats['cast:' + id] = (g.stats['cast:' + id] || 0) + 1;
@@ -440,7 +448,7 @@ export class Player extends Entity {
 
   update(dt) {
     const g = this.g, inp = g.input, inv = this.inv;
-    this.st += dt;
+    this.st += dt * (this.state === 'cast' ? 1 + Math.min(1, (g.pstats.arpg?.stats.castSpeed || 0) / 100) : 1);
     this.invuln = Math.max(0, this.invuln - dt);
     this.rollCd = Math.max(0, this.rollCd - dt);
     const locked = g.locked();
@@ -458,12 +466,15 @@ export class Player extends Entity {
     if (mlen > 0.1 && this.state !== 'aim') this.stillSince = g.time;
     this.rebukeT = Math.max(0, (this.rebukeT || 0) - dt);
     this.halfVeilT = Math.max(0, (this.halfVeilT || 0) - dt);
-    // Soul Echoes drift away when there is nothing left to fight
-    if (CLASSES[this.cls].echo) { if (this.combatT > 0) this.echoIdle = 0; else if ((this.echoIdle = (this.echoIdle || 0) + dt) > 2 && g.res > 0) { g.res = Math.max(0, g.res - 8 * dt); g.hudDirty = true; } }
+    // Soul Echoes fade when the Soulbound has been out of combat for a while.
+    if (CLASSES[this.cls].echo) {
+      if (this.combatT > 0) this.echoIdle = 0;
+      else if ((this.echoIdle = (this.echoIdle || 0) + dt) > 2 && g.res > 0) { g.res = Math.max(0, g.res - 8 * dt); g.hudDirty = true; }
+    }
     if (this.halfVeilT > 0 && Math.random() < 0.3) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.5, y: 0.2 + Math.random() * 0.6, z: this.z + (Math.random() - 0.5) * 0.5, g: -0.5, color: 0xc8b0ff, life: 0.4, size: 0.04 });
     this.combatT = Math.max(0, (this.combatT || 0) - dt);
     // resource & regen
-    g.res = Math.min(100, g.res + ps.resRegenRate * dt);
+    g.res = Math.min(100, g.res + ps.resRegenRate * (1 + (ps.arpg?.stats.resourceGeneration || 0) / 100) * dt);
     // Passive recovery never replaces tonics: out of combat you catch your breath back up to
     // 40% of your life; gear regen and the Mossheart still work, at a reduced rate in a fight.
     const breath = this.combatT > 0 || inv.hp >= inv.maxHp * 0.4 ? 0 : inv.maxHp * 0.01;
@@ -475,7 +486,7 @@ export class Player extends Entity {
     }
     const regen = ps.regen * (this.combatT > 0 ? 0.5 : 1) + (ps.uniques.has('mossheart') ? inv.maxHp * (this.combatT > 0 ? 0.004 : 0.012) : 0) + breath;
     if (inv.hp > 0 && inv.hp < inv.maxHp && regen > 0) { inv.hp = Math.min(inv.maxHp, inv.hp + regen * dt); this.regenAcc = (this.regenAcc || 0) + dt; if (this.regenAcc > 0.5) { this.regenAcc = 0; g.ui.hearts(); } }
-    const aspd = ps.wspd;
+    const aspd = ps.wspd * (g.itemCombat?.hasteUntil > g.itemCombat?.clock ? 1.2 : 1);
     this.updateAim();
     // held ground-target preview: release (or click) to place it, roll/guard to cancel
     if (this.targeting) {
@@ -829,7 +840,11 @@ export class Player extends Entity {
     }
     this.animate(dt, moved);
     this.moveSpeed = moved;
-    if (this.family === 'chain' || this.cls === 'soulbound') { if (!this.kit) this.kit = new SoulKit(this, !!CLASSES[this.cls].echo); this.kit.setWeapon(inv.equip.weapon); this.kit.update(dt); }
+    if (this.family === 'chain' || this.cls === 'soulbound') {
+      if (!this.kit) this.kit = new SoulKit(this, !!CLASSES[this.cls].echo);
+      this.kit.setWeapon(inv.equip.weapon);
+      this.kit.update(dt);
+    }
     const w = inv.equip.weapon;
     // element sparks from the weapon itself (and the Prismatic gem's colour drift)
     const wm = this.m.offhand.children[0] || this.m.sword.children[0]; if (wm) tickWeaponFx(g, wm, dt);
@@ -948,16 +963,13 @@ export class Player extends Entity {
     // life: blinking, breathing when idle, glancing at the aim, squinting when hurt
     this.blinkT = (this.blinkT ?? 2) - dt;
     if (this.blinkT < 0) this.blinkT = 2.2 + Math.random() * 3;
-    if (m.eyes) { m.eyes.scale.y = s === 'hurt' || s === 'dead' ? 0.3 : this.blinkT < 0.1 ? 0.15 : 1; m.eyes.position.y = m.eyes.scale.y < 1 ? 0.06 * (1 - m.eyes.scale.y) : 0; }
+    if (m.eyes) { m.eyes.scale.y = s === 'hurt' || s === 'dead' ? 0.3 : this.blinkT < 0.1 ? 0.15 : 1; m.eyes.position.y = m.eyes.scale.y < 1 ? 0.175 * (1 - m.eyes.scale.y) : 0; }
     if (s === 'move' && speed < 0.3) {
-      const br = Math.sin(t * 2.4);
-      m.body.scale.set(1 + br * 0.012, 1 - br * 0.015 + 0.015, 1);
-      m.armL.rotation.z = -0.1 - br * 0.04; m.armR.rotation.z = 0.1 + br * 0.04;
-      m.head.rotation.x = Math.sin(t * 0.7) * 0.04;
-      // a light, ready stance: weight forward, the chain hand loose and low
-      if (fam === 'chain') { m.body.rotation.y = 0.18; m.armR.rotation.x = -0.35 + br * 0.03; m.armR.rotation.z = 0.25; m.legL.rotation.x = 0.18; m.legR.rotation.x = -0.12; m.body.rotation.x = 0.05; }
+      poseHeroIdle(m, fam, t, this.blinkT < 0.1);
+      // Keep the chain hand low in the same canonical preview/gameplay idle pose.
+      if (fam === 'chain') { const br=Math.sin(t*2.4); m.armR.rotation.x=-.35+br*.03; m.armR.rotation.z=.25; }
     }
-    if (fam === 'chain' && s === 'move' && speed >= 0.3) m.body.rotation.x = Math.min(0.22, speed * 0.035); // a runner's lean
+    if (fam === 'chain' && s === 'move' && speed >= 0.3) m.body.rotation.x = Math.min(0.22, speed * 0.035);
     if (this.aiming && (s === 'move' || s === 'block')) m.head.rotation.y = clamp(angDiff(this.facing, this.aimDir), -0.7, 0.7) * 0.7;
     if (s === 'roll') { const k = this.st / 0.34; m.body.scale.set(1 + Math.sin(k * Math.PI) * 0.1, 0.8, 1); }
     if (s === 'attack' && this.st < 0.05) m.body.scale.set(1.08, 0.92, 1.08); // anticipation squash

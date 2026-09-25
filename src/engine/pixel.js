@@ -6,8 +6,10 @@ import * as THREE from 'three';
 export const PITCH = THREE.MathUtils.degToRad(42);
 
 export class PixelRenderer {
-  constructor(canvas) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+  constructor(canvas, options = {}) {
+    this.viewport = options.viewport;
+    this.forceScale = options.scale;
+    this.renderer = new THREE.WebGLRenderer({ canvas, alpha: !!options.transparent, premultipliedAlpha: !options.transparent, antialias: false, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(1);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -29,6 +31,7 @@ export class PixelRenderer {
     this.postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     this.postMat = new THREE.ShaderMaterial({
       uniforms: {
+        transparentBackground: { value: options.transparent ? 1 : 0 },
         tColor: { value: null }, tDepth: { value: null }, texel: { value: new THREE.Vector2() },
         offset: { value: new THREE.Vector2() }, flash: { value: 0 }, flashColor: { value: new THREE.Color() },
         vignette: { value: 0.35 }, grade: { value: new THREE.Vector3(1, 1, 1) }, near: { value: 0.1 }, far: { value: 120 },
@@ -37,6 +40,7 @@ export class PixelRenderer {
       },
       vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy,0.,1.); }`,
       fragmentShader: `
+        uniform float transparentBackground;
         uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 texel; uniform vec2 offset;
         uniform float flash; uniform vec3 flashColor; uniform float vignette; uniform vec3 grade;
         uniform float near; uniform float far; uniform float desat; uniform float bloom; uniform float bloomScale; uniform vec3 fogColor; uniform float fogAmt; uniform float fogNear; uniform float fogFar; uniform float contrast;
@@ -76,7 +80,7 @@ export class PixelRenderer {
           vec2 v = vUv - 0.5;
           c *= 1.0 - vignette * dot(v, v) * 1.6;
           c = mix(c, flashColor, flash);
-          gl_FragColor = vec4(c, 1.0);
+          gl_FragColor = vec4(c, mix(1.0, texture2D(tColor, px).a, transparentBackground));
           #include <colorspace_fragment>
         }`,
       depthTest: false, depthWrite: false,
@@ -86,11 +90,13 @@ export class PixelRenderer {
     this.postScene.add(quad);
     this.rt = null;
     this.resize();
-    addEventListener('resize', () => this.resize());
+    this.onResize = () => this.resize();
+    if (!this.viewport) addEventListener('resize', this.onResize);
   }
 
   resize() {
-    const w = innerWidth, h = innerHeight;
+    const size = this.viewport ? this.viewport() : { width: innerWidth, height: innerHeight };
+    const w = Math.max(1, size.width), h = Math.max(1, size.height);
     this.renderer.setSize(w, h, false);
     const scale = this.forceScale || Math.max(2, Math.round(h / (this.targetH || 330)));
     this.scale = scale;
@@ -105,6 +111,14 @@ export class PixelRenderer {
     this.postMat.uniforms.tDepth.value = this.rt.depthTexture;
     this.postMat.uniforms.texel.value.set(1 / rw, 1 / rh);
     this.updateProjection();
+  }
+
+  dispose() {
+    if (!this.viewport) removeEventListener('resize', this.onResize);
+    this.rt?.depthTexture?.dispose(); this.rt?.dispose();
+    this.silhouetteMat.dispose(); this.postMat.dispose();
+    this.postScene.traverse(o => o.geometry?.dispose());
+    this.renderer.dispose(); this.renderer.forceContextLoss();
   }
 
   updateProjection() {

@@ -1,3 +1,4 @@
+import { gameplayLines } from './rpg/arpg/items.js';
 import { abilityIcon } from './ui_icons.js';
 // RPG-layer UI: vitals, ability bar, floating numbers, enemy bars, loot feed, inventory, skills, class select.
 import * as THREE from 'three';
@@ -146,7 +147,7 @@ export function installRpgUI(UI) {
     const clsTxt = it.cls ? ` · <span style="color:${it.cls === g.inv.cls ? '#9f9' : '#fc8'}">${CLASSES[it.cls].name}</span>` : it.slot === 'weapon' ? ' · <span style="color:#9df">any class</span>' : '';
     const up = it.upgradeLevel ? ` <span class="uplvl">+${it.upgradeLevel}</span>` : '';
     const locked = g.isLocked(it) ? ' <span title="Locked: cannot be salvaged">🔒</span>' : '';
-    let h = `<div class="tt-head"><div class="big-ico rar${it.r}${it.prismatic ? " prism" : ""}">${this.icon(it)}</div><div><h4 style="color:${it.set ? SETS[it.set].color : R.color}">${it.name}${up}${locked}</h4><div class="sub">${it.prismatic ? 'Prismatic signature' : it.set ? 'Set' : R.name} ${typeName} · item level ${it.ilvl}${clsTxt}</div>`;
+    let h = `<div class="tt-head"><div class="big-ico rar${it.r}${it.prismatic ? " prism" : ""}">${this.icon(it)}</div><div><h4 style="color:${it.set ? SETS[it.set].color : R.color}">${it.name}${up}${locked}</h4><div class="sub">${it.r === 5 ? 'Prismatic' : it.prismatic ? 'Prismatic signature' : it.set ? 'Set' : R.name} ${typeName} · item level ${it.ilvl}${clsTxt}</div>`;
     if (it.slot === 'weapon') {
       const m = 1 + (it.upgradeLevel || 0) * 0.05;
       h += `<div class="dmg">${Math.round(it.min * m)}–${Math.round(it.max * m)} damage · ${it.spd.toFixed(2)} speed</div>`;
@@ -154,6 +155,7 @@ export function installRpgUI(UI) {
       h += `<div class="sub fam">${FAMILY[fam].name}${own ? (it.cls ? ' · your class: full scaling and specialist perks' : ' · universal: full scaling for everyone') : ` · off-class: ${Math.round(OFFCLASS_SCALING * 100)}% scaling, no ${CLASSES[g.inv.cls].name} specialist perk`}</div>`;
     }
     h += `</div></div>`;
+    for (const line of gameplayLines(it)) h += `<div class="aff">${line.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}</div>`;
     const lines = [];
     for (const k in it.stats) {
       const isAff = it.affixes.includes(k);
@@ -196,9 +198,9 @@ export function installRpgUI(UI) {
     const slotHtml = (d, i) => { const it = inv.equip[d.key]; return `<div class="slotbox ${this.invSel === -1 - i ? 'sel' : ''} ${it ? 'rar' + it.r + (it.prismatic ? ' prism' : '') : 'empty'}" data-eq="${i}" title="${d.label}">${it ? this.icon(it) : `<span class="ghost">${{ Head: '⛑', Neck: '◌', Chest: '▣', Arms: '✋', Weapon: '⚔', Legs: '‖', Boots: '▙', Ring: '○' }[d.label] || '·'}</span>`}<small>${d.label}</small></div>`; };
     const Ls = slots.map((d, i) => d.side === 'L' ? slotHtml(d, i) : '').join(''), Rs = slots.map((d, i) => d.side === 'R' ? slotHtml(d, i) : '').join('');
     $('paperdoll').innerHTML = `<div class="doll-col">${Ls}</div><div class="doll-stage"><div class="doll-name">${CLASSES[inv.cls].name} · Lv ${inv.level}</div></div><div class="doll-col">${Rs}</div>`;
-    this.doll = this.doll || new DollPreview();
+    this.doll = this.doll || new DollPreview(g);
     this.doll.mount($('paperdoll').querySelector('.doll-stage'));
-    this.doll.setGear(inv.cls, inv.equip);
+    this.doll.setGear(inv.cls, inv.equip, inv.appearance);
     const ps = g.pstats;
     const C = CLASSES[inv.cls];
     const row = (a, b) => `<div>${a}: <b>${b}</b></div>`;
@@ -234,7 +236,7 @@ export function installRpgUI(UI) {
     const st = $('paperdoll').querySelector('.doll-stage'); if (st && !st.dataset.zoomHint) { st.dataset.zoomHint = 1; st.title = 'Drag to turn · wheel or double-click to zoom'; }
     if (!this.dollLoop) {
       let last = performance.now();
-      const loop = now => { if (!this.invOpen) { this.dollLoop = null; return; } this.dollLoop = requestAnimationFrame(loop); this.doll.frame(Math.min(0.05, (now - last) / 1000)); last = now; };
+      const loop = now => { if (!this.invOpen) { this.dollLoop = null; return; } this.dollLoop = requestAnimationFrame(loop); this.doll.frame(Math.max(0, Math.min(0.05, (now - last) / 1000))); last = now; };
       this.dollLoop = requestAnimationFrame(loop);
     }
   };
@@ -262,7 +264,7 @@ export function installRpgUI(UI) {
       const rank=it.prismatic?'Prismatic':RARITY[it.r].name;
       return (this.bagRarity===undefined||this.bagRarity==='all'||(this.bagRarity==='prismatic'?it.prismatic:!it.prismatic&&it.r===+this.bagRarity))
         && (!this.bagOwnClass||!it.cls||it.cls===inv.cls) && (!this.bagProtected||this.g.isLocked(it))
-        && (this.bagSearch||'').toLowerCase().trim().split(/\s+/).every(word=>(it.name+' '+it.slot+' '+(it.kind||'')+' '+(it.cls||'universal')+' '+rank+' '+(it.utext||'')).toLowerCase().includes(word));
+        && (this.bagSearch||'').toLowerCase().trim().split(/\s+/).every(word=>(it.name+' '+it.slot+' '+(it.kind||'')+' '+(it.cls||'universal')+' '+rank+' '+(it.utext||'')+' '+gameplayLines(it).join(' ')).toLowerCase().includes(word));
     };
     const idx = inv.bag.map((it, i) => i).filter(i => inv.bag[i] && ok(inv.bag[i]) && matches(inv.bag[i]));
     const order = { weapon: 0, helm: 1, armor: 2, arms: 3, legs: 4, boots: 5, charm: 6, ring: 7 };

@@ -22,7 +22,7 @@ export function guideSteps(cls) {
     { id: 'equip', text: 'Open your bag <kbd>E</kbd> and equip gear <kbd>F</kbd> — your hero wears it' },
     { id: 'talk', text: 'Talk to Elder Tamsin <kbd>F</kbd>' },
     { id: 'rest', text: 'Rest at a Bellstone <kbd>F</kbd>: it refills tonics, and you wake there if you fall' },
-    { id: 'chest', text: 'Open a loot chest (◆ gold on your map <kbd>Esc</kbd>)' },
+    { id: 'chest', text: 'Open a loot chest (◆ gold on your map <kbd>M</kbd>)' },
     { id: 'level', text: 'Level up, then spend the point in your skill tree (<kbd>K</kbd>)' },
     { id: 'craft', text: 'Visit Posy\'s workbench: engravings change what a weapon <i>does</i>' },
     { id: 'dungeon', text: 'Find Rootwell Hollow in the west woods' },
@@ -35,6 +35,7 @@ export class Guide {
   get finished() { return !!this.g.flags.guideDone; }
   event(id) {
     const g = this.g;
+    g.onboarding?.event(id);
     if (this.finished || this.done[id]) return;
     const steps = guideSteps(g.inv.cls);
     const st = steps.find(s => s.id === id);
@@ -62,12 +63,15 @@ export class Guide {
     const el = document.getElementById('guide');
     if (!el) return;
     const g = this.g;
+    if(g.onboarding?.active){el.classList.toggle('hidden',g.settings.guide===false);if(g.settings.guide!==false)g.onboarding.render(el);return;}
+    el.classList.remove('guided-arrival');
+    el.querySelector('.gd-h').innerHTML='GUIDE <span>(toggle in Settings)</span>';
     const show = g.settings.guide !== false && !this.finished && g.inv;
     el.classList.toggle('hidden', !show);
     if (!show) return;
     const steps = guideSteps(g.inv.cls);
-    const todo = steps.filter(s => !this.done[s.id]).slice(0, 3);
-    const recent = justDone ? steps.filter(s => s.id === justDone) : [];
+    const todo = steps.filter(s => !this.done[s.id]).slice(0, 1);
+    const recent = [];
     const n = steps.filter(s => this.done[s.id]).length;
     el.querySelector('.gd-list').innerHTML = recent.map(s => `<div class="gd-item done">${s.text}</div>`).join('') + todo.map((s, i) => `<div class="gd-item ${i === 0 ? 'cur' : ''}">${s.text}</div>`).join('') + `<div class="gd-h" style="margin-top:4px">${n} / ${steps.length}</div>`;
     if (justDone) { clearTimeout(this.rt); this.rt = setTimeout(() => this.render(), 1600); }

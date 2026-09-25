@@ -34,7 +34,7 @@ export class LocalSaveProvider extends SaveProvider {
     try { parsed = JSON.parse(raw); }
     catch { return this.recover(raw); }
     // A newer/unsupported schema is NEVER replaced by an older backup.
-    if (parsed?.schemaVersion !== undefined && ![2, SCHEMA_VERSION].includes(parsed.schemaVersion)) {
+    if (parsed?.schemaVersion !== undefined && ![2, 3, SCHEMA_VERSION].includes(parsed.schemaVersion)) {
       this.blocked = true; throw new Error('This save needs a different game version. Original data retained.');
     }
     let data;

@@ -1,3 +1,4 @@
+import { itemCombat } from './arpg/runtime.js';
 // Friendly projectiles, ability effects, loot drops and loot chests.
 import * as THREE from 'three';
 import { Entity, move, tileBlocks } from '../entities/entity.js';
@@ -46,6 +47,7 @@ export class Projectile extends Entity {
     }
     if (ps !== 1) this.m.scale.multiplyScalar(ps);
     this.obj.add(this.m);
+    itemCombat(g).prepareProjectile(this, o);
   }
   update(dt) {
     const g = this.g;
@@ -79,6 +81,7 @@ export class Projectile extends Entity {
         this.dir += Math.max(-1, Math.min(1, d)) * this.homing * dt;
       }
     }
+    this.speed = Math.min(40, this.speed + (this.acceleration || 0) * dt);
     const step = this.speed * dt;
     const x0 = this.x, z0 = this.z;
     let wall = move(g, this, Math.sin(this.dir) * step, Math.cos(this.dir) * step);
@@ -103,7 +106,7 @@ export class Projectile extends Entity {
     for (const [, e] of hits) {
       this.hit.add(e);
       if (this.aoe) { this.x = e.x; this.z = e.z; return this.explode(); }
-      g.playerHit(e, { mult: this.mult, kind: this.kind, element: this.element, kb: this.kb, dir: this.dir, ability: this.ability, echo: this.echo, basic: this.basic, critBonus: this.critBonus });
+      g.playerHit(e, { mult: this.mult, kind: this.kind, element: this.element, kb: this.kb, dir: this.dir, ability: this.ability, echo: this.echo, basic: this.basic, critBonus: this.critBonus, arpgDepth: this.arpgDepth, arpgProc: this.arpgProc, noProc: this.arpgProc, arpgStatus: this.arpgStatus, arpgProjectile: this });
       this.onImpact(e);
       if (this.onHitFx) this.onHitFx(this, e);
       // Skipping Shot / Endless Quiver: turn toward the next foe instead of stopping
@@ -111,15 +114,17 @@ export class Projectile extends Entity {
         const nxt = g.entities.filter(o => o.isEnemy && !o.dead && !this.hit.has(o) && Math.hypot(o.x - e.x, o.z - e.z) < 5 && g.shotClear(e.x, e.z, o.x, o.z)).sort((a, b) => Math.hypot(a.x - e.x, a.z - e.z) - Math.hypot(b.x - e.x, b.z - e.z))[0];
         if (nxt) { this.bounce--; this.x = e.x; this.z = e.z; this.dir = this.dir0 = Math.atan2(nxt.x - e.x, nxt.z - e.z); this.dist = 0; this.range = 6; g.fx.ring(e.x, e.z, 0.05, 0.5, 0xffd25e, 0.15); this.sync(); return; }
       }
-      if (this.pierce-- <= 0) { this.x = e.x; this.z = e.z; return this.pop(); }
+      if (this.pierce-- <= 0) { this.x = e.x; this.z = e.z; if (this.returning && !this.returned) { this.returned = true; this.dir += Math.PI; this.dist = 0; this.hit.clear(); this.hit.add(e); this.pierce = 1; } else return this.pop(); }
     }
     // spores and pods can be shot back
     for (const e of g.entities) if ((e.isProjectile && !e.friendly && e.reflect) && segT(x0, z0, this.x, this.z, e.x, e.z).d < 0.35) { e.reflect(this.dir); return this.pop(); }
+    if (!wall && this.dist > this.range && this.returning && !this.returned) { this.returned = true; this.dir += Math.PI; this.dist = 0; this.hit.clear(); this.pierce = Math.max(this.pierce, 1); }
     if (wall || this.dist > this.range) { if (this.aoe) return this.explode(); return this.pop(); }
     this.sync();
     this.obj.position.y = this.y + this.gy0;
   }
   onImpact(e) {
+    itemCombat(this.g).impact(this, e);
     const g = this.g, u = g.pstats.uniques;
     if (this.root && e.applyStatus) e.applyStatus('root', this.root);
     if ((this.kind === 'arrow' || this.kind === 'power') && u.has('sunshot')) { blast(g, e.x, e.z, 1.3, this.mult * 0.6, 0xff8a2a, { burn: true }); }
@@ -129,7 +134,12 @@ export class Projectile extends Entity {
   }
   explode() {
     const g = this.g;
-    blast(g, this.x, this.z, this.aoe, this.mult, this.color, { burn: this.kind === 'fireball' || this.kind === 'comet', ability: this.ability });
+    const arpg = itemCombat(g);
+    for (const target of arpg.nearby(this, this.aoe)) {
+      g.playerHit(target, { mult: this.mult, kind: this.kind, element: this.element, ability: this.ability, kb: this.kb, dir: this.dir, arpgDepth: this.arpgDepth, arpgProc: this.arpgProc, noProc: this.arpgProc, arpgStatus: this.arpgStatus, arpgProjectile: this, forceBurn: this.kind === 'fireball' || this.kind === 'comet' });
+      this.onImpact(target);
+    }
+    arpg.ring(this, this.aoe, this.element);
     if (this.onExplode) this.onExplode(this);
     if (this.kind === 'fireball' && g.pstats.uniques.has('starfall')) g.spawn(new Meteor(g, this.x, this.z, this.mult * 1.2));
     if (this.kind === 'fireball' && !this.noCraft && hasEngraving(g, 'emberseeds')) {

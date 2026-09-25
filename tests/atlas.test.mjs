@@ -1,0 +1,33 @@
+import {fresh,sim} from './lib.mjs';
+import {mkdirSync} from 'node:fs';
+export default async function(page,R){
+ await fresh(page);await sim(page,5);mkdirSync('docs/screens/atlas',{recursive:true});
+ await page.keyboard.press('m');await page.waitForSelector('#atlas-tools');
+ R.ok(await page.locator('#bigmap').isVisible(),'M opens atlas');
+ const scale=await page.evaluate(()=>window.__game.ui.atlasView.scale);
+ await page.locator('[data-map="in"]').click();R.ok(await page.evaluate(s=>window.__game.ui.atlasView.scale>s,scale),'zoom button enlarges map');
+ await page.locator('[data-map="out"]').click();
+ const before=await page.evaluate(()=>({...window.__game.ui.atlasView}));const box=await page.locator('#bigmap').boundingBox();
+ await page.mouse.move(box.x+box.width*.5,box.y+box.height*.5);await page.mouse.down();await page.mouse.move(box.x+box.width*.5+60,box.y+box.height*.5+25,{steps:6});await page.mouse.up();
+ R.ok(await page.evaluate(b=>Math.abs(window.__game.ui.atlasView.cx-b.cx)>2,before),'drag pans map');
+ await page.mouse.wheel(0,-150);R.ok(await page.evaluate(b=>window.__game.ui.atlasView.scale>b.scale,before),'wheel zoom works');
+ await page.locator('[data-map="local"]').click();
+ R.ok(await page.evaluate(()=>{const g=window.__game;return Math.abs(g.ui.atlasView.cx-g.player.x)<1;}),'Find me recentres');
+ await page.screenshot({path:'docs/screens/atlas/local.png'});
+ await page.locator('[data-map="world"]').click();await page.screenshot({path:'docs/screens/atlas/world.png'});
+ R.ok(await page.evaluate(()=>{const u=window.__game.ui;return u.atlasRegions.length===9&&u.atlasView.scale===u.atlasFit;}),'world view fits all nine region sections');
+ await page.locator('#atlas-region').selectOption('heartland');
+ R.ok(await page.evaluate(()=>window.__game.ui.atlasView.scale>window.__game.ui.atlasFit),'selecting a region focuses its bounds');
+ await page.locator('#atlas-borders').uncheck();R.ok(!await page.locator('#atlas-borders').isChecked(),'region borders toggle');await page.locator('#atlas-borders').check();
+ await page.locator('[data-map="local"]').click();
+ const labels=await page.evaluate(()=>window.__game.ui.atlasLabelBoxes);
+ R.ok(labels.every((a,i)=>labels.every((b,j)=>i===j||a.x+a.w<=b.x||b.x+b.w<=a.x||a.y+a.h<=b.y||b.y+b.h<=a.y)),'visible labels never overlap');
+ R.ok(await page.locator('#atlas-places button').count()>0,'places index lists known destinations');
+ await page.locator('#atlas-places button').first().click();R.ok(await page.evaluate(()=>window.__game.ui.atlasView.scale>=8),'place index focuses destination');
+ await page.locator('#bigmap').focus();await page.keyboard.press('Home');await page.keyboard.press('+');R.ok(await page.evaluate(()=>window.__game.ui.atlasView.scale>6),'keyboard map controls');
+ await page.setViewportSize({width:390,height:844});await page.waitForTimeout(300);await page.screenshot({path:'docs/screens/atlas/mobile.png'});
+ R.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'phone layout has no horizontal overflow');
+ R.ok(await page.evaluate(()=>{const c=document.getElementById('bigmap'),r=c.getBoundingClientRect();return r.width>250&&r.right<innerWidth&&Math.abs(c.width/r.width-Math.min(2,devicePixelRatio))<.03;}),'canvas resolution follows displayed size');
+ await page.keyboard.press('Escape');await page.waitForTimeout(200);await page.locator('#mini-zoom').click();R.ok(await page.evaluate(()=>window.__game.ui.miniZoom===1),'minimap zoom button works');
+ await page.locator('#minimap').click();R.ok(await page.locator('#atlas-tools').isVisible(),'clicking minimap opens atlas');
+}

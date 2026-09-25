@@ -1,3 +1,5 @@
+import { PROC_DEFS, LEGENDARY_DEFS, PRISMATIC_DEFS, AFFIX_DEFS as GAMEPLAY_AFFIXES } from './arpg/definitions.js';
+import { rollGameplay } from './arpg/items.js';
 import {RELICS} from './relics.js';
 import { HEIRLOOMS, HEIRLOOM_BY_ID } from './heirlooms.js';
 import { identifyItem, reinforcementMultiplier } from '../persistence/model.js';
@@ -12,6 +14,7 @@ export const RARITY = [
   { id: 'rare', name: 'Rare', color: '#4aa8ff', hex: 0x4aa8ff, affixes: 2, mult: 1.25, weight: 10 },
   { id: 'epic', name: 'Epic', color: '#c46bff', hex: 0xc46bff, affixes: 3, mult: 1.4, weight: 3.4 },
   { id: 'legendary', name: 'Legendary', color: '#ff9a2a', hex: 0xff9a2a, affixes: 3, mult: 1.6, weight: 0.6 },
+  { id: 'prismatic', name: 'Prismatic', color: '#f3a4ff', hex: 0xf3a4ff, affixes: 4, mult: 1.65, weight: 0.01 },
 ];
 
 export const unitAt = lvl => 6 * (1 + 0.3 * (Math.max(1, lvl) - 1));
@@ -50,6 +53,7 @@ export const WEAPONS = [
   { id: 'hexwand', name: 'Hexbone Wand', cls: 'witch', kind: 'wand', lvl: 10, dmg: 1.05, spd: 1.35, col: 0xe8e0d0, orb: 0x8b5cf6 },
   { id: 'frostrod', name: 'Rimefrost Rod', cls: 'witch', kind: 'staff', lvl: 13, dmg: 1.3, spd: 1.0, col: 0xaad8ff, orb: 0xdff4ff },
   { id: 'starstaff', name: 'Starfall Staff', cls: 'witch', kind: 'staff', lvl: 16, dmg: 1.4, spd: 0.95, col: 0x3a3a6a, orb: 0xfff3b0 },
+  ...[ ['wandererschain', "Wanderer's Chain", 1], ['whisperingchain', 'Whispering Chain', 4], ['grievingcoil', 'Grieving Coil', 8], ['veilrender', 'Veilrender', 12], ['eternalbond', 'Eternal Bond', 16] ].map(([id,name,lvl]) => ({id,name,lvl,cls:'soulbound',kind:'chain',dmg:1+lvl*.02,spd:1,reach:2.6,col:0x6a8a88,orb:0xb8fff0})),
   // Soulbound: SoulChains. reach = how far the lash carries; orb = the spectral colour of the links
   { id: 'tetherchain', name: 'Tether Chain', cls: 'soulbound', kind: 'chain', lvl: 1, dmg: 0.95, spd: 1.05, reach: 2.5, col: 0x6a6258, orb: 0x8fe3dc },
   { id: 'shrinecord', name: 'Shrine-bell Cord', cls: 'soulbound', kind: 'chain', lvl: 2, dmg: 0.85, spd: 1.2, reach: 2.4, col: 0xb89a6a, orb: 0xfff0c0 },
@@ -83,6 +87,7 @@ export const ARMORS = [
 for (const w of HEIRLOOMS) WEAPONS.push({ ...w, named: true });
 for (const w of NAMED_WEAPONS) WEAPONS.push({ ...w, named: true });
 for (const a of NEW_ARMORS) ARMORS.push(a);
+export const ITEM_BASES = Object.fromEntries([...WEAPONS, ...ARMORS].map(base => [base.id, base]));
 export { SETS };
 // affixes are pooled by slot family: arm/leg/boot pieces roll like armour, rings like charms
 export const AFFIX_SLOT = s => ({ arms: 'armor', legs: 'armor', boots: 'armor', ring: 'charm' }[s] || s);
@@ -169,11 +174,11 @@ export function genItem({ level = 1, rarity = null, slot = null, cls = null, mf 
     if (cands.length) { const L = weighted(cands); return makeItem(baseById(L.base), 4, ilvl, L); }
   }
   // Epic and better: sometimes a build accessory or an armour-set piece
-  if (r >= 3 && (!slot || slot === 'ring' || slot === 'charm') && Math.random() < 0.2) {
+  if (r >= 3 && r < 5 && (!slot || slot === 'ring' || slot === 'charm') && Math.random() < 0.2) {
     const cands = ACCESSORIES.filter(a => !RELICS.includes(a) && a.lvl <= ilvl + 2 && (!slot || baseById(a.base).slot === slot));
     if (cands.length) { const A = pick(cands); return makeItem(baseById(A.base), Math.max(r, A.r), ilvl, { name: A.name, u: A.id, text: A.text }); }
   }
-  if (r >= 3 && slot !== 'weapon' && Math.random() < 0.25) {
+  if (r >= 3 && r < 5 && slot !== 'weapon' && Math.random() < 0.25) {
     const cands = ARMORS.filter(a => a.set && a.lvl <= ilvl + 3 && (!slot || a.slot === slot));
     if (cands.length) return makeItem(pick(cands), 3, Math.max(ilvl, 7));
   }
@@ -184,7 +189,7 @@ export function genItem({ level = 1, rarity = null, slot = null, cls = null, mf 
   // favour bases near the item level
   pool.sort((a, b) => b.lvl - a.lvl);
   const base = Math.random() < 0.6 ? pool[Math.floor(Math.random() * Math.min(3, pool.length))] : pick(pool);
-  return makeItem(base, Math.min(r, 3), ilvl);
+  return makeItem(base, r, ilvl);
 }
 export function baseById(id) { return WEAPONS.find(w => w.id === id) || ARMORS.find(a => a.id === id); }
 
@@ -254,8 +259,8 @@ function makeItem(base, r, ilvl, legend = null) {
     if (top && top.tierIndex >= 5) name = top.tierName + ' ' + name;
     it.name = name;
   }
-  it.value = Math.round((4 + ilvl * 3) * [1, 2, 5, 12, 30][r] * (top ? 1 + Math.min(20, top.tierIndex * top.tierIndex * 0.15) : 1));
-  return identifyItem(it);
+  it.value = Math.round((4 + ilvl * 3) * [1, 2, 5, 12, 30, 60][r] * (top ? 1 + Math.min(20, top.tierIndex * top.tierIndex * 0.15) : 1));
+  return identifyItem(rollGameplay(it));
 }
 // Named item by id (weapons, accessories, set pieces) for rewards, recipes and dev tools.
 export function makeNamed(id, ilvl = 6, r = null) {
@@ -268,6 +273,21 @@ export function makeNamed(id, ilvl = 6, r = null) {
   const b = baseById(id);
   if (b) return makeItem(b, r ?? (b.set ? 3 : 1), ilvl);
   return null;
+}
+export function makeBuildItem(id, cls, ilvl = 16) {
+  const unique = PRISMATIC_DEFS[id] || LEGENDARY_DEFS[id];
+  if (!unique) return null;
+  const base = WEAPONS.filter(b => !b.named && b.cls === cls && b.lvl <= ilvl).sort((a,b) => b.lvl-a.lvl)[0];
+  if (!base) return null;
+  const it = makeItem(base, PRISMATIC_DEFS[id] ? 5 : 4, ilvl);
+  it.name = unique.name; it.unique = 'arpg:' + id; it.element = unique.element;
+  it.effects = unique.effects.map(id => ({id, chance: PROC_DEFS[id].chance}));
+  const ranged = ['bow','wand','staff'].includes(it.kind);
+  it.skillMods = unique.skillMods.filter(id => ranged || id === 'echo_cast');
+  it.modifiers = it.modifiers.map(m => GAMEPLAY_AFFIXES[m.id]?.element ? {...m,id:unique.element+'Damage'} : m);
+  it.prefixes = it.modifiers.slice(0, Math.ceil(it.modifiers.length/2)).map(m => m.id);
+  it.suffixes = it.effects.map(e => e.id);
+  return it;
 }
 export const SLOT_ICON = { chain: '⛓️', katana: '🗡️', bow: '🏹', staff: '🪄', wand: '✨', oversized: '🥄', helm: '⛑️', armor: '🥋', charm: '📿', arms: '🧤', legs: '👖', boots: '🥾', ring: '💍' };
 export function itemIcon(it) { return SLOT_ICON[it.kind || it.slot] || '?'; }
@@ -282,6 +302,8 @@ export function itemPower(it) {
   if (it.set) p += 15 + it.ilvl * 2;
   if (it.rolledAffixes) for (const a of it.rolledAffixes) if (a.qualitative) p += 30;
   if (it.unique) p += 40 + it.ilvl * 3;
+  p += (it.effects?.length || 0) * 14 + (it.skillMods?.length || 0) * 12;
+  for (const m of it.modifiers || []) p += Math.min(35, m.value);
   return Math.round(p);
 }
 

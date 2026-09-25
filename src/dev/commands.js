@@ -4,6 +4,7 @@
 // Obscurity note: activation is obscure for dev convenience, not cryptographic security.
 // NEVER put secrets/API keys in client code.
 
+import { LEGENDARY_DEFS, PRISMATIC_DEFS } from '../rpg/arpg/definitions.js';
 import { CLASSES, MAX_LEVEL, xpNeed } from '../rpg/classes.js';
 import {
   AFFIX_RARITY_TIERS,
@@ -18,6 +19,7 @@ import {
 import { simulateAffixRolls, formatSimulationReport } from '../rpg/affix_simulation.js';
 import {
   genItem,
+  makeBuildItem,
   baseById,
   WEAPONS,
   ARMORS,
@@ -61,6 +63,7 @@ export const COMMAND_CATEGORIES = [
 ];
 
 export const COMMAND_DEFINITIONS = {
+  arpgbuild: { name:'arpgbuild',category:'LOOT',desc:'List or create an ARPG build weapon for your current class.',usage:'/arpgbuild [list|unique_id]' },
   // ---------------------------------------------------------------- CHARACTER
   help: {
     name: 'help',
@@ -585,6 +588,14 @@ export class DevCommands {
   }
 
   static handlers = {
+    arpgbuild(game,args,log) {
+      const id=args[0];
+      if(!id || id==='list') { for(const [key,d] of Object.entries({...LEGENDARY_DEFS,...PRISMATIC_DEFS})) log(key+' — '+d.name+' ('+d.element+')','green'); return; }
+      const it=makeBuildItem(id,game.inv.cls,Math.max(1,game.inv.level));
+      if(!it) {log('Unknown build. Use /arpgbuild list.','yellow');return;}
+      if(!game.pickupItem(it)) {log('Bag full. Make room first.','yellow');return;}
+      game.save();log('Added '+it.name+'. Equip it from Inventory (E).','green');
+    },
     // ---------------------------------------------------------------- CHARACTER HANDLERS
     help(game, args, log) {
       if (args[0]) {

@@ -28,7 +28,7 @@ const walkable = (g, x, z) => { const t = g.tileAt(Math.floor(x), Math.floor(z))
 export function gainEcho(g, n = 1, x, z) {
   if (!n) return;
   const before = echoCount(g.res);
-  g.res = Math.min(100, g.res + n * ECHO);
+  g.res = Math.min(100, g.res + n * ECHO * (1 + (g.pstats.arpg?.stats.resourceGeneration || 0) / 100));
   const after = echoCount(g.res);
   if (after > before) {
     sfx('echo');

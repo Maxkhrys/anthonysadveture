@@ -1,8 +1,9 @@
+import { HeroPortrait } from './hero_portrait.js';
 // Off-screen renderer for UI: the inventory paper doll (a live, rotatable Moss wearing the
 // current gear) and small pixel icons of real weapon/armour models. It has its own WebGL
 // context so the game's render pipeline is untouched.
 import * as THREE from 'three';
-import { makeHero, weaponMesh, helmParts, torsoParts, neckParts, legParts, armParts } from './hero.js';
+import { weaponMesh, helmParts, torsoParts, neckParts, legParts, armParts } from './hero.js';
 import { geo, B, MAT } from './models.js';
 import { getWeaponVisual, ICON_ATLAS, UNIQUE_ACCENTS, rarityTier, PRISM } from './rpg/weaponVisuals.js';
 import { tickPrism } from './weaponFx.js';
@@ -64,63 +65,7 @@ function lights(scene) {
   const fill = new THREE.DirectionalLight(0xffc890, 0.5); fill.position.set(-2, 0.5, 2); scene.add(fill);
 }
 
-export class DollPreview {
-  constructor() {
-    this.scene = new THREE.Scene(); lights(this.scene);
-    this.cam = new THREE.OrthographicCamera(-0.8, 0.8, 1.2, -0.95, 0.1, 20);
-    this.cam.position.set(0, 1.1, 4); this.cam.lookAt(0, 0.5, 0);
-    const plinth = new THREE.Mesh(geo([B(1.1, 0.1, 1.1, 0, -0.1, 0, 0x5a4a6a), B(1.0, 0.04, 1.0, 0, 0, 0, 0x4f8a3a), B(0.2, 0.05, 0.2, 0.3, 0.03, 0.25, 0x6fb04a), B(0.14, 0.04, 0.14, -0.32, 0.02, -0.2, 0x6fb04a)]), MAT);
-    this.scene.add(plinth);
-    this.rotY = 0.35; this.spin = 0; this.cls = null; this.t = 0; this.zoom = 1;
-  }
-  setZoom(z) { this.zoom = Math.max(0.55, Math.min(1.25, z)); const k = this.zoom; this.cam.left = -0.8 * k; this.cam.right = 0.8 * k; this.cam.top = 0.5 + 0.7 * k; this.cam.bottom = 0.5 - 1.45 * k; this.cam.updateProjectionMatrix(); }
-  mount(el) {
-    const r = renderer();
-    if (r.domElement.parentNode !== el) el.appendChild(r.domElement);
-    r.setSize(168, 236, false);
-    if (!this.bound) {
-      this.bound = true;
-      let drag = null;
-      r.domElement.addEventListener('wheel', e => { e.preventDefault(); this.setZoom(this.zoom * (e.deltaY > 0 ? 1.1 : 0.9)); }, { passive: false });
-      r.domElement.addEventListener('dblclick', () => { this.setZoom(this.zoom < 0.8 ? 1 : 0.6); });
-      r.domElement.addEventListener('pointerdown', e => { drag = e.clientX; this.spin = 0; });
-      addEventListener('pointerup', () => { drag = null; });
-      addEventListener('pointermove', e => { if (drag !== null) { this.rotY += (e.clientX - drag) * 0.02; drag = e.clientX; } });
-    }
-  }
-  setGear(cls, equip) {
-    if (this.cls !== cls) {
-      if (this.hero) this.scene.remove(this.hero.root);
-      this.hero = makeHero(cls); this.hero.root.scale.setScalar(1); this.cls = cls;
-      this.scene.add(this.hero.root);
-      // a relaxed ready pose
-      this.hero.armR.rotation.x = cls === 'witch' ? -0.5 : -0.9; this.hero.armR.rotation.z = 0.25; this.hero.sword.rotation.x = cls === 'witch' ? 0.15 : -0.5; this.hero.armL.rotation.z = -0.2; if (cls === 'archer') this.hero.armL.rotation.x = -0.4;
-    }
-    this.hero.setGear(equip);
-    // hold the weapon the way it is used: two hands for heavy and oversized weapons
-    const w = equip && equip.weapon, big = w && (w.kind === 'oversized' || w.big);
-    this.hero.armL.rotation.set(big ? -0.9 : 0, 0, big ? 0.3 : -0.2);
-    if (w && w.kind === 'bow') this.hero.armL.rotation.x = -0.4;
-    this.hero.armR.rotation.x = w && (w.kind === 'staff' || w.kind === 'wand') ? -0.5 : -0.9;
-    this.hero.sword.rotation.x = w && (w.kind === 'staff' || w.kind === 'wand') ? 0.15 : big ? -0.2 : -0.5;
-    this.flash = 0.4;
-  }
-  frame(dt) {
-    if (!this.hero) return;
-    const r = renderer();
-    this.t += dt; this.rotY += this.spin * dt; tickPrism();
-    this.hero.root.rotation.y = this.rotY;
-    const br = Math.sin(this.t * 2.4);
-    this.hero.body.scale.set(1 + br * 0.012, 1 + br * 0.015, 1);
-    this.hero.eyes.scale.y = (this.t % 3.4) < 0.1 ? 0.15 : 1;
-    this.hero.tail1.rotation.x = -0.5 + Math.sin(this.t * 3) * 0.1;
-    this.flash = Math.max(0, (this.flash || 0) - dt);
-    this.hero.root.position.y = this.flash > 0 ? Math.sin((0.4 - this.flash) / 0.4 * Math.PI) * 0.08 : 0;
-    r.setRenderTarget(null);
-    r.setClearColor(0x000000, 0);
-    r.render(this.scene, this.cam);
-  }
-}
+export class DollPreview extends HeroPortrait {}
 
 // A pixel icon of an item's real model (weapon, helm, chest, charm...), cached.
 export function itemIconURL(item, cls = 'samurai') {

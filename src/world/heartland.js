@@ -161,6 +161,26 @@ export function paintHeartland() {
   g.def({ type: 'tollrack', x: 53.5, z: 56.5 }); // appears once the Silent Toll is finished
   g.def({ type: 'millyard', x: 50.5, z: 51.2 });
 
+  // Thimblewick arrival: open sightline from the bell tree into the square.
+  g.ellipse(59, 68.5, 3.6, 3.2, T.PATH, t => t !== T.PROP);
+  g.road([[58,71],[58,65],[58,60]], 1, T.STONE);
+  // East practice yard. Keep house footprints intact and leave both entrances open.
+  g.ellipse(71,66,4.6,4.4,T.PATH,t=>t!==T.PROP);
+  g.road([[59,65],[63,65],[67,66],[71,66]],1,T.PATH);
+  g.deco('belltree',61,68,1,1);
+  g.deco('villagebench',59,70,2,1);
+  g.deco('handcart',64,69,2,1);
+  g.deco('herbbed',52,58,2,1);
+  g.deco('herbbed',54,58,1,1);
+  g.deco('practiceRack',73,62,1,1);
+  for(const [x,z] of [[75,63],[75,65],[75,67],[70,70],[72,70]])g.deco('fence',x,z,1,1);
+  for(const [x,z] of [[57,70],[60,66],[67,67],[73,68]])if(g.get(x,z)!==T.PROP)g.deco('lamppost',x,z,1,1);
+  g.def({type:'villageTarget',x:71,z:64.5});
+  g.def({type:'villageTarget',x:73,z:65.5});
+  g.def({type:'welcomeChest',x:69,z:68.5});
+  g.def({type:'sign',x:67.5,z:68.5,text:'BRISK’S PRACTICE YARD\nStraw targets, patient teaching. No fee.\nSpeak to Brisk to learn, skip or replay the basics.'});
+  g.def({type:'sign',x:60.5,z:64.5,text:'THIMBLEWICK SQUARE\nWest: Posy’s shop and crafting bench\nNorth-west: Bellstone and Elder Tamsin\nEast: Captain Brisk’s practice yard\nM: map · J: journal'});
+
   // The Echo Glade, east of Rootwell Hollow: two short-lived pinwheels with a hedge between.
   // Walking around the hedge takes longer than one pinwheel spins, so only a gust that
   // repeats itself (the Verdant Chime's echo) keeps the first one turning.
@@ -224,7 +244,7 @@ export function paintHeartland() {
   g.def({ type: 'npc', id: 'tamsin', name: 'Elder Tamsin', x: 60.5, z: 57.5, look: 'elder' });
   g.def({ type: 'npc', id: 'posy', name: 'Posy', x: 52.5, z: 64.6, look: 'shop', shop: true });
   g.def({ type: 'npc', id: 'oswin', name: 'Miller Oswin', x: 49.5, z: 53.5, look: 'miller' });
-  g.def({ type: 'npc', id: 'brisk', name: 'Captain Brisk', x: 69.5, z: 58.2, look: 'guard' });
+  g.def({ type: 'npc', id: 'brisk', name: 'Captain Brisk', x: 68.5, z: 65.5, look: 'guard' });
   g.def({ type: 'npc', id: 'ada', name: 'Fisher Ada', x: 58.5, z: 89.5, look: 'fisher' });
   g.def({ type: 'npc', id: 'fennel', name: 'Fennel', x: 55.5, z: 59.5, look: 'kid', wander: 3 });
   g.def({ type: 'npc', id: 'hermit', name: 'Root Hermit', x: 22.5, z: 34.5, look: 'hermit' });
@@ -332,7 +352,7 @@ export function paintHeartland() {
 
   // spawn points
   const spawns = {
-    start: { x: 58.5, z: 62.5 }, village: { x: 58.5, z: 62.5 }, dungeon: { x: 17.5, z: 31.2 }, grotto: { x: 29.5, z: 14.8 },
+    start: { x: 58.5, z: 68.5 }, village: { x: 58.5, z: 62.5 }, dungeon: { x: 17.5, z: 31.2 }, grotto: { x: 29.5, z: 14.8 },
     conservatory: { x: 45.5, z: 43.6 }, fen: { x: 22.5, z: 93 },
   };
   // Heights: cliffs and rocks get varied tiers so ridges read as landforms

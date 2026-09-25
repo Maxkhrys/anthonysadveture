@@ -1,7 +1,8 @@
+import { normalizeAppearance } from '../appearance.js';
 // Portable character data. No renderer, browser storage, or world-instance ownership.
 import { HEART, LAYOUT_VERSION, FOG_W, FOG_H, REGION_IDS } from '../world/layout.js';
 import { GENERATION_VERSION, generateManifest, seedForId, randomSeed, validSeed } from '../world/worldseed.js';
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 export const EQUIPMENT_SLOTS = ['head', 'chest', 'arms', 'legs', 'boots', 'necklace', 'ring1', 'ring2', 'weapon'];
 export const SLOT_ALIASES = { helm: 'head', armor: 'chest', charm: 'necklace' };
 export const newId = () => globalThis.crypto.randomUUID();
@@ -50,8 +51,14 @@ export function identifyItem(it, ownerCharacterId = null, source = 'loot') {
   if (!Array.isArray(it.affixes)) throw new Error('Malformed item affixes');
   if (it.craftedMutations !== undefined && !Array.isArray(it.craftedMutations)) throw new Error('Malformed crafted mutations');
   if (typeof it.base !== 'string' || typeof it.name !== 'string' || typeof it.slot !== 'string') throw new Error('Malformed item definition');
-  if (!Number.isInteger(it.r) || it.r < 0 || it.r > 4) throw new Error('Unsupported item rarity');
+  if (!Number.isInteger(it.r) || it.r < 0 || it.r > 5) throw new Error('Unsupported item rarity');
   if (it.slot === 'weapon') { nonnegative(it.min, 'weapon damage'); nonnegative(it.max, 'weapon damage'); }
+  if (it.itemizationVersion !== undefined) {
+    if (it.itemizationVersion !== 1) throw new Error('Unsupported itemization version');
+    if (!Array.isArray(it.modifiers) || !Array.isArray(it.effects) || !Array.isArray(it.skillMods)) throw new Error('Malformed item gameplay rolls');
+    for (const m of it.modifiers) if (!m || typeof m.id !== 'string' || !Number.isFinite(m.value) || m.value < 0 || m.value > 1000) throw new Error('Invalid modifier roll');
+    for (const e of it.effects) if (!e || typeof e.id !== 'string' || !Number.isFinite(e.chance) || e.chance < 0 || e.chance > 1) throw new Error('Invalid effect roll');
+  }
   it.upgradeLevel ??= 0;
   nonnegative(it.upgradeLevel, 'upgrade level');
   if (!Number.isInteger(it.upgradeLevel)) throw new Error('Invalid upgrade level');
@@ -170,6 +177,7 @@ export function normalizeCharacter(input) {
   };
   Object.values(inv.equip).filter(Boolean).forEach(accept);
   inv.bag.forEach(accept);
+  inv.appearance = normalizeAppearance(inv.appearance);
   p.inventory = inv;
   p.settings ??= {};
   requireRecord(p.settings, 'character settings');
@@ -194,10 +202,10 @@ export function createProfile({ name, classId, inventory = defaultInventory(clas
 
 export function migrateSave(raw) {
   requireRecord(raw, 'save');
-  if (raw.schemaVersion !== undefined && raw.schemaVersion !== 2 && raw.schemaVersion !== SCHEMA_VERSION) throw new Error('Unsupported save schema. Use a compatible game version; this save will not be overwritten.');
-  if (raw.schemaVersion === SCHEMA_VERSION) {
+  if (raw.schemaVersion !== undefined && raw.schemaVersion !== 2 && raw.schemaVersion !== 3 && raw.schemaVersion !== SCHEMA_VERSION) throw new Error('Unsupported save schema. Use a compatible game version; this save will not be overwritten.');
+  if (raw.schemaVersion === 3 || raw.schemaVersion === SCHEMA_VERSION) {
     if (!Array.isArray(raw.characters)) throw new Error('Malformed character list');
-    const out = { ...copy(raw), characters: raw.characters.map(normalizeCharacter) };
+    const out = { ...copy(raw), schemaVersion: SCHEMA_VERSION, characters: raw.characters.map(normalizeCharacter) };
     const ids = new Set(), items = new Set();
     for (const p of out.characters) {
       if (ids.has(p.id)) throw new Error('Duplicate character identity');

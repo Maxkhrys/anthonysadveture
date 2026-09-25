@@ -12,7 +12,8 @@
     "test:world": "node --test tests/world.unit.mjs",
     "test:soulbound": "node --test tests/soulbound.unit.mjs",
     "test:simulation": "node tests/affix_simulation.mjs",
-    "test:browser": "node tests/run.mjs"
+    "test:browser": "node tests/run.mjs",
+    "test:arpg": "node --test tests/arpg.unit.mjs"
   },
   "devDependencies": {
     "playwright": "^1.63.0",

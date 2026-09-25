@@ -1,3 +1,4 @@
+import { aggregateGameplay } from './arpg/items.js';
 import {BOONS} from './relics.js';
 import { reinforcementMultiplier } from '../persistence/model.js';
 import { XP_PROGRESSION } from './progression.js';
@@ -96,6 +97,10 @@ export function computeStats(inv) {
     if (it.rolledAffixes) for (const a of it.rolledAffixes) if (a.qualitative) s.qual.add(a.qualitative.id);
   }
   if(s.uniques.has('worldseed')){for(const [k,v] of Object.entries(BOONS[inv.areaBoon]?.stats||{}))s[k]=(s[k]||0)+v;}
+  s.arpg = aggregateGameplay(inv.equip);
+  const statMap = { weaponDamage:'dmgPct',attackSpeed:'atkSpd',criticalChance:'crit',criticalDamage:'critDmg',cooldownReduction:'cdr',movementSpeed:'moveSpd',lifeSteal:'lifesteal',abilityDamage:'abilityDmg' };
+  for (const [from,to] of Object.entries(statMap)) s[to] += s.arpg.stats[from] || 0;
+  if (inv.cls === 'witch') s.atkSpd += s.arpg.stats.castSpeed || 0;
   // skill tree passives
   const T = treeStats(inv);
   for (const k in T) s[k] = (s[k] || 0) + T[k];

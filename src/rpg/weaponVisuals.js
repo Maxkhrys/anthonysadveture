@@ -24,6 +24,11 @@ export const ICON_INDEX = { shinai: 0, rustkatana: 1, wakizashi: 2, tachi: 3, uc
 
 const GOLD = 0xd8a840, GOLD_D = 0x9a6a1e, INK = 0x1e1620;
 export const WEAPON_VISUALS = {
+  wandererschain: { via: 'wayfarerlinks', icon: 36 },
+  whisperingchain: { via: 'tidewhisper', icon: 37 },
+  grievingcoil: { via: 'duskcoil', icon: 38 },
+  veilrender: { via: 'lanternchain', icon: 39 },
+  eternalbond: { via: 'threshold', icon: 40 },
   // ------------------------------------------------------------------ Samurai
   shinai: { family: 'katana', model: 'shinai', len: 0.6, pal: { blade: 0xd9a441, hi: 0xf2c860, node: 0x9a6420, guard: 0x7a4a1e, grip: 0x6a3a18, wrap: 0x3a2210, pommel: 0x2a1a10 } },
   rustkatana: { family: 'katana', model: 'katana', len: 0.56, curve: 0.04, w: 0.062, pal: { blade: 0x8e8074, hi: 0xb8ac9c, rust: 0x8a4a24, rust2: 0x6a3418, guard: 0xc8963a, grip: 0x7a261c, wrap: 0x3a1612, pommel: 0x3a2a20 }, chip: true },
@@ -169,13 +174,13 @@ export function getWeaponVisual(itemOrBase) {
 export function rarityTier(item) {
   if (!item) return 0;
   if (item.prismatic || item.rarity === 'prismatic' || item.tier === 'prismatic') return 5;
-  return Math.max(0, Math.min(4, item.r | 0));
+  return Math.max(0, Math.min(5, item.r | 0));
 }
 // every element this weapon should show (base identity first, then the rolled ones)
 export function weaponElements(item) {
   if (!item) return [];
   const out = [];
-  const add = e => { if (e && ELEMENT_VISUAL[e] && !out.includes(e)) out.push(e); };
+  const add = e => { e = ({spirit:'shadow',physical:'bleed'}[e] || e); if (e && ELEMENT_VISUAL[e] && !out.includes(e)) out.push(e); };
   if (item.element) add(item.element);
   if (Array.isArray(item.elements)) item.elements.forEach(e => add(typeof e === 'string' ? e : e && e.id));
   if (item.unique && UNIQUE_ACCENTS[item.unique]) add(UNIQUE_ACCENTS[item.unique].element);

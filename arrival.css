@@ -1,0 +1,16 @@
+/* Compact lesson card: one action, readable keys and an optional exit. */
+#guide.guided-arrival{top:250px!important;width:270px;max-width:270px;max-height:none;padding:15px 17px;background:#262b20ee;border:1px solid #a58d55;color:#eee2c5;overflow:visible;pointer-events:auto}
+#guide.guided-arrival .gd-h{display:flex;justify-content:space-between;gap:12px;font-size:10px;letter-spacing:1px;color:#cbb67d;margin-bottom:14px}
+#guide.guided-arrival .gd-h span{color:inherit;font-size:inherit}
+.arrival-chapter{font-size:11px;color:#c3c6a8;margin-bottom:5px}
+#guide.guided-arrival h3{font:21px/1.15 var(--display);color:#f3dfad;margin:0 0 10px}
+#guide.guided-arrival p{font:13px/1.65 var(--font);margin:0 0 12px}
+#guide.guided-arrival kbd{background:#efe0ba;color:#302b1d;border-color:#ad9764;box-shadow:none}
+.arrival-wayfinding{font-size:11px;color:#c8d9b3;padding:8px 0}
+.arrival-actions{display:flex;justify-content:space-between;gap:8px;margin-top:8px}
+.arrival-actions button{background:transparent;color:#e0d0a6;border:1px solid #a28f6359;padding:7px 8px;font-size:11px;min-height:32px}
+.arrival-actions button:hover{background:#4d523b}.arrival-actions button:focus-visible{outline:2px solid #e0cc95;outline-offset:2px}
+#baggrid .cell.welcome-kit{outline:3px solid #e7d399;outline-offset:1px;background:#4b5531}
+#baggrid .cell.welcome-kit .cell-name:before{content:'NEW KIT · ';color:#ffe3a0}
+@media(max-height:760px) and (min-width:601px){#guide.guided-arrival{top:238px!important;width:235px;max-width:235px;padding:12px}#guide.guided-arrival h3{font-size:18px}#guide.guided-arrival p{font-size:12px}}
+@media(max-width:600px){#guide.guided-arrival:not(.hidden){display:block!important;top:auto!important;bottom:115px;left:12px;width:calc(100vw - 58px);max-width:330px;padding:11px 14px}#guide.guided-arrival .gd-h{margin-bottom:7px}#guide.guided-arrival h3{font-size:18px;margin-bottom:6px}#guide.guided-arrival p{font-size:12px;margin-bottom:4px}.arrival-chapter,.arrival-wayfinding{display:none}.arrival-actions{margin-top:5px}}
