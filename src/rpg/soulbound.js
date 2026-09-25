@@ -12,7 +12,7 @@ import { angDiff } from '../engine/util.js';
 import { T, isSolid } from '../world/tiles.js';
 import { Projectile, segT } from './combat.js';
 import { ECHO, MAX_ECHOES, echoCount } from './classes.js';
-import { chainColors } from '../hero.js';
+import { chainStyle } from '../weaponModels.js';
 import { hasEngraving, hasSigil } from './crafting.js';
 
 export const SPIRIT = 0x8fe3dc, SPIRIT_L = 0xc8b0ff, SPIRIT_W = 0xe8fffb, VEIL = 0x7a6ab8, VEIL_D = 0x4e7e8a;
@@ -68,15 +68,18 @@ export class ChainRig {
     this.visible = false;
   }
   setColors(item) {
-    const [iron, orb] = chainColors(item);
-    const key = iron + ':' + orb;
+    // link colours, link shape and spirit colour come from the weapon's approved chain design
+    const S = chainStyle(item);
+    const key = [S.a, S.b, S.spirit, S.link].join(':');
     if (key === this.key) return;
-    this.key = key; this.orb = orb;
+    this.key = key; this.orb = S.spirit;
     for (const m of [this.iron, this.spirit]) if (m) { this.group.remove(m); m.geometry.dispose(); m.dispose(); }
     // links are drawn a little larger than life so the chain still reads at gameplay distance
-    const lit = new THREE.Color(iron).multiplyScalar(1.45).getHex(), rim = new THREE.Color(iron).lerp(new THREE.Color(orb), 0.35).multiplyScalar(1.6).getHex();
-    this.iron = new THREE.InstancedMesh(geo([B(0.11, 0.05, 0.16, 0, -0.025, 0, lit), B(0.115, 0.02, 0.05, 0, 0.0, 0, rim)]), MAT, N_LINKS);
-    this.spirit = new THREE.InstancedMesh(geo([B(0.12, 0.055, 0.17, 0, -0.027, 0, orb), B(0.06, 0.06, 0.06, 0, -0.03, 0, 0xffffff)]), MAT_GLOW, N_LINKS);
+    const k = S.link === 'heavy' ? 1.2 : 1, L = [B(0.11 * k, 0.05 * k, 0.16 * k, 0, -0.025, 0, S.a), B(0.115 * k, 0.02, 0.05, 0, 0.0, 0, S.b)];
+    if (S.link === 'spiked') L.push(B(0.03, 0.03, 0.08, 0.06, -0.03, 0.03, S.b, 0, 0, 0.8));
+    if (S.link === 'ornate') L.push(B(0.05, 0.05, 0.05, 0, -0.03, 0, S.gemA));
+    this.iron = new THREE.InstancedMesh(geo(L), MAT, N_LINKS);
+    this.spirit = new THREE.InstancedMesh(geo([B(0.12, 0.055, 0.17, 0, -0.027, 0, S.spirit), B(0.06, 0.06, 0.06, 0, -0.03, 0, 0xffffff)]), MAT_GLOW, N_LINKS);
     for (const m of [this.iron, this.spirit]) { m.frustumCulled = false; m.layers.enable(1); this.group.add(m); }
     this.iron.castShadow = true;
   }

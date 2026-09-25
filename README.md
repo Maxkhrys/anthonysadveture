@@ -409,3 +409,6 @@ Lanternreach is now one seamless 320×260 overworld: about 5× the old walkable 
 - **Seeds:** every character has a world seed and a saved manifest of optional content. Old saves migrate in place.
 
 The world streams in 24-tile chunks. Details: `docs/pass6.md`. Screenshots: `docs/screens/pass6/`. Tests: `npm run test:world` and `node tests/run.mjs world`.
+
+## Weapon visuals
+Every weapon base has a model, drop and inventory icon built from the approved weapon sheet via one registry (`src/rpg/weaponVisuals.js`). See `docs/weapon_visuals.md`.

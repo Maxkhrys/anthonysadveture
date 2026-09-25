@@ -6,6 +6,9 @@ import { HEIRLOOM_BY_ID } from './rpg/heirlooms.js';
 // the figure always reads as one outfit. Nothing here touches item stats or rules.
 import * as THREE from 'three';
 import { geo, B, MAT, MAT_GLOW } from './models.js';
+import { buildWeapon, chainStyle } from './weaponModels.js';
+import { PRISM_MAT, applyWeaponElementVisual } from './weaponFx.js';
+import { weaponElements } from './rpg/weaponVisuals.js';
 
 const RAR = [0xd8d0c0, 0x6fdc5a, 0x4aa8ff, 0xc46bff, 0xff9a2a];
 const SKIN = 0xf6cda6, SKIN_D = 0xe0a882, INKC = 0x1b1426;
@@ -398,6 +401,10 @@ function oversized(base, it) {
 export function weaponModel(item, cls = 'samurai') {
   const kind = item ? item.kind : { archer: 'bow', witch: 'staff', soulbound: 'chain' }[cls] || 'katana';
   const base = item ? item.base : { archer: 'huntbow', witch: 'acornstaff', soulbound: 'tetherchain' }[cls] || 'rustkatana';
+  // every base on the approved weapon sheet (and its heirloom/variant palettes) is built from
+  // the visual registry; named curios and anything unknown keep the hand-built models below
+  const built = buildWeapon(item, base);
+  if (built) { built.scale *= item && item.visualScale ? item.visualScale : 1; built.kind = kind; return built; }
   const H = HEIRLOOM_BY_ID[base];
   let W = kind === 'chain' ? chainWeapon(base, item, H) : (H ? heirloomModel(H) : null) || named(base, item) || (kind === 'oversized' ? oversized(base, item) : kind === 'katana' ? katana(base, item) : kind === 'bow' ? bow(base, item) : staff(base, item));
   if (item && item.unique) W = legendary(item.unique, W);
@@ -411,10 +418,16 @@ export function weaponParts(item) { const W = weaponModel(item, item && item.cls
 export function weaponMesh(item, cls) {
   const W = weaponModel(item, cls);
   const g = new THREE.Group();
-  const m = new THREE.Mesh(geo(W.parts), MAT); m.castShadow = true; g.add(m);
-  if (W.glow && W.glow.length) { const gm = new THREE.Mesh(geo(W.glow), MAT_GLOW); g.add(gm); }
+  // `pre` turns a model authored flat (bows) to face the way the arm holds it
+  const inner = W.pre ? new THREE.Group() : g; if (W.pre) { inner.rotation.set(...W.pre); g.add(inner); }
+  const m = new THREE.Mesh(geo(W.parts), MAT); m.castShadow = true; inner.add(m);
+  if (W.glow && W.glow.length) { const gm = new THREE.Mesh(geo(W.glow), MAT_GLOW); inner.add(gm); }
+  if (W.prism && W.prism.length) inner.add(new THREE.Mesh(geo(W.prism), PRISM_MAT));
   g.scale.setScalar(W.scale || 1);
   g.userData.kind = W.kind;
+  g.userData.anchors = W.anchors || null; g.userData.inner = inner;
+  if (W.visual) g.userData.visual = W.visual.id;
+  applyWeaponElementVisual(g, weaponElements(item), W);
   g.traverse(o => { if (o.isMesh) o.layers.enable(1); });
   return g;
 }
@@ -426,7 +439,8 @@ export const CHAIN_LOOK = {
   mothsilk: [0xd8d0c0, 0xe0d0ff], gravechain: [0x3a3a42, 0xb8a8ff], wispwoven: [0x6a8a88, 0xb8fff0], veilchain: [0x2e3440, 0xc8b0ff],
   wayfarerlinks: [0xa8a298, 0x8fe3dc], tidewhisper: [0x5a7a8a, 0x55bfff], duskcoil: [0x4a3a5a, 0xb765ef], lanternchain: [0x6a5a48, 0xffc860], threshold: [0x2a2e3a, 0xc8b0ff],
 };
-export const chainColors = item => CHAIN_LOOK[item && item.base] || (item && item.unique && CHAIN_LOOK[item.unique]) || CHAIN_LOOK.tetherchain;
+// the lash colours now come from the visual registry (the sheet's chain designs)
+export const chainColors = item => { const s = chainStyle(item || null); return [s.a, s.spirit]; };
 function chainWeapon(base, it, H) {
   const [iron, orb] = chainColors(it || { base });
   const P = [B(0.055, 0.15, 0.055, 0, -0.02, 0, LEATHER), B(0.065, 0.025, 0.065, 0, 0.12, 0, shade(iron, 1.3)), B(0.07, 0.03, 0.07, 0, -0.04, 0, shade(LEATHER, 0.7))];

@@ -3,6 +3,7 @@ import { hx, hz } from './world/layout.js';
 import { sfx, playMusic } from './engine/audio.js';
 import { dropPips } from './entities/common.js';
 import { genItem, RARITY, itemIcon } from './rpg/items.js';
+import { itemIconHTML } from './preview.js';
 import { gainMat, learn } from './rpg/crafting.js';
 
 // where each region's name sits on the map
@@ -354,7 +355,7 @@ export class Story {
       this.stock = [0, 1, 2, 3, 4].map(i => genItem({ level: inv.level + (i === 4 ? 1 : 0), cls: i < 3 ? inv.cls : null, slot: i < 2 ? 'weapon' : null, floor: i >= 3 ? 2 : 1, bonus: 0.3 }));
     }
     const gear = this.stock.map(it => ({
-      name: `<span style="color:${RARITY[it.r].color}">${itemIcon(it)} ${it.name}</span>`, price: it.value * 3,
+      name: `<span style="color:${RARITY[it.r].color}">${itemIconHTML(it, it.cls) || itemIcon(it)} ${it.name}</span>`, price: it.value * 3,
       desc: it.slot === 'weapon' ? `${it.min}–${it.max} dmg · ${RARITY[it.r].name}${it.utext ? ' · ' + it.utext : ''}` : `${RARITY[it.r].name} ${it.slot} · ${Object.keys(it.stats).length} stats`,
       state: g => it.sold ? 'Sold.' : g.inv.bag.length >= g.bagCapacity() ? 'Your bag is full.' : 'ok',
       buy: g => { it.sold = true; g.pickupItem(it); },

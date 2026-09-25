@@ -5,6 +5,7 @@ import { mesh, B, MAT_GLOW, MAT } from '../models.js';
 import { sfx } from '../engine/audio.js';
 import { RARITY, genItem } from './items.js';
 import { weaponMesh } from '../hero.js';
+import { weaponDrop } from '../weaponFx.js';
 import { hasEngraving } from './crafting.js';
 
 import { angDiff } from '../engine/util.js';
@@ -341,9 +342,10 @@ export class GearDrop extends Entity {
     const R = item.prismatic ? {...RARITY[item.r],hex:0x93dfff} : RARITY[item.r];
     const col = item.slot === 'weapon' ? 0xdfe8f0 : item.slot === 'charm' ? 0xffd25e : 0xa08a6a;
     this.icon = mesh(item.slot === 'weapon' ? [B(0.06, 0.5, 0.06, 0, 0, 0, col), B(0.2, 0.05, 0.08, 0, 0.12, 0, R.hex)] : [B(0.3, 0.26, 0.2, 0, 0, 0, col), B(0.32, 0.06, 0.22, 0, 0.2, 0, R.hex)], MAT_GLOW, false);
-    if (item.slot === 'weapon') { this.icon.geometry?.dispose(); this.icon = weaponMesh(item,item.cls); this.icon.scale.multiplyScalar(.65); }
-    this.icon.rotation.z = 0.6; this.obj.add(this.icon);
-    if (item.r >= 1) {
+    // weapons: the real model over a rarity glow (weaponFx.js); other gear keeps its token
+    if (item.slot === 'weapon') { this.icon.geometry?.dispose(); this.drop = weaponDrop(item, weaponMesh); this.icon = this.drop.icon; this.obj.add(this.drop.group); }
+    else { this.icon.rotation.z = 0.6; this.obj.add(this.icon); }
+    if (item.r >= 1 && !this.drop) {
       const h = [0, 1.2, 2.2, 3.5, 6][item.r];
       const beam = new THREE.Mesh(new THREE.BoxGeometry(0.16 + item.r * 0.04, h, 0.16 + item.r * 0.04), new THREE.MeshBasicMaterial({ color: R.hex, transparent: true, opacity: 0.45, depthWrite: false }));
       beam.position.y = h / 2; this.obj.add(beam); this.beam = beam;
@@ -362,9 +364,10 @@ export class GearDrop extends Entity {
     const pickupRange=g.pstats.uniques.has('travelantern')?2.6:1.8;
     const dp = Math.hypot(p.x - this.x, p.z - this.z);
     if (this.t > 0.5 && dp < pickupRange && dp > 0.05 && p.state !== 'dead' && !this.warned) { const k = Math.min(1, dt * (4 + (pickupRange - dp) * 6)) / dp; move(g, this, (p.x - this.x) * k * dp * 0.5, (p.z - this.z) * k * dp * 0.5); }
-    this.icon.rotation.y += dt * 2; this.icon.position.y = this.y + Math.sin(this.t * 3) * 0.05;
+    if (this.drop) this.drop.update(dt, this, g);
+    else { this.icon.rotation.y += dt * 2; this.icon.position.y = this.y + Math.sin(this.t * 3) * 0.05; }
     if (this.beam) this.beam.material.opacity = 0.35 + Math.sin(this.t * 4) * 0.12;
-    if (this.item.r >= 2 && Math.random() < 0.15) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.4, y: 0.2, z: this.z + (Math.random() - 0.5) * 0.4, vy: 1.4, g: 0, color: RARITY[this.item.r].hex, life: 0.8, size: 0.05 });
+    if (!this.drop && this.item.r >= 2 && Math.random() < 0.15) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.4, y: 0.2, z: this.z + (Math.random() - 0.5) * 0.4, vy: 1.4, g: 0, color: RARITY[this.item.r].hex, life: 0.8, size: 0.05 });
     if (this.t > 0.5 && Math.hypot(p.x - this.x, p.z - this.z) < 0.8 && p.state !== 'dead') {
       if (g.pickupItem(this.item)) this.remove();
       else if (!this.warned) { this.warned = true; g.ui.toast('Your bag is full!', 'Press E and salvage something.', 2); }

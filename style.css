@@ -489,3 +489,8 @@ body.aiming #game{cursor:none}
 .globe.res.echo .pips i.half{background:#4a7a76;border-color:#8fe3dc}
 .ccard .tagline{text-align:center;font-style:italic;color:#9ee0d8;font-size:12px;margin:-4px 0 8px}
 #classcards .ccard{width:236px}
+/* Weapon visuals pass: inline item icons (toasts, shops, crafting) and the Prismatic frame */
+.ico-inl{width:22px;height:22px;vertical-align:-6px;image-rendering:pixelated;filter:drop-shadow(1px 1px 0 #0008);margin-right:2px}
+.lootmsg .ico-inl{width:26px;height:26px;vertical-align:-8px}
+.prism{border-color:#93dfff!important;animation:prismframe 2.4s linear infinite!important}
+@keyframes prismframe{0%{border-color:#75e9ff;box-shadow:0 0 10px #75e9ff88}25%{border-color:#b992ff;box-shadow:0 0 10px #b992ff88}50%{border-color:#ff79d9;box-shadow:0 0 10px #ff79d988}75%{border-color:#ffd763;box-shadow:0 0 10px #ffd76388}100%{border-color:#75e9ff;box-shadow:0 0 10px #75e9ff88}}

@@ -11,6 +11,7 @@
 import { sfx } from './engine/audio.js';
 import { gainMat, learn, MATS } from './rpg/crafting.js';
 import { genItem, makeNamed, RARITY, itemIcon } from './rpg/items.js';
+import { itemIconHTML } from './preview.js';
 import {GearDrop} from './rpg/combat.js';
 import { dropPips } from './entities/common.js';
 import { Boulder } from './entities/objects.js';
@@ -175,7 +176,7 @@ export function installStory6(Story) {
     const key = who + ':' + inv.level + ':' + g.worldDay();
     this.stock6 = this.stock6 || {};
     if (!this.stock6[key]) this.stock6[key] = [0, 1, 2].map(i => genItem({ level: inv.level + 1, cls: i === 0 ? inv.cls : null, slot: i === 0 ? 'weapon' : null, floor: 2, bonus: 0.5 }));
-    const gear = this.stock6[key].map(it => ({ name: `<span style="color:${RARITY[it.r].color}">${itemIcon(it)} ${it.name}</span>`, price: it.value * 3, desc: `${RARITY[it.r].name} ${it.slot}`, state: g => it.sold ? 'Sold.' : g.inv.bag.length >= g.bagCapacity() ? 'Your bag is full.' : 'ok', buy: g => { it.sold = true; g.pickupItem(it); } }));
+    const gear = this.stock6[key].map(it => ({ name: `<span style="color:${RARITY[it.r].color}">${itemIconHTML(it, it.cls) || itemIcon(it)} ${it.name}</span>`, price: it.value * 3, desc: `${RARITY[it.r].name} ${it.slot}`, state: g => it.sold ? 'Sold.' : g.inv.bag.length >= g.bagCapacity() ? 'Your bag is full.' : 'ok', buy: g => { it.sold = true; g.pickupItem(it); } }));
     const lists = {
       tobi: [tonic, mat('wax', 40), mat('echo', 90), ...gear.slice(1)],
       brakka: [tonic, mat('ember', 60), mat('filament', 80), mat('shard', 30, 3), ...gear],

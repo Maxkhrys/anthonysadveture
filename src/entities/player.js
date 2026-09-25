@@ -16,6 +16,7 @@ import { AIM_H } from '../aim.js';
 import { blocksObject, isLiquid } from '../world/tiles.js';
 import { SoulKit, startLash, soulState, soulAnimate, beginSoulAbility, whirlPull, onEchoSpent } from '../rpg/soulbound.js';
 import { ECHO } from '../rpg/classes.js';
+import { tickWeaponFx } from '../weaponFx.js';
 
 // the Soulbound's own states (rpg/soulbound.js runs them)
 const SOUL_STATES = new Set(['lash', 'hook', 'hookzip', 'coil', 'veil', 'rend', 'rift']);
@@ -830,6 +831,8 @@ export class Player extends Entity {
     this.moveSpeed = moved;
     if (this.family === 'chain' || this.cls === 'soulbound') { if (!this.kit) this.kit = new SoulKit(this, !!CLASSES[this.cls].echo); this.kit.setWeapon(inv.equip.weapon); this.kit.update(dt); }
     const w = inv.equip.weapon;
+    // element sparks from the weapon itself (and the Prismatic gem's colour drift)
+    const wm = this.m.offhand.children[0] || this.m.sword.children[0]; if (wm) tickWeaponFx(g, wm, dt);
     if (w && w.r >= 3 && Math.random() < (w.r === 4 ? 0.5 : 0.25)) {
       const hand = new THREE.Vector3(); (this.m.offhand.children.length ? this.m.offhand : this.m.sword).getWorldPosition(hand);
       g.fx.add({ x: hand.x + (Math.random() - 0.5) * 0.3, y: hand.y + Math.random() * 0.4, z: hand.z + (Math.random() - 0.5) * 0.3, vy: 0.6, g: 0, color: w.r === 4 ? 0xff9a2a : 0xc46bff, life: 0.5, size: 0.04 });

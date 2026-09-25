@@ -7,7 +7,7 @@ import { RARITY, AFFIXES, itemIcon, itemPower, statLine, baseById, SETS } from '
 import { FAMILY, weaponFamily, CLASS_FAMILIES, OFFCLASS_SCALING, SET_PIECES } from './rpg/gear.js';
 import { AFFIX_RARITY_TIERS } from './rpg/affixes.js';
 import { recipeById, MATS } from './rpg/crafting.js';
-import { DollPreview, itemIconURL } from './preview.js';
+import { DollPreview, itemIconURL, itemIconHTML } from './preview.js';
 
 const $ = id => document.getElementById(id);
 const AB_ICON = { iaido: '💨', tempest: '🌀', oni: '👹', multishot: '🎯', snare: '🪤', rain: '🌧️', nova: '❄️', chain: '⚡', familiar: '🐈‍⬛', soulhook: '🪝', veilshift: '🌫️', kindred: '🏮' };
@@ -97,7 +97,9 @@ export function installRpgUI(UI) {
     const R = RARITY[it.r];
     const el = document.createElement('div');
     el.className = 'lootmsg'; el.style.borderColor = R.color; el.style.color = R.color;
-    el.textContent = itemIcon(it) + ' ' + it.name + (up || '');
+    // the item's own icon (weapons: the approved sprite), then its name as plain text
+    const ico = itemIconHTML(it, this.g && this.g.inv && this.g.inv.cls);
+    if (ico) { el.innerHTML = ico; el.append(' ' + it.name + (up || '')); } else el.textContent = itemIcon(it) + ' ' + it.name + (up || '');
     $('loot-feed').appendChild(el);
     setTimeout(() => el.remove(), 3500);
     while ($('loot-feed').children.length > 6) $('loot-feed').firstChild.remove();
@@ -144,7 +146,7 @@ export function installRpgUI(UI) {
     const clsTxt = it.cls ? ` · <span style="color:${it.cls === g.inv.cls ? '#9f9' : '#fc8'}">${CLASSES[it.cls].name}</span>` : it.slot === 'weapon' ? ' · <span style="color:#9df">any class</span>' : '';
     const up = it.upgradeLevel ? ` <span class="uplvl">+${it.upgradeLevel}</span>` : '';
     const locked = g.isLocked(it) ? ' <span title="Locked: cannot be salvaged">🔒</span>' : '';
-    let h = `<div class="tt-head"><div class="big-ico rar${it.r}">${this.icon(it)}</div><div><h4 style="color:${it.set ? SETS[it.set].color : R.color}">${it.name}${up}${locked}</h4><div class="sub">${it.prismatic ? 'Prismatic signature' : it.set ? 'Set' : R.name} ${typeName} · item level ${it.ilvl}${clsTxt}</div>`;
+    let h = `<div class="tt-head"><div class="big-ico rar${it.r}${it.prismatic ? " prism" : ""}">${this.icon(it)}</div><div><h4 style="color:${it.set ? SETS[it.set].color : R.color}">${it.name}${up}${locked}</h4><div class="sub">${it.prismatic ? 'Prismatic signature' : it.set ? 'Set' : R.name} ${typeName} · item level ${it.ilvl}${clsTxt}</div>`;
     if (it.slot === 'weapon') {
       const m = 1 + (it.upgradeLevel || 0) * 0.05;
       h += `<div class="dmg">${Math.round(it.min * m)}–${Math.round(it.max * m)} damage · ${it.spd.toFixed(2)} speed</div>`;
@@ -191,7 +193,7 @@ export function installRpgUI(UI) {
     const shown = this.bagView();
     if (this.invSel >= 0 && !shown.includes(this.invSel)) this.invSel = shown[0] ?? 30;
     this.invSel = Math.max(-slots.length, this.invSel);
-    const slotHtml = (d, i) => { const it = inv.equip[d.key]; return `<div class="slotbox ${this.invSel === -1 - i ? 'sel' : ''} ${it ? 'rar' + it.r : 'empty'}" data-eq="${i}" title="${d.label}">${it ? this.icon(it) : `<span class="ghost">${{ Head: '⛑', Neck: '◌', Chest: '▣', Arms: '✋', Weapon: '⚔', Legs: '‖', Boots: '▙', Ring: '○' }[d.label] || '·'}</span>`}<small>${d.label}</small></div>`; };
+    const slotHtml = (d, i) => { const it = inv.equip[d.key]; return `<div class="slotbox ${this.invSel === -1 - i ? 'sel' : ''} ${it ? 'rar' + it.r + (it.prismatic ? ' prism' : '') : 'empty'}" data-eq="${i}" title="${d.label}">${it ? this.icon(it) : `<span class="ghost">${{ Head: '⛑', Neck: '◌', Chest: '▣', Arms: '✋', Weapon: '⚔', Legs: '‖', Boots: '▙', Ring: '○' }[d.label] || '·'}</span>`}<small>${d.label}</small></div>`; };
     const Ls = slots.map((d, i) => d.side === 'L' ? slotHtml(d, i) : '').join(''), Rs = slots.map((d, i) => d.side === 'R' ? slotHtml(d, i) : '').join('');
     $('paperdoll').innerHTML = `<div class="doll-col">${Ls}</div><div class="doll-stage"><div class="doll-name">${CLASSES[inv.cls].name} · Lv ${inv.level}</div></div><div class="doll-col">${Rs}</div>`;
     this.doll = this.doll || new DollPreview();
@@ -209,7 +211,7 @@ export function installRpgUI(UI) {
       const cur = inv.equip[it.slot === 'ring' ? (this.compareRing || 'ring1') : it.slot];
       const mark = g.isOffClass(it) ? '<span class="oc" title="Off-class">◐</span>' : itemPower(it) > itemPower(cur) ? '<span class="up">▲</span>' : '';
       const hi = it.highestAffixTier && AFFIX_RARITY_TIERS[it.highestAffixTier] && AFFIX_RARITY_TIERS[it.highestAffixTier].tierIndex >= 5 ? ` style="--ac:${it.highestAffixColor}"` : '';
-      cells += `<div class="cell rar${it.r} ${it.set ? 'isset' : ''} ${hi ? 'afx' : ''} ${this.invSel === i ? 'sel' : ''}" data-i="${i}"${hi}>${this.icon(it)}${mark}${g.isLocked(it) ? '<span class="lk">🔒</span>' : ''}${it.upgradeLevel ? `<span class="ul">+${it.upgradeLevel}</span>` : ''}</div>`;
+      cells += `<div class="cell rar${it.r}${it.prismatic ? " prism" : ""} ${it.set ? 'isset' : ''} ${hi ? 'afx' : ''} ${this.invSel === i ? 'sel' : ''}" data-i="${i}"${hi}>${this.icon(it)}${mark}${g.isLocked(it) ? '<span class="lk">🔒</span>' : ''}${it.upgradeLevel ? `<span class="ul">+${it.upgradeLevel}</span>` : ''}</div>`;
     }
     const F = ['all', 'weapon', 'armour', 'jewel', 'set', 'named'], FN = { all: 'All', weapon: 'Weapons', armour: 'Armour', jewel: 'Jewellery', set: 'Sets', named: 'Named' };
     const SO = { new: 'Newest', rarity: 'Rarity', power: 'Power', slot: 'Slot', name: 'Name' };

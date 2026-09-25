@@ -2,7 +2,7 @@
 import { sfx } from './engine/audio.js';
 import { CLASSES } from './rpg/classes.js';
 import { RARITY, itemIcon } from './rpg/items.js';
-import { itemIconURL } from './preview.js';
+import { itemIconURL, itemIconHTML } from './preview.js';
 import { RECIPES, MATS, check, craft, allWeapons, knows, removeSigil, ensureCraftState, TRANSFER, recipeById } from './rpg/crafting.js';
 import { reinforceCost, reinforcePreview, checkReinforce, reinforce } from './rpg/reinforce.js';
 
@@ -99,7 +99,7 @@ export function installCraftUI(UI) {
     else h += `<div class="cr-effect dim">Hint: ${r.hint}</div>`;
     if (r.kind === 'weapon') {
       h += `<div class="sub">Weapon (A/D to choose):</div>`;
-      h += bases.length ? `<div class="cr-bases">${bases.map((b, i) => `<span class="cr-base ${i === this.crW ? 'on' : ''}" data-w="${i}" style="border-color:${RARITY[b.it.r].color}">${itemIcon(b.it)} ${b.it.name}${b.where === 'equipped' ? ' <small>(equipped)</small>' : ''}${b.it.craft ? ` <small>· has ${recipeById(b.it.craft).name}</small>` : ''}</span>`).join('')}</div>` : `<div class="cr-effect dim">You carry no weapon this can go on.</div>`;
+      h += bases.length ? `<div class="cr-bases">${bases.map((b, i) => `<span class="cr-base ${i === this.crW ? 'on' : ''}" data-w="${i}" style="border-color:${RARITY[b.it.r].color}">${itemIconHTML(b.it, inv.cls) || itemIcon(b.it)} ${b.it.name}${b.where === 'equipped' ? ' <small>(equipped)</small>' : ''}${b.it.craft ? ` <small>· has ${recipeById(b.it.craft).name}</small>` : ''}</span>`).join('')}</div>` : `<div class="cr-effect dim">You carry no weapon this can go on.</div>`;
     } else {
       const cur = inv.sigils[r.ability];
       if (cur) h += `<div class="sub">Installed on this ability: <b>${recipeById(cur).name}</b>${cur === r.id ? ' — press X to remove it' : ''}</div>`;

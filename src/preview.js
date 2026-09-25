@@ -4,6 +4,45 @@
 import * as THREE from 'three';
 import { makeHero, weaponMesh, helmParts, torsoParts, neckParts, legParts, armParts } from './hero.js';
 import { geo, B, MAT } from './models.js';
+import { getWeaponVisual, ICON_ATLAS, UNIQUE_ACCENTS, rarityTier, PRISM } from './rpg/weaponVisuals.js';
+import { tickPrism } from './weaponFx.js';
+
+// The weapon icon atlas, cut from the approved weapon sheet (scripts/build_weapon_atlas.py).
+let ATLAS = null;
+function atlas() {
+  if (!ATLAS && typeof Image !== 'undefined') {
+    ATLAS = new Image();
+    ATLAS.onload = () => { for (const k of [...cache.keys()]) if (k.startsWith('w3d|')) cache.delete(k); if (typeof dispatchEvent === 'function') dispatchEvent(new Event('weapon-icons-ready')); };
+    ATLAS.src = ICON_ATLAS.url;
+  }
+  return ATLAS && ATLAS.complete && ATLAS.naturalWidth ? ATLAS : null;
+}
+atlas();
+const hex = c => '#' + c.toString(16).padStart(6, '0');
+// a small pixel sparkle (plus shape with an ink outline) for accents drawn over an icon
+function sparkle(ctx, x, y, col, s = 3) {
+  ctx.fillStyle = '#1a1020'; ctx.fillRect(x - s * 2 - 1, y - 2, s * 4 + 3, 5); ctx.fillRect(x - 2, y - s * 2 - 1, 5, s * 4 + 3);
+  ctx.fillStyle = col; ctx.fillRect(x - s * 2, y - 1, s * 4 + 1, 3); ctx.fillRect(x - 1, y - s * 2, 3, s * 4 + 1);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(x - 1, y - 1, 3, 3);
+}
+// Icon from the approved art: the base weapon's own sprite, plus accents that never recolour it
+// (a unique's signature spark, a crafted mark, the Prismatic shimmer).
+function atlasIcon(item, V, img) {
+  const S = ICON_ATLAS.cell, n = V.icon, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, (n % ICON_ATLAS.cols) * S, Math.floor(n / ICON_ATLAS.cols) * S, S, S, 0, 0, S, S);
+  const A = item.unique && UNIQUE_ACCENTS[item.unique];
+  if (A) sparkle(ctx, 14, 14, hex(A.col), 4);
+  if (rarityTier(item) === 5) { sparkle(ctx, S - 14, 14, hex(PRISM[1]), 3); sparkle(ctx, S - 26, 28, hex(PRISM[0]), 2); sparkle(ctx, 22, S - 16, hex(PRISM[2]), 2); }
+  if (item.craft) sparkle(ctx, S - 14, S - 14, '#9ad8ff', 3);
+  return cv.toDataURL();
+}
+// An inline icon for text contexts (loot toasts, shop lists, crafting pickers)
+export function itemIconHTML(item, cls = 'samurai') {
+  let u = '';
+  try { u = itemIconURL(item, cls); } catch (e) { u = ''; }
+  return u ? `<img class="ico-inl${getWeaponVisual(item) && getWeaponVisual(item).icon != null ? ' wv' : ''}" src="${u}" alt="">` : '';
+}
 
 let R = null, iconRT = null;
 const cache = new Map();
@@ -69,7 +108,7 @@ export class DollPreview {
   frame(dt) {
     if (!this.hero) return;
     const r = renderer();
-    this.t += dt; this.rotY += this.spin * dt;
+    this.t += dt; this.rotY += this.spin * dt; tickPrism();
     this.hero.root.rotation.y = this.rotY;
     const br = Math.sin(this.t * 2.4);
     this.hero.body.scale.set(1 + br * 0.012, 1 + br * 0.015, 1);
@@ -86,16 +125,25 @@ export class DollPreview {
 // A pixel icon of an item's real model (weapon, helm, chest, charm...), cached.
 export function itemIconURL(item, cls = 'samurai') {
   if (!item) return '';
-  const key = [item.base, item.r, item.unique || '', item.craft || '', item.slot].join('|');
+  const V = item.slot === 'weapon' ? getWeaponVisual(item) : null;
+  const key = [item.base, item.r, item.unique || '', item.craft || '', item.slot, rarityTier(item) === 5 ? 'p' : ''].join('|');
   if (cache.has(key)) return cache.get(key);
+  if (V && V.icon != null) {
+    const img = atlas();
+    if (img) { const url = atlasIcon(item, V, img); cache.set(key, url); return url; }
+    if (cache.has('w3d|' + key)) return cache.get('w3d|' + key);
+  }
   const r = renderer();
   const scene = new THREE.Scene(); lights(scene);
   let obj, size = 0.55, cy = 0.3;
   if (item.slot === 'weapon') {
     obj = weaponMesh(item, item.cls || cls);
-    obj.rotation.set(0, 0, item.kind === 'bow' ? 0 : -0.75);
-    if (item.kind === 'bow') obj.rotation.y = Math.PI / 2;
+    // the sheet's diagonal: grip bottom-left, business end top-right; flat-authored models
+    // (bows) are shown in their own plane
+    if (obj.userData.inner && obj.userData.inner !== obj) obj.userData.inner.rotation.set(0, 0, 0);
+    obj.rotation.set(0, 0, -Math.PI / 4);
     if (item.kind === 'chain') obj.rotation.set(0.3, 0.5, -0.5); // a grip and its coil, turned to show the links
+    tickPrism();
     const bb = new THREE.Box3().setFromObject(obj), c = bb.getCenter(new THREE.Vector3()), sz = bb.getSize(new THREE.Vector3());
     obj.position.sub(c); size = Math.max(sz.x, sz.y, sz.z) * 0.62 + 0.02; cy = 0;
   } else {
@@ -122,7 +170,7 @@ export function itemIconURL(item, cls = 'samurai') {
   for (let y = 1; y < 63; y++) for (let x = 1; x < 63; x++) { const i = (y * 64 + x) * 4; if (d[i + 3] > 0) continue; if (d[i + 3 + 4] || d[i + 3 - 4] || d[i + 3 + 256] || d[i + 3 - 256]) { out[i] = 18; out[i + 1] = 12; out[i + 2] = 26; out[i + 3] = 255; } }
   img.data.set(out); ctx.putImageData(img, 0, 0);
   const url = cv.toDataURL();
-  cache.set(key, url);
+  cache.set(V && V.icon != null ? 'w3d|' + key : key, url); // a stand-in until the atlas has loaded
   obj.traverse(o => o.geometry && o.geometry.dispose());
   return url;
 }
