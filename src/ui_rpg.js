@@ -212,7 +212,7 @@ export function installRpgUI(UI) {
       cells += `<div class="cell rar${it.r} ${it.set ? 'isset' : ''} ${hi ? 'afx' : ''} ${this.invSel === i ? 'sel' : ''}" data-i="${i}"${hi}>${this.icon(it)}${mark}${g.isLocked(it) ? '<span class="lk">🔒</span>' : ''}${it.upgradeLevel ? `<span class="ul">+${it.upgradeLevel}</span>` : ''}</div>`;
     }
     const F = ['all', 'weapon', 'armour', 'jewel', 'set', 'named'], FN = { all: 'All', weapon: 'Weapons', armour: 'Armour', jewel: 'Jewellery', set: 'Sets', named: 'Named' };
-    const SO = { new: 'Newest', rarity: 'Rarity', power: 'Power', slot: 'Slot' };
+    const SO = { new: 'Newest', rarity: 'Rarity', power: 'Power', slot: 'Slot', name: 'Name' };
     $('baggrid').innerHTML = `<div class="bagbar">${F.map(f => `<span data-f="${f}" class="${(this.bagFilter || 'all') === f ? 'on' : ''}">${FN[f]}</span>`).join('')}<span class="sort" data-s="1">⇅ ${SO[this.bagSort || 'new']}</span></div>` + cells;
     $('baggrid').querySelectorAll('[data-f]').forEach(el => { el.style.pointerEvents = 'auto'; el.onclick = () => { this.bagFilter = el.dataset.f; sfx('select'); this.renderInventory(); }; });
     const so = $('baggrid').querySelector('[data-s]'); so.style.pointerEvents = 'auto'; so.onclick = () => this.cycleSort();
@@ -256,15 +256,22 @@ export function installRpgUI(UI) {
   P.bagView = function () {
     const inv = this.g.inv, f = this.bagFilter || 'all', s = this.bagSort || 'new';
     const ok = it => f === 'all' || (f === 'weapon' && it.slot === 'weapon') || (f === 'armour' && ['helm', 'armor', 'arms', 'legs', 'boots'].includes(it.slot)) || (f === 'jewel' && (it.slot === 'charm' || it.slot === 'ring')) || (f === 'set' && it.set) || (f === 'named' && it.unique);
-    const idx = inv.bag.map((it, i) => i).filter(i => inv.bag[i] && ok(inv.bag[i]) && (!this.bagSearch || inv.bag[i].name.toLowerCase().includes(this.bagSearch.toLowerCase())));
+    const matches = it => {
+      const rank=it.prismatic?'Prismatic':RARITY[it.r].name;
+      return (this.bagRarity===undefined||this.bagRarity==='all'||(this.bagRarity==='prismatic'?it.prismatic:!it.prismatic&&it.r===+this.bagRarity))
+        && (!this.bagOwnClass||!it.cls||it.cls===inv.cls) && (!this.bagProtected||this.g.isLocked(it))
+        && (this.bagSearch||'').toLowerCase().trim().split(/\s+/).every(word=>(it.name+' '+it.slot+' '+(it.kind||'')+' '+(it.cls||'universal')+' '+rank+' '+(it.utext||'')).toLowerCase().includes(word));
+    };
+    const idx = inv.bag.map((it, i) => i).filter(i => inv.bag[i] && ok(inv.bag[i]) && matches(inv.bag[i]));
     const order = { weapon: 0, helm: 1, armor: 2, arms: 3, legs: 4, boots: 5, charm: 6, ring: 7 };
     if (s === 'new') idx.reverse();
-    if (s === 'rarity') idx.sort((a, b) => inv.bag[b].r - inv.bag[a].r || itemPower(inv.bag[b]) - itemPower(inv.bag[a]));
+    if (s === 'rarity') idx.sort((a, b) => (inv.bag[b].prismatic?5:inv.bag[b].r) - (inv.bag[a].prismatic?5:inv.bag[a].r) || itemPower(inv.bag[b]) - itemPower(inv.bag[a]));
+    if (s === 'name') idx.sort((a,b)=>inv.bag[a].name.localeCompare(inv.bag[b].name));
     if (s === 'power') idx.sort((a, b) => itemPower(inv.bag[b]) - itemPower(inv.bag[a]));
     if (s === 'slot') idx.sort((a, b) => (order[inv.bag[a].slot] ?? 9) - (order[inv.bag[b].slot] ?? 9) || inv.bag[b].r - inv.bag[a].r);
     return idx;
   };
-  P.cycleSort = function () { const S = ['new', 'rarity', 'power', 'slot']; this.bagSort = S[(S.indexOf(this.bagSort || 'new') + 1) % S.length]; sfx('select'); this.renderInventory(); };
+  P.cycleSort = function () { const S = ['new', 'rarity', 'power', 'slot', 'name']; this.bagSort = S[(S.indexOf(this.bagSort || 'new') + 1) % S.length]; sfx('select'); this.renderInventory(); };
   P.updateInventory = function (input) {
     if (!this.invOpen) return false;
     const g = this.g, inv = g.inv;
@@ -288,7 +295,7 @@ export function installRpgUI(UI) {
       if (input.pressed('up')) { if (v < columns) { this.invSel = -1; sfx('select'); this.renderInventory(); return true; } v -= columns; moved = true; }
       if (input.pressed('interact')) { g.equipItem(s, inv.bag[s]?.slot === 'ring' ? (this.compareRing || 'ring1') : undefined); this.renderInventory(); }
       if (input.pressed('salvage')) { g.salvageItem(s); g.save(); this.renderInventory(); }
-      if (moved) { this.invSel = view[v] ?? s; sfx('select'); this.renderInventory(); }
+      if (moved) { this.invSel = view[v] ?? s; sfx('select'); this.renderInventory(); document.querySelector('#baggrid .cell.sel')?.scrollIntoView({block:'nearest'}); }
       return true;
     }
     if (s < 0) {

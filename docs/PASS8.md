@@ -1,6 +1,6 @@
 # Pass 8 — loot, Emberwell and alpha polish
 
-Preview: https://mossling-6vgvchcmq-maxs-projects-f319fcff.vercel.app
+Preview: https://mossling-d3yz12ocd-maxs-projects-f319fcff.vercel.app
 
 ## Included
 
@@ -31,3 +31,21 @@ Balance checks cover all three classes at multiple levels, ordinary/heavy incomi
 Tide Shrine and Chime Spire remain future campaign chapters. Controller hardware testing is deferred at the user's request. Touch/mobile gameplay and long-session hardware performance have not been certified. Existing UI checks exercise 390–2560px layouts, but this does not establish full mobile gameplay support.
 
 Saves belong to a browser origin. To move an existing adventure onto a new preview URL, export a recovery copy from its old title screen, then choose **Import adventures…** on the new title screen.
+
+## Creative armoury polish
+
+The devroom catalogue now takes the full journal width. Every entry has an image: equipment uses cached renders of the actual models; supplies use illustrated inventory symbols. Select an entry to inspect its effect and category before pressing Add. Rarity filtering and sorting use the same rarity resolution as granted gear; non-equipment entries are explicitly Unranked. Search also matches class, type and rarity. Clear/reset controls preserve normal keyboard focus. The preview keeps its Add button visible on short desktop screens. Mobile uses a single-column catalogue and scrolls the selected preview into view.
+
+Validation: 18 creative browser checks passed, including loaded images, all equipment rarity mappings, filters, sorting, quantities, desktop Add visibility and 390px overflow. Nine existing interaction checks also passed. Screenshots: `docs/screens/pass8/creative-armoury.jpg` and `creative-mobile.jpg`.
+
+## Inventory overhaul
+
+Regular inventory now uses a dark olive and brass layout: bag on the left, character in the centre-right and a dedicated item inspector on the right. All 30 standard slots fit at 1280×720 and 1600×900. The character faces the player, with drag rotation and wheel zoom. Equipment, stats and comparison details remain accessible in their own panels; narrow screens stack the layout.
+
+Every bag tile displays its actual model, name and rarity border. Search matches names, types, rarity and effects; category, rarity, class and protected-item filters combine with newest, rarity, power, slot and name sorting. Clear/reset controls and empty states explain the current result. Equip, favourite and salvage actions remain in the inspector, preserving existing protection and comparison rules. The devroom creative catalogue remains available only in the devroom.
+
+Validation: 18 inventory checks, 18 creative checks, 9 interaction checks and 34 existing UI checks passed (79 total). Includes real equip/protection actions, Prismatic and class filtering, sorting without bag mutation, all standard slots visible on desktop, responsive bounds and no page errors. Screenshots: `docs/screens/pass8/inventory-1280.jpg`, `inventory-1600.jpg`, `inventory-390.jpg`.
+
+```sh
+CHROMIUM_PATH=/path/to/chromium node tests/run.mjs inventory9 creative8 ui7_interactions ui7
+```
