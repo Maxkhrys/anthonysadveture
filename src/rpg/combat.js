@@ -367,12 +367,12 @@ export class GearDrop extends Entity {
     if (item.slot === 'weapon') { this.icon.geometry?.dispose(); this.drop = weaponDrop(item, weaponMesh); this.icon = this.drop.icon; this.obj.add(this.drop.group); }
     else { this.icon.rotation.z = 0.6; this.obj.add(this.icon); }
     if (item.r >= 1 && !this.drop) {
-      const h = [0, 1.2, 2.2, 3.5, 6][item.r];
+      const h = [0, 1.2, 2.2, 3.5, 6, 6][item.r]||6;
       const beam = new THREE.Mesh(new THREE.BoxGeometry(0.16 + item.r * 0.04, h, 0.16 + item.r * 0.04), new THREE.MeshBasicMaterial({ color: R.hex, transparent: true, opacity: 0.45, depthWrite: false }));
       beam.position.y = h / 2; this.obj.add(beam); this.beam = beam;
     }
     this.vy = 4; this.y = 0.3; const a = Math.random() * 6.28; this.vx = Math.cos(a) * 1.2; this.vz = Math.sin(a) * 1.2;
-    if (item.r >= 3) { sfx(item.r === 4 ? 'fanfare' : 'secret'); g.pr.addFlash(0.2, R.hex); }
+    if (item.r >= 2 && g.onScreen(x,z,.2)) { sfx('lootbell');g.fx.ring(x,z,.15,item.r>=4?1.4:.85,R.hex,.65);g.ui.float(x,1,z,item.prismatic?'PRISMATIC':item.r>=4?'LEGENDARY':item.r===3?'EPIC':'RARE',R.color,true); }
   }
   update(dt) {
     const g = this.g, p = g.player;

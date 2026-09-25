@@ -5,27 +5,30 @@ import { sim, fresh, HX, HZ } from './lib.mjs';
 
 const ring = (page, n, kind = 'blot', o = {}) => page.evaluate(([n, kind, o]) => {
   const g = window.__game, p = g.player;
+  for(const e of g.entities)if(e.constructor.name==='RareSpawn')e.remove();
   for (const e of g.entities) if (e.isEnemy) e.remove();
   const out = [];
   for (let i = 0; i < n; i++) {
     const a = (o.spread ?? 1.2) * (i - (n - 1) / 2), d = o.d ?? 1.8;
-    const e = g.spawnEnemy(kind, p.x + Math.sin(p.facing + a) * d, p.z + Math.cos(p.facing + a) * d, { noRoom: true });
+    const e = g.spawnEnemy(kind, p.x + Math.sin(p.facing + a) * d, p.z + Math.cos(p.facing + a) * d, { noRoom: true, eliteChance:0 });
     e.spawnT = 0; e.hp = e.maxHp = o.hp ?? 1e6; e.think = () => [0, 0]; e.obj.scale.setScalar(1); if (o.elite) g.makeElite(e);
     out.push(e.x.toFixed(2) + ',' + e.z.toFixed(2));
   }
   return out;
 }, [n, kind, o]);
 const state = page => page.evaluate(() => { const g = window.__game, p = g.player; return { st: p.state, combo: p.combo, res: g.res, x: p.x, z: p.z, fam: p.family, hp: g.entities.filter(e => e.isEnemy && !e.dead).map(e => Math.round(e.maxHp - e.hp)) }; });
-const at = (page, x, z) => page.evaluate(([x, z]) => { const g = window.__game, p = g.player; p.x = x; p.z = z; p.facing = 0; p.setState('move'); g.snapCamera(); }, [x, z]);
+const at = (page, x, z) => page.evaluate(([x, z]) => { const g = window.__game, p = g.player; p.x = x; p.z = z; p.facing = 0; p.aimSrc='keys';g.input.aimSrc='keys';g.input.mouseAim=false;p.setState('move'); g.snapCamera(); }, [x, z]);
 
 export default async function (page, R) {
   // ---------------------------------------------------------------- class select
   const cards = await page.evaluate(() => { const g = window.__game; let picked = null; g.ui.classSelect(g.input, c => { picked = c; }); const t = [...document.querySelectorAll('#classcards .ccard h3')].map(h => h.textContent); const tag = document.querySelector('#classcards .tagline')?.textContent; document.querySelectorAll('#classcards .ccard')[3].click(); document.querySelectorAll('#classcards .ccard')[3].click(); return { t, tag, picked }; });
-  R.ok(cards.t.length === 4 && cards.t[3] === 'Soulbound' && cards.picked === 'soulbound', 'the class select offers the Soulbound as a fourth card and picks it', JSON.stringify(cards));
+  R.ok(cards.t.length === 5 && cards.t[3] === 'Soulbound' && cards.picked === 'soulbound', 'the class select offers the Soulbound as a fourth card and picks it', JSON.stringify(cards));
   R.ok(/Between life and death/.test(cards.tag || ''), 'the card carries the tagline');
 
   // ---------------------------------------------------------------- a new character
   await fresh(page, 'soulbound', { stage: 1, level: 1 });
+  // Keep fixtures isolated from streamed wild enemies; terrain and real combat remain active.
+  await page.evaluate(()=>{__game.streamTick=()=>{};for(const e of __game.entities)if(e.constructor.name==='RareSpawn')e.remove();});
   const born = await page.evaluate(() => { const g = window.__game, inv = g.inv, p = g.player; return { cls: inv.cls, w: inv.equip.weapon && inv.equip.weapon.base, kind: inv.equip.weapon && inv.equip.weapon.kind, fam: p.family, tree: inv.tree, load: inv.loadout, res: window.__game.ui && document.getElementById('resbar').classList.contains('echo'), kit: !!p.kit, pips: document.querySelectorAll('#resbar .pips i').length, name: document.querySelector('#hero-plaque b')?.textContent }; });
   R.ok(born.cls === 'soulbound' && born.w === 'tetherchain' && born.kind === 'chain' && born.fam === 'chain', 'a new Soulbound starts with a Tether Chain (SoulChain family)', JSON.stringify(born));
   R.ok(born.tree.soulhook === 1 && born.load[0] === 'soulhook', 'Soul Hook is granted free at level 1 and slotted', JSON.stringify(born.load));
@@ -33,7 +36,7 @@ export default async function (page, R) {
 
   // ---------------------------------------------------------------- the four-lash combo and Echoes
   await page.evaluate(() => { window.__game.res = 0; });
-  await at(page, 148.5, 134.5);
+  await at(page, 140.5, 146.5);
   await ring(page, 3, 'blot', { d: 1.9, spread: 0.7 });
   const combo = await page.evaluate(() => {
     const g = window.__game, p = g.player, seen = new Set(), maxLen = [0, 0, 0, 0, 0];
@@ -58,7 +61,7 @@ export default async function (page, R) {
 
   // the charged whirl: hold attack after the first lash
   await page.evaluate(() => { window.__game.inv.level = 20; window.__game.inv.sp = 60; window.__game.recalc(); });
-  await at(page, 148.5, 134.5);
+  await at(page, 140.5, 146.5);
   await ring(page, 4, 'blot', { d: 2.1, spread: 1.4 });
   const whirl = await page.evaluate(() => {
     const g = window.__game, p = g.player, seen = new Set(); g.noRender = true;
@@ -74,7 +77,7 @@ export default async function (page, R) {
   // unlock every active (dev-style) and cast each through the real input path
   await page.evaluate(() => { const g = window.__game, inv = g.inv, S = window.__skills; for (let pass = 0; pass < 6; pass++) for (const n of S.treeOf(inv.cls)) if (n.skill && !S.rankOf(inv, n.id)) { for (const q of n.req) if (!S.rankOf(inv, q)) S.spendNode(inv, q); S.spendNode(inv, n.id); } g.recalc(); });
   const cast = async (id, setup, frames = 90) => {
-    await at(page, 148.5, 134.5);
+    await at(page, 140.5, 146.5);
     await page.evaluate(([id]) => { const g = window.__game, inv = g.inv, S = window.__skills; inv.loadout[0] = null; S.setLoadout(inv, 0, id); g.player.cdMap = {}; g.player.aimSrc = 'keys'; }, [id]);
     if (setup) await setup();
     return page.evaluate(([id, frames]) => {
@@ -99,8 +102,8 @@ export default async function (page, R) {
 
   await page.evaluate(() => { window.__game.res = 20; });
   const veil = await cast('veilshift', () => ring(page, 1, 'blot', { d: 2.5 }), 40);
-  const behind = await page.evaluate(() => { const g = window.__game, p = g.player, e = g.entities.find(e => e.isEnemy && !e.dead); return e ? p.z > e.z : false; });
-  R.ok(veil.cast && veil.states.includes('veil') && veil.inv && behind, 'Veilshift passes through the Veil and reappears behind the foe', JSON.stringify(veil));
+  const behind = await page.evaluate(() => { const g = window.__game, p = g.player, e = g.entities.find(e => e.isEnemy && !e.dead); return e ? {ok:p.z>e.z,pz:p.z,ez:e.z,kind:e.kind,facing:p.facing,count:g.entities.filter(e=>e.isEnemy&&!e.dead).length} : {ok:false}; });
+  R.ok(veil.cast && veil.states.includes('veil') && veil.inv && behind.ok, 'Veilshift passes through the Veil and reappears behind the foe', JSON.stringify({veil,behind}));
   R.ok(veil.res === 0 && veil.foes[0].dmg > 0, 'holding an Echo, Veilshift spends it on a guaranteed-crit emergence cut', JSON.stringify(veil.foes));
 
   await page.evaluate(() => { window.__game.res = 100; });
@@ -131,7 +134,7 @@ export default async function (page, R) {
   await page.evaluate(() => { window.__game.res = 100; });
   const ward = await cast('ancestorward', null, 10);
   const blocked = await page.evaluate(() => {
-    const g = window.__game, p = g.player, e = g.spawnEnemy('blot', p.x, p.z + 1.2, { noRoom: true }); e.spawnT = 0; e.hp = e.maxHp = 1e6;
+    const g = window.__game, p = g.player, e = g.spawnEnemy('blot', p.x, p.z + 1.2, { noRoom: true, eliteChance:0 }); e.spawnT = 0; e.hp = e.maxHp = 1e6;
     const hp0 = g.inv.hp, n0 = p.wards.length; const r = p.hurt({ dmg: 5, x: e.x, z: e.z, src: e });
     return { r, n0, n1: p.wards.length, hp0, hp1: g.inv.hp, hit: e.hp < e.maxHp };
   });
@@ -144,8 +147,8 @@ export default async function (page, R) {
   R.ok(saved.found && saved.w, 'a Soulbound saves like any other character', JSON.stringify(saved));
 
   for (const cls of ['samurai', 'archer', 'witch']) {
-    await fresh(page, cls, { stage: 1, level: 3 });
-    const o = await page.evaluate(() => { const g = window.__game, p = g.player; for (const e of g.entities) if (e.isEnemy) e.remove(); const e = g.spawnEnemy('blot', p.x, p.z + 1.3, { noRoom: true }); e.spawnT = 0; e.hp = e.maxHp = 1e6; e.think = () => [0, 0]; p.facing = 0; p.aimSrc = 'keys'; g.noRender = true; for (let f = 0; f < 40; f++) window.__sim(1, f % 8 === 0 ? ['KeyC'] : []); g.noRender = false; return { fam: p.family, kit: !!p.kit, hit: e.hp < e.maxHp }; });
+    await fresh(page, cls, { stage: 1, level: 3 });await at(page,140.5,146.5);
+    const o = await page.evaluate(() => { const g = window.__game, p = g.player; for (const e of g.entities) if (e.isEnemy) e.remove(); const e = g.spawnEnemy('blot', p.x, p.z + 1.3, { noRoom: true, eliteChance:0 }); e.spawnT = 0; e.hp = e.maxHp = 1e6; e.think = () => [0, 0]; p.facing = 0; p.aimSrc = 'keys'; g.noRender = true; for (let f = 0; f < 40; f++) window.__sim(1, f % 8 === 0 ? ['KeyC'] : []); g.noRender = false; return { fam: p.family, kit: !!p.kit, hit: e.hp < e.maxHp }; });
     R.ok(o.hit && !o.kit && o.fam !== 'chain', `${cls} still fights as before (no Soulbound kit)`, JSON.stringify(o));
   }
 }

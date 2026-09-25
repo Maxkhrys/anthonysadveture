@@ -75,7 +75,7 @@ export class Tollcrow extends Entity {
     const mult = this.state === 'stunned' ? 2.2 : this.state === 'landed' ? 1.3 : 0.7;
     if (mult > 1) { sfx('weakpoint'); g.fx.ring(this.x, this.z, 0.2, 1.1, 0xffd25e, 0.2); } else g.fx.burst(this.x, 0.8, this.z, 5, [0x2a2a34, 0x4a4a5a], 2);
     const dmg = Math.max(1, Math.round(h.dmg * mult));
-    this.hp -= dmg; flashObj(this.obj, 0.06); g.addSurge(2);
+    this.hp -= dmg; flashObj(this.obj, 0.06*(g.settings?.hitFlash??1)); g.addSurge(2);
     g.ui.bossBar(this.name, Math.max(0, this.hp / this.maxHp));
     if (this.hp <= 0 && this.state !== 'dying') { this.setState('dying'); this.onDying(); }
     return 'hit';

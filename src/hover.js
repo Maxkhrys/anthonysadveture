@@ -4,6 +4,7 @@
 // thing within reach picks it up / talks / interacts instead of swinging; out of reach it says so.
 // Holding Alt labels every drop on screen (click a label to pick it up when close).
 import * as THREE from 'three';
+import {ELITES,enemyBadges,roleOf} from './rpg/combat_readability.js';
 import { RARITY } from './rpg/items.js';
 
 export const REACH = 1.8; // how far a click can pick up or interact (world units)
@@ -107,7 +108,7 @@ export class Hover {
     let h = `<b style="color:${R ? R.color : ''}">${esc(this.label(t, k))}</b>`;
     if (k === 'enemy') {
       const lv = t.level ? `<small>Lv ${t.level}</small>` : '';
-      h = `<b class="foe">${esc(this.label(t, k))}</b>${lv}<i class="hp"><i style="width:${Math.max(0, Math.min(100, t.hp / (t.maxHp || 1) * 100))}%"></i></i>`;
+      h = `<small>${esc(roleOf(t))}${ELITES[t.elite]?' · '+esc(ELITES[t.elite][1]):''}</small><b class="foe">${esc(this.label(t, k))}</b>${lv}<small>${enemyBadges(t).map(b=>b.icon+' '+b.name).join(' · ')}</small><i class="hp"><i style="width:${Math.max(0, Math.min(100, t.hp / (t.maxHp || 1) * 100))}%"></i></i>`;
     } else {
       const act = k === 'drop' ? 'pick up' : k === 'npc' ? 'talk' : (t.prompt || 'use').toLowerCase();
       h += `<small class="${near ? 'near' : 'far'}">${near ? 'Click to ' + esc(act) : 'Too far to reach'}</small>`;

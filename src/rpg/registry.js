@@ -32,7 +32,7 @@ export const REGISTRY = {
   reactions: REACTIONS.map(r => ({ id: r.id, name: r.name, desc: r.desc })), statuses: STATUS_INFO,
   enemies: ['blot', 'seedling', 'beetle', 'puffer', 'wisp', 'knight', ...Object.keys(EXTRA_ENEMIES)],
   pass5Enemies: PASS5_ENEMIES,
-  eliteModifiers: ['Swift', 'Brutal', 'Vampiric', 'Armoured', 'Volatile', 'Resonant', 'Oathbound'],
+  eliteModifiers: ['Swift', 'Brutal', 'Vampiric', 'Armoured', 'Volatile', 'Resonant', 'Oathbound', 'Stormtouched', 'Frostbound'],
   bosses: [
     { id: 'bramblemaw', name: 'Bramblemaw', area: 'dungeon', spawn: 'pre' },
     { id: 'seamkeeper', name: 'The Seamkeeper', area: 'conservatory', room: 'loom', flag: 'seamDead' },

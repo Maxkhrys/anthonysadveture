@@ -210,7 +210,7 @@ export class PixelRenderer {
   setViewHeight(v) { if (Math.abs(v - this.viewHeight) > 1e-3) { this.viewHeight = v; this.updateProjection(); } }
 
   addShake(a) { this.shake = Math.max(this.shake, a * (this.shakeScale ?? 1)); }
-  addFlash(a, color = 0xffffff) { this.flash = Math.max(this.flash, a); this.flashColor.set(color); }
+  addFlash(a, color = 0xffffff) { this.flash = Math.max(this.flash, a*(this.flashScale??1)); this.flashColor.set(color); }
 
   render(scene, dt) {
     const c = this.camera;
