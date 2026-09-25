@@ -135,10 +135,12 @@ export class Projectile extends Entity {
   explode() {
     const g = this.g;
     const arpg = itemCombat(g);
-    for (const target of arpg.nearby(this, this.aoe)) {
-      g.playerHit(target, { mult: this.mult, kind: this.kind, element: this.element, ability: this.ability, kb: this.kb, dir: this.dir, arpgDepth: this.arpgDepth, arpgProc: this.arpgProc, noProc: this.arpgProc, arpgStatus: this.arpgStatus, arpgProjectile: this, forceBurn: this.kind === 'fireball' || this.kind === 'comet' });
-      this.onImpact(target);
-    }
+    // An explosion is a heavy 'blast' (it breaks shield walls and guards, as it always did) and a
+    // fireball's sets things alight; the ARPG item fields ride along so procs still trigger.
+    const burn = this.kind === 'fireball' || this.kind === 'comet';
+    const hit = blast(g, this.x, this.z, this.aoe, this.mult, this.color, { burn, element: this.element, ability: this.ability,
+      extra: { arpgDepth: this.arpgDepth, arpgProc: this.arpgProc, noProc: this.arpgProc, arpgStatus: this.arpgStatus, arpgProjectile: this } });
+    for (const target of hit) this.onImpact(target);
     arpg.ring(this, this.aoe, this.element);
     if (this.onExplode) this.onExplode(this);
     if (this.kind === 'fireball' && g.pstats.uniques.has('starfall')) g.spawn(new Meteor(g, this.x, this.z, this.mult * 1.2));
@@ -232,10 +234,12 @@ export function blast(g, x, z, r, mult, color, o = {}) {
   sfx('poof'); g.pr.addShake(0.2);
   // fire blasts are remembered for a moment so seeds and fuses nearby can catch
   if (o.burn) { (g.fireEvents || (g.fireEvents = [])).push({ x, z, r, t: g.time }); if (g.fireEvents.length > 24) g.fireEvents.shift(); }
-  for (const e of enemiesNear(g, x, z, r)) {
-    g.playerHit(e, { mult, kind: 'blast', element: o.burn ? 'fire' : o.element || 'arcane', kb: 5, dir: Math.atan2(e.x - x, e.z - z), ability: o.ability, forceBurn: o.burn, echo: o.echo });
+  const hit = enemiesNear(g, x, z, r);
+  for (const e of hit) {
+    g.playerHit(e, { ...(o.extra || {}), mult, kind: 'blast', element: o.burn ? 'fire' : o.element || 'arcane', kb: 5, dir: Math.atan2(e.x - x, e.z - z), ability: o.ability, forceBurn: o.burn, echo: o.echo });
     if (o.root) e.applyStatus && e.applyStatus('root', o.root);
   }
+  return hit;
 }
 
 // ---------------------------------------------------------------- ability effects

@@ -1,6 +1,6 @@
 // Combat numbers: how many clean hits each class survives, how fast fodder dies, healing
 // limits, rest points, i-frame chaining, the one-shot cap, off-screen attacks and the death recap.
-import { sim, fresh, walkTo, pressE } from './lib.mjs';
+import { sim, fresh, walkTo, pressE, toSquare } from './lib.mjs';
 
 const ATTACKS = { blot: 1, sporeling: 1, wisp: 1, beetle: 2, brigand: 2, wraith: 2, imp: 2, knight: 2.5, treant: 3, golem: 3 };
 const FODDER = ['blot', 'sporeling', 'wisp'], HEAVY = ['knight', 'treant', 'golem'];
@@ -108,7 +108,7 @@ export default async function (page, R) {
   R.ok(gb[0] === 'guardbreak' && gb[1] === 'parry', 'heavy blow breaks a held guard; a timed parry beats it', JSON.stringify(gb));
 
   // Bellstone: rest refills life and tonics and sets the checkpoint; death recap names the killer
-  await fresh(page, 'archer', { level: 2 });
+  await fresh(page, 'archer', { level: 2 }); await toSquare(page);
   const stone = await page.evaluate(() => { const g = window.__game; const b = g.entities.find(e => e.constructor.name === 'Bellstone'); g.inv.hp = 5; g.inv.potions = 0; return b && [b.x, b.z]; });
   R.ok(!!stone, 'village has a Bellstone');
   await walkTo(page, stone[0], stone[1] + 0.9);
