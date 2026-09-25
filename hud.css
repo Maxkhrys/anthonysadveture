@@ -1,0 +1,100 @@
+/* Pass 9 HUD: warm parchment cards with ink borders (the reference mock-up), loaded last so it
+   restyles the existing HUD without touching its behaviour. Every element keeps its id/role. */
+:root{--pa:#f6ead0;--pa2:#e8d3a6;--pa3:#dcc28c;--ink:#3a291b;--ink2:#6b5234;--edge:#57391f;--gold:#c8963a;--gold2:#f0c35a}
+.parch,#hero-plaque,#objective,#guide,#map-caption,#chud .ch-center,#hud-links button,#prompt,#chud .slot,#purse,#surge{
+  background:linear-gradient(180deg,var(--pa),var(--pa2))!important;border:3px solid var(--edge)!important;border-radius:7px!important;color:var(--ink)!important;
+  box-shadow:inset 0 0 0 2px #fff8e27a,inset 0 -3px 0 #c9a96c,0 3px 0 #2a1b0f66,0 8px 18px #0000002e!important;text-shadow:none!important}
+
+/* ---------------------------------------------------------------- profile card (top left) */
+#hero-plaque{left:22px;top:20px;width:318px;padding:10px 12px 10px 10px;gap:12px;align-items:center}
+#hero-plaque .hero-portrait{flex:none;width:76px;height:76px;border:3px solid var(--edge);border-radius:6px;overflow:hidden;
+  background:radial-gradient(circle at 50% 38%,#fbf3de,#d9c496);box-shadow:inset 0 0 0 2px #fff6dd,0 2px 0 #2a1b0f55}
+#hero-plaque .hero-portrait img{width:100%;height:100%;image-rendering:pixelated;display:block}
+#hero-plaque .hero-info{flex:1;min-width:0}
+#hero-plaque .hero-top{display:flex;align-items:center;gap:8px}
+#hero-plaque b{font:700 20px var(--display)!important;color:var(--ink)!important;letter-spacing:.3px}
+#hero-plaque .hero-lv{font:600 13px var(--display);font-style:normal;color:var(--ink2);margin-left:auto}
+#hero-plaque .hero-xp{width:74px;height:9px;border:2px solid var(--edge);border-radius:3px;background:#e9dcbd;position:relative;overflow:hidden}
+#hero-plaque .hero-xp i{position:absolute;inset:0 auto 0 0;background:linear-gradient(#f6d27a,#c8963a)}
+#hero-plaque small{display:block;font:11px Tahoma;color:#8a6a3a;margin:1px 0 0;min-height:4px}
+#hero-plaque .hero-hp,#hero-plaque .hero-resource{display:flex;align-items:center;gap:6px;height:auto;background:none!important;border:0!important;box-shadow:none!important;margin-top:6px;position:static}
+#hero-plaque .heart{color:#c8302a;font-size:19px;line-height:1;text-shadow:0 1px 0 #6a1410!important}
+#hero-plaque .bar{flex:1;position:relative;height:20px;border:2px solid var(--edge);border-radius:4px;background:#5a2a22;overflow:hidden;box-shadow:inset 0 2px 0 #0003}
+#hero-plaque .hero-hp .bar i{position:absolute;inset:0 auto 0 0;background:linear-gradient(#e2554a,#b42a24)!important;box-shadow:inset 0 3px 0 #ffffff33;transition:width .15s}
+#hero-plaque .bar span{position:relative;display:block;text-align:center;font:600 13px/16px var(--display);color:#fff6e4;text-shadow:1px 1px 0 #3a120e!important}
+#hero-plaque .hero-resource .bar{height:14px;background:#2c3a44}
+#hero-plaque .hero-resource .bar i{position:absolute;inset:0 auto 0 0;box-shadow:inset 0 2px 0 #ffffff40;transition:width .15s}
+#hero-plaque .hero-resource .bar span{font-size:10px;line-height:10px}
+#hero-plaque .hero-resource .pips,#hero-plaque .hero-resource .res-label{display:none}
+#hero-plaque .hero-resource.echo .bar{display:none}
+#hero-plaque .hero-resource.echo .pips{display:flex;gap:9px;padding-left:4px}
+#hero-plaque .hero-resource.echo .res-label{display:block;font:13px var(--display);color:var(--ink);margin-left:8px;white-space:nowrap}
+#hero-plaque .pips i{width:12px;height:12px;transform:rotate(45deg);border:2px solid #3f6c9c;background:#e6eef4;box-shadow:0 1px 0 #1a2c4466}
+#hero-plaque .pips i.on{background:linear-gradient(135deg,#bff6ff,#43c6dc);border-color:#1f6e86;box-shadow:0 0 6px #6ee6f4}
+
+/* ---------------------------------------------------------------- quest card and guide */
+#objective{left:22px;top:150px;max-width:282px;padding:12px 15px 13px;font:600 15px/1.45 var(--display)!important;color:var(--ink)!important}
+#objective:before{content:'◆  CURRENT QUEST'!important;color:#8a5a1e!important;font:700 11px Tahoma!important;letter-spacing:1.5px!important;margin-bottom:6px!important;
+  padding-bottom:6px;border-bottom:1px solid #b99a62;display:block}
+#guide{left:22px;top:268px!important;width:282px;max-width:282px;padding:10px 13px!important;font:12px/1.5 Tahoma!important}
+#guide .gd-h{color:#8a5a1e!important;font:700 11px Tahoma!important;letter-spacing:1.2px}
+#guide .gd-h span{color:#a08058!important}
+#guide .gd-item,#guide .gd-list{color:var(--ink)!important}
+
+/* keys look like little ink-framed keycaps everywhere on the HUD */
+#hud kbd,#prompt kbd,#hud-links kbd{background:#fffaf0!important;color:var(--ink)!important;border:2px solid var(--edge)!important;border-radius:4px;box-shadow:0 2px 0 var(--edge)!important;
+  font:700 12px var(--display)!important;min-width:22px;padding:1px 5px;opacity:1!important}
+
+/* ---------------------------------------------------------------- minimap (top right) */
+#map-caption{top:18px;right:22px;width:204px;padding:7px 8px 5px!important;font:700 17px var(--display)!important;border-bottom-width:0!important;border-radius:7px 7px 0 0!important;z-index:1}
+#minimap{top:52px;right:22px;width:204px;height:146px;border:8px solid var(--pa2)!important;border-top-width:4px!important;border-radius:0 0 8px 8px;
+  box-shadow:0 0 0 3px var(--edge),0 3px 0 3px #2a1b0f66,0 8px 18px #0000002e!important;background:#cfe0a0}
+#mini-zoom{top:170px;right:36px;background:var(--pa)!important;color:var(--ink)!important;border:2px solid var(--edge)!important;border-radius:4px;box-shadow:0 2px 0 var(--edge)!important}
+
+/* ---------------------------------------------------------------- hotbar (bottom centre) */
+#chud{bottom:14px}
+#chud.calm{opacity:1}
+#chud .ch-center{padding:10px 14px 9px!important;gap:6px}
+#abilities{gap:10px}
+.ab{width:54px!important;height:54px!important;border-radius:6px!important;background:linear-gradient(#efe0bc,#dcc590)!important;box-shadow:inset 0 0 0 2px var(--edge),inset 0 -3px 0 #b8975c,0 2px 0 #2a1b0f44!important;color:var(--ink)!important}
+.ab.empty{background:linear-gradient(#e9dab6,#d8c290)!important;opacity:.85}
+.ab .ic{color:var(--ink)!important}
+.ab .ability-mark{color:#4a3220!important;stroke-width:1.9}
+.ab.empty .ic{color:#8a6e48!important;font:700 24px var(--display)!important}
+.ab b{background:none!important;border:0!important;color:var(--ink)!important;font:700 12px var(--display)!important;bottom:-19px!important;text-shadow:none!important}
+.ab.lbl{margin-bottom:14px}
+.ab .cost{color:#5a3c1c!important;text-shadow:none!important}
+.ab .rk{color:#8a5a1e!important}
+.ab .nm{color:var(--ink)!important;text-shadow:none!important}
+.ab.cd .ic,.ab.oom .ic{opacity:.45}
+.ab:hover,.ab.sel,.ab.active{box-shadow:inset 0 0 0 3px var(--gold2),inset 0 0 0 5px var(--edge),0 0 10px #f0c35a88!important}
+#xpbar{height:8px!important;border:2px solid var(--edge)!important;border-radius:4px;background:#e9dcbd!important;margin-top:16px!important}
+#xpbar .fill{background:linear-gradient(#f6d27a,#c8963a)!important}
+#chud .slot{width:56px!important;height:60px!important;margin-bottom:14px!important}
+#chud .slot b{color:var(--ink)!important;font:700 12px var(--display)!important;background:#fffaf0;border:2px solid var(--edge);border-radius:4px;padding:0 4px;left:4px!important;top:4px!important}
+#chud .slot .cap{color:var(--ink)!important;font:700 14px var(--display)!important;text-shadow:none!important}
+#surge{border-radius:7px 7px 3px 3px!important}
+#surge span{color:var(--ink)!important}
+#purse{padding:3px 10px!important;font:700 15px var(--display)!important;color:var(--ink)!important;top:-40px!important}
+#buffs i{background:var(--pa)!important;color:var(--ink)!important;border:2px solid var(--edge)!important}
+
+/* ---------------------------------------------------------------- menu shortcuts (bottom right) */
+#hud-links{right:22px;bottom:18px;gap:8px}
+#hud-links button{padding:7px 12px 7px 8px!important;font:600 14px var(--display)!important;min-width:118px;display:flex;align-items:center;gap:8px}
+#hud-links button:hover{background:linear-gradient(#fff4dc,#efdcb2)!important}
+#hud-links kbd{margin-right:2px}
+
+/* ---------------------------------------------------------------- prompts, area name, toasts */
+#prompt{padding:8px 16px 8px 10px!important;font:600 16px var(--display)!important;bottom:162px;display:flex;align-items:center;gap:10px;white-space:nowrap}
+#area-name{color:#fff8e6;text-shadow:0 2px 0 #3a291b,0 0 8px #3a291b88}
+#toast{background:linear-gradient(180deg,var(--pa),var(--pa2))!important;color:var(--ink)!important;border:3px solid var(--edge)!important;border-radius:8px}
+#toast small{color:var(--ink2)!important}
+
+@media(max-width:900px){#hero-plaque{width:260px}#hero-plaque .hero-portrait{width:58px;height:58px}#hero-plaque .hero-xp{width:50px}
+  #map-caption{width:130px;font-size:13px!important}#minimap{width:130px;height:94px;top:46px}#objective{top:128px;max-width:240px}}
+#hero-plaque .hero-lv{white-space:nowrap}
+#hero-plaque .pips i{position:static!important;inset:auto!important;display:block;flex:none}
+#hero-plaque .heart{position:static!important;display:block}
+/* slot numbers sit under the slots, like the reference */
+#abilities .ab{overflow:visible!important}
+#abilities .ab b{display:block!important;z-index:4;left:50%!important;transform:translateX(-50%)!important;top:auto!important;bottom:-21px!important;font-size:13px!important}

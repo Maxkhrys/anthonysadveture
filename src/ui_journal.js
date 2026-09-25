@@ -3,6 +3,7 @@ import {renderCreative} from './dev/creative.js';
 // Shared journal presentation. Uses existing inventory, quest, map and service systems.
 import { glyph, controlsHTML } from './engine/actions.js';
 import { abilityIcon } from './ui_icons.js';
+import { heroPortraitURL } from './preview.js';
 import { CLASSES, xpNeed, costLabel, echoCount, MAX_ECHOES } from './rpg/classes.js';
 import { SKILLS, treeOf } from './rpg/skills.js';
 import { sfx } from './engine/audio.js';
@@ -95,7 +96,7 @@ export function installJournalUI(UI) {
   P.updateHud = function () {
     hud.call(this);
     if (!$('hero-plaque')) {
-      $('hud').insertAdjacentHTML('afterbegin', '<div id="hero-plaque"><span class="hero-seal">♜</span><div><b></b><small></small><div class="hero-hp"><i></i><span></span></div><div class="hero-resource"><i></i><span></span></div></div></div><div id="map-caption"></div><div id="hud-links"></div><div id="dev-state" class="hidden"></div>');
+      $('hud').insertAdjacentHTML('afterbegin', '<div id="hero-plaque"><div class="hero-portrait"><img alt=""></div><div class="hero-info"><div class="hero-top"><b></b><em class="hero-lv"></em><div class="hero-xp"><i></i></div></div><small></small><div class="hero-hp"><span class="heart" aria-hidden="true">♥</span><div class="bar"><i></i><span></span></div></div><div class="hero-resource"><div class="bar"><i></i><span></span></div><div class="pips"></div><span class="res-label"></span></div></div></div><div id="map-caption"></div><div id="hud-links"></div><div id="dev-state" class="hidden"></div>');
       $('hud-links').innerHTML = [['bag','Inventory','inventory'],['skills','Skills','skills'],['quests','Journal','journal'],['map','Map','map']].map(([p,l,a]) => `<button data-page="${p}"><kbd>${glyph(a)}</kbd>${l}</button>`).join('');
       $('hud-links').querySelectorAll('button').forEach(b => b.onclick = () => this.navigate?.(b.dataset.page));
       $('slot-potion').querySelector('b').textContent = glyph('potion');
@@ -103,17 +104,30 @@ export function installJournalUI(UI) {
       $('title').querySelector('.foot').textContent = 'WASD move · Mouse aim / attack · Q guard · Space dodge · F interact · H tonic · E inventory · K skills · J journal · M map';
     }
     const inv = this.g.inv, C = CLASSES[inv.cls], plaque = $('hero-plaque');
-    if (plaque.dataset.cls !== inv.cls) { plaque.dataset.cls = inv.cls; plaque.querySelector('.hero-seal').innerHTML = abilityIcon({samurai:'iaido',archer:'multishot',witch:'familiar',soulbound:'soulhook'}[inv.cls]); }
+    // the profile portrait is the player's own character (redrawn when the look or headgear changes)
+    const eq = inv.equip || {}, pk = [inv.cls, JSON.stringify(inv.appearance || {}), eq.helm?.base || eq.head?.base || '', eq.armor?.base || eq.chest?.base || ''].join('|');
+    if (plaque.dataset.pk !== pk) { plaque.dataset.pk = pk; plaque.dataset.cls = inv.cls; try { plaque.querySelector('.hero-portrait img').src = heroPortraitURL(inv.cls, inv.appearance, { head: eq.helm || eq.head, chest: eq.armor || eq.chest }); } catch (e) { /* no WebGL: the frame stays empty */ } }
     if(inv.fireRod){const tool=$('slot-item');tool.title=(inv.activeTool==='fireRod'?'Cinder Rod':'Gustbellows')+' · L use · Y swap';tool.querySelector('.cap').textContent=inv.activeTool==='fireRod'?'FIRE':'WIND';tool.querySelector('.icon').style.filter=inv.activeTool==='fireRod'?'hue-rotate(160deg) saturate(2)':'';}
     $('xpbar').title = `Experience ${inv.xp} / ${xpNeed(inv.level)}`;
     $('xpbar').setAttribute('aria-label', $('xpbar').title);
     plaque.querySelector('b').textContent = C.name;
-    plaque.querySelector('small').textContent = `Level ${inv.level} · ${inv.sp} skill points`;
-    plaque.querySelector('.hero-hp i').style.width = `${Math.max(0,inv.hp/inv.maxHp*100)}%`;
-    plaque.querySelector('.hero-hp span').textContent = `${Math.ceil(inv.hp)} / ${inv.maxHp}`;
-    plaque.querySelector('.hero-resource i').style.width = `${this.g.res}%`;
-    plaque.querySelector('.hero-resource i').style.backgroundColor = C.resColor;
-    plaque.querySelector('.hero-resource span').textContent = C.echo ? `${echoCount(this.g.res)} / ${MAX_ECHOES} ${C.res}` : `${Math.floor(this.g.res)} ${C.res}`;
+    plaque.querySelector('small').textContent = inv.sp ? `${inv.sp} skill point${inv.sp === 1 ? '' : 's'} to spend` : '';
+    plaque.querySelector('.hero-lv').textContent = `Lv ${inv.level}`;
+    plaque.querySelector('.hero-xp i').style.width = `${Math.max(0, Math.min(100, inv.xp / xpNeed(inv.level) * 100))}%`;
+    plaque.querySelector('.hero-hp .bar i').style.width = `${Math.max(0,inv.hp/inv.maxHp*100)}%`;
+    plaque.querySelector('.hero-hp .bar span').textContent = `${Math.ceil(inv.hp)} / ${inv.maxHp}`;
+    const resEl = plaque.querySelector('.hero-resource');
+    resEl.classList.toggle('echo', !!C.echo);
+    if (C.echo) { // Soul Echoes as five diamonds, like the reference
+      const n = echoCount(this.g.res), pips = resEl.querySelector('.pips');
+      if (pips.childElementCount !== MAX_ECHOES) pips.innerHTML = '<i></i>'.repeat(MAX_ECHOES);
+      [...pips.children].forEach((d, i) => d.classList.toggle('on', i < n));
+      resEl.querySelector('.res-label').textContent = `${n} / ${MAX_ECHOES} ${C.res}`;
+    } else {
+      resEl.querySelector('.bar i').style.width = `${this.g.res}%`;
+      resEl.querySelector('.bar i').style.backgroundColor = C.resColor;
+      resEl.querySelector('.bar span').textContent = `${Math.floor(this.g.res)} ${C.res}`;
+    }
     $('map-caption').textContent = this.g.area?.name || 'The world';
     $('objective').classList.toggle('hidden', this.g.settings.questGuide === false);
     const dev = this.g.area?.id === 'devroom' || !!this.g.devSandbox;

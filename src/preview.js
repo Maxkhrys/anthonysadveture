@@ -3,7 +3,7 @@ import { HeroPortrait } from './hero_portrait.js';
 // current gear) and small pixel icons of real weapon/armour models. It has its own WebGL
 // context so the game's render pipeline is untouched.
 import * as THREE from 'three';
-import { weaponMesh, helmParts, torsoParts, neckParts, legParts, armParts } from './hero.js';
+import { weaponMesh, helmParts, torsoParts, neckParts, legParts, armParts, makeHero } from './hero.js';
 import { geo, B, MAT } from './models.js';
 import { getWeaponVisual, ICON_ATLAS, UNIQUE_ACCENTS, rarityTier, PRISM } from './rpg/weaponVisuals.js';
 import { tickPrism } from './weaponFx.js';
@@ -117,5 +117,33 @@ export function itemIconURL(item, cls = 'samurai') {
   const url = cv.toDataURL();
   cache.set(V && V.icon != null ? 'w3d|' + key : key, url); // a stand-in until the atlas has loaded
   obj.traverse(o => o.geometry && o.geometry.dispose());
+  return url;
+}
+
+// A head-and-shoulders portrait of the player's own character for the HUD profile card:
+// the real model (appearance, class hat or helm, chest piece), three-quarter view, cached.
+let portraitRT = null;
+const portraitCache = new Map();
+export function heroPortraitURL(cls, appearance, equip = {}) {
+  const key = [cls, JSON.stringify(appearance || {}), equip.head ? equip.head.base : '', equip.chest ? equip.chest.base : ''].join('|');
+  if (portraitCache.has(key)) return portraitCache.get(key);
+  const r = renderer(), S = 96;
+  if (!portraitRT) { portraitRT = new THREE.WebGLRenderTarget(S, S); portraitRT.texture.colorSpace = THREE.SRGBColorSpace; }
+  const scene = new THREE.Scene(); lights(scene);
+  const h = makeHero(cls, appearance); h.setGear({ head: equip.head, chest: equip.chest });
+  h.root.rotation.y = 0.38; scene.add(h.root);
+  const cam = new THREE.OrthographicCamera(-0.34, 0.34, 0.34, -0.34, 0.1, 20);
+  cam.position.set(0, 0.9, 3); cam.lookAt(0, 0.8, 0);
+  r.setRenderTarget(portraitRT); r.setClearColor(0x000000, 0); r.clear(); r.render(scene, cam);
+  const px = new Uint8Array(S * S * 4); r.readRenderTargetPixels(portraitRT, 0, 0, S, S, px); r.setRenderTarget(null);
+  const cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(S, S), row = S * 4;
+  for (let y = 0; y < S; y++) img.data.set(px.subarray((S - 1 - y) * row, (S - y) * row), y * row);
+  const d = img.data, out = new Uint8ClampedArray(d); // 1px ink outline, like the item icons
+  for (let y = 1; y < S - 1; y++) for (let x = 1; x < S - 1; x++) { const i = (y * S + x) * 4; if (d[i + 3] > 0) continue; if (d[i + 7] || d[i - 1] || d[i + 3 + row] || d[i + 3 - row]) { out[i] = 30; out[i + 1] = 20; out[i + 2] = 16; out[i + 3] = 255; } }
+  img.data.set(out); ctx.putImageData(img, 0, 0);
+  const url = cv.toDataURL();
+  h.dispose();
+  portraitCache.set(key, url);
   return url;
 }

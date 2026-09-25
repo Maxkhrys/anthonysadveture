@@ -231,21 +231,23 @@ export class Game {
     if (warm > 0) tgt.lerp(new THREE.Color(dawn ? 0xffb0a0 : 0xffa060), warm * 0.35);
     this.moodFog.lerp(tgt, Math.min(1, dt * 1.5));
     u.fogColor.value.copy(this.moodFog);
-    u.fogAmt.value += ((MOOD.amt + r * 0.2 + N * 0.12) - u.fogAmt.value) * Math.min(1, dt * 1.5);
+    // Pass 9 look: clear daytime air (half the haze), so colour and shadow read crisply
+    u.fogAmt.value += ((MOOD.amt * 0.5 + r * 0.2 + N * 0.12) - u.fogAmt.value) * Math.min(1, dt * 1.5);
     const lit = 0.22 + 0.78 * L;
-    this.sun.intensity = 2.5 * lit * (1 - r * 0.45);
-    this.sun.color.setRGB(1, 0.94 - warm * 0.22 - N * 0.2, 0.84 - warm * 0.4 + N * 0.25);
-    this.hemi.intensity = (0.55 + 0.7 * L) * (1 - r * 0.2);
+    this.sun.intensity = 2.85 * lit * (1 - r * 0.45);
+    this.sun.color.setRGB(1, 0.92 - warm * 0.22 - N * 0.2, 0.78 - warm * 0.4 + N * 0.3); // golden afternoon light
+    this.hemi.intensity = (0.55 + 0.6 * L) * (1 - r * 0.2); // a little less sky fill: deeper, warmer shadows
     this.hemi.color.setRGB(0.45 + 0.3 * L, 0.55 + 0.3 * L, 1.0);
     this.hemi.groundColor.setRGB(0.3 + 0.12 * L, 0.26 + 0.1 * L, 0.24 + 0.05 * N);
     this.scene.background.setRGB(0.06 + 0.5 * L - r * 0.1, 0.08 + 0.7 * L - r * 0.1, 0.2 + 0.7 * L - r * 0.05);
     const hush = this.flags.hushLifted ? 1 : 0;
     if (MOOD.dim) { this.sun.intensity *= MOOD.dim; this.hemi.intensity *= 0.5 + MOOD.dim * 0.5; }
-    u.grade.value.set((hush ? 1.06 : 0.98) + warm * 0.1 - N * 0.3, (hush ? 1.03 : 0.96) - warm * 0.01 - N * 0.18, (hush ? 0.96 : 1.03) - warm * 0.1 + N * 0.12);
-    u.desat.value = (hush ? 0 : 0.1) + r * 0.2 + N * 0.12;
-    u.vignette.value = 0.4 + N * 0.5;
+    u.grade.value.set((hush ? 1.08 : 1.02) + warm * 0.1 - N * 0.3, (hush ? 1.04 : 1.0) - warm * 0.01 - N * 0.18, (hush ? 0.92 : 0.96) - warm * 0.1 + N * 0.14);
+    // negative desat = saturation: rich greens and roofs by day, the Hush still mutes the world a little
+    u.desat.value = (hush ? -0.2 : -0.1) + r * 0.3 + N * 0.22;
+    u.vignette.value = 0.3 + N * 0.5;
     u.bloom.value = 0.25 + N * 0.45;
-    u.contrast.value = 1.06 + N * 0.04;
+    u.contrast.value = 1.13 + N * 0.02;
     if (MOOD.grade) { const k = MOOD.gradeK ?? 0.5; u.grade.value.x *= 1 + (MOOD.grade[0] - 1) * k; u.grade.value.y *= 1 + (MOOD.grade[1] - 1) * k; u.grade.value.z *= 1 + (MOOD.grade[2] - 1) * k; }
     this.playerLamp.intensity = N > 0.45 ? (N - 0.45) * 7 : 0;
     this.playerLamp.color.setHex(0xffd8a0);
