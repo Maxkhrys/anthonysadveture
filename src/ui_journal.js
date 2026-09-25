@@ -134,18 +134,19 @@ export function installJournalUI(UI) {
     const selected = rows[this.questSel];
     $('tab-quests').innerHTML = `<div class="page-heading"><span class="page-kicker">Stories still unfolding</span><h2>Your journal</h2></div><div class="journal-layout"><div class="quest-list">${rows.map((r,i) => `<button data-q="${i}" class="${i===this.questSel?'on':''}"><span>${r.classList.contains('done')?'✓':'◇'}</span><div>${esc(r.querySelector('b').textContent)}<small>${r.classList.contains('done')?'Completed':'Adventure notes'}</small></div></button>`).join('')}</div><article class="quest-detail">${selected?.innerHTML || 'No entries yet.'}<button id="track-quest" ${selected?.classList.contains('done')?'disabled':''}>${this.trackedQuest === this.questSel ? 'Tracking this entry' : 'Track this entry'}</button></article></div>`;
     $('tab-quests').querySelectorAll('[data-q]').forEach(b => b.onclick = () => { this.questSel = +b.dataset.q; this.renderJournal(); });
-    $('track-quest').onclick = () => { this.trackedQuest = this.questSel; this.trackedQuestTitle = selected.querySelector('b').textContent; this.renderJournal(); };
+    $('track-quest').onclick = () => { this.trackedQuest = this.questSel; this.trackedQuestTitle = selected?.querySelector('b')?.textContent || ''; this.g.flags.trackedQuestTitle=this.trackedQuestTitle; this.g.save(); this.renderJournal(); };
   };
   const update = P.update;
   P.update = function (dt) {
     update.call(this,dt);
     this._questTick = (this._questTick || 0) + dt;
+    if(this._trackedProfile!==this.g.profile?.id){this._trackedProfile=this.g.profile?.id;this.trackedQuestTitle=this.g.flags?.trackedQuestTitle||null;}
     if (this.trackedQuestTitle && this.g.inv && this._questTick > .3) {
       this._questTick = 0;
       const t = document.createElement('div'); t.innerHTML = this.g.story.journal();
       const row = [...t.children].find(r => r.querySelector('b')?.textContent.replace(/^✔ /,'') === this.trackedQuestTitle.replace(/^✔ /,''));
       if (row && !row.classList.contains('done')) $('objective').textContent = row.textContent;
-      else this.trackedQuestTitle = null;
+      else { this.trackedQuestTitle = null; delete this.g.flags.trackedQuestTitle; }
     }
   };
   P.renderCodex = function () {

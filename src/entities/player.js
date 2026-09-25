@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Entity, move } from './entity.js';
-import { makeHero } from '../models.js';
+import { mesh, B, MAT_GLOW, makeHero } from '../models.js';
 import { sfx } from '../engine/audio.js';
 import { angDiff, angleLerp, clamp } from '../engine/util.js';
 import { T } from '../world/tiles.js';
@@ -305,6 +305,7 @@ export class Player extends Entity {
     const still = power && g.talent('stillness') && g.time - (this.stillSince ?? g.time) > 0.5 ? 1.4 : 1;
     const stillwater = power && this.stillT > 0 ? 1.4 : 1; if (power) this.stillT = 0;
     if (fam === 'bow') {
+      if (!power && U === 'thornwood') for(const side of [-1,1])g.spawn(new Projectile(g,{x:ox,z:oz,dir:f+side*.23,speed:19,range:SHOT_RANGE.arrow,mult:.45,kind:'arrow',basic:true,noCraft:true}));
       this.arrows = (this.arrows || 0) + 1;
       const quiver = !power && g.talent('tempestquiver') && this.arrows % 4 === 0;
       const onHit = (pr, e) => {
@@ -320,7 +321,7 @@ export class Player extends Entity {
         if (U === 'lilypad') { const tx = ox + Math.sin(f) * 6, tz = oz + Math.cos(f) * 6; setTimeout(() => { if (!g.dead) { soak(g, tx, tz, 2.2); g.fx.ring(tx, tz, 0.2, 2.2, 0x6ab8ff, 0.4); } }, 280); }
         if (hasEngraving(g, 'echofletch')) g.spawn(new EchoShot(g, o));
       }
-      else { g.spawn(new Projectile(g, { x: ox, z: oz, dir: f, speed: 19, range: SHOT_RANGE.arrow, mult: g.talent('endlessquiver') ? 0.8 : 1, kind: 'arrow', color: quiver ? 0xfff3b0 : 0xf0e0c0, bounce: g.talent('endlessquiver') ? 1 : 0, element: quiver ? 'lightning' : null, basic: true, onHitFx: onHit })); sfx(quiver ? 'zap' : 'swing'); }
+      else { g.spawn(new Projectile(g, { x: ox, z: oz, dir: f, speed: 19, range: SHOT_RANGE.arrow, mult: g.talent('endlessquiver') ? 0.8 : 1, kind: 'arrow', pierce: U === 'starfallcrossbow' ? 2 : 0, color: quiver ? 0xfff3b0 : 0xf0e0c0, bounce: g.talent('endlessquiver') ? 1 : 0, element: quiver ? 'lightning' : null, basic: true, onHitFx: onHit })); sfx(quiver ? 'zap' : 'swing'); }
     } else {
       const orb = (w && ({ crookstaff: 0x7fd36a, candlestaff: 0xffb347, hexwand: 0x8b5cf6, frostrod: 0xdff4ff, shroomwand: 0xe05a48, mothlight: 0xfff3b0, porcelainrod: 0x9ad8ff, candelabra: 0xffb347 }[w.base])) || 0xc89aff;
       const boltHit = (pr, e) => {
@@ -445,6 +446,12 @@ export class Player extends Entity {
     // Passive recovery never replaces tonics: out of combat you catch your breath back up to
     // 40% of your life; gear regen and the Mossheart still work, at a reduced rate in a fight.
     const breath = this.combatT > 0 || inv.hp >= inv.maxHp * 0.4 ? 0 : inv.maxHp * 0.01;
+    if (ps.uniques.has('orbitinggrimoire') && !this.orbitBooks) { this.orbitBooks=[-1,1].map(()=>{const m=mesh([B(.22,.05,.28,0,0,0,0x7652c0),B(.18,.05,.24,0,.05,0,0xffdf93)],MAT_GLOW,false);this.obj.add(m);return m;}); }
+    for(const [i,m] of (this.orbitBooks||[]).entries()){m.visible=ps.uniques.has('orbitinggrimoire');m.position.set(Math.cos(g.time*2+i*Math.PI),.9,Math.sin(g.time*2+i*Math.PI));m.rotation.y=g.time*2;}
+    if (ps.uniques.has('orbitinggrimoire') && this.state !== 'dead' && !(this.grimoireT > g.time)) {
+      this.grimoireT=g.time+1.5; const t=g.nearestEnemy(this.x,this.z,7,this.facing,Math.PI+0.01);
+      if(t)for(const side of [-1,1]){const a=g.time*2+side*Math.PI/2, x=this.x+Math.cos(a),z=this.z+Math.sin(a);g.spawn(new Projectile(g,{x,z,dir:Math.atan2(t.x-x,t.z-z),speed:10,range:8,mult:.3,kind:'bolt',color:0xffd763,ability:true,echo:true,noCraft:true}));}
+    }
     const regen = ps.regen * (this.combatT > 0 ? 0.5 : 1) + (ps.uniques.has('mossheart') ? inv.maxHp * (this.combatT > 0 ? 0.004 : 0.012) : 0) + breath;
     if (inv.hp > 0 && inv.hp < inv.maxHp && regen > 0) { inv.hp = Math.min(inv.maxHp, inv.hp + regen * dt); this.regenAcc = (this.regenAcc || 0) + dt; if (this.regenAcc > 0.5) { this.regenAcc = 0; g.ui.hearts(); } }
     const aspd = ps.wspd;

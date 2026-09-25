@@ -144,7 +144,7 @@ export function installRpgUI(UI) {
     const clsTxt = it.cls ? ` · <span style="color:${it.cls === g.inv.cls ? '#9f9' : '#fc8'}">${CLASSES[it.cls].name}</span>` : it.slot === 'weapon' ? ' · <span style="color:#9df">any class</span>' : '';
     const up = it.upgradeLevel ? ` <span class="uplvl">+${it.upgradeLevel}</span>` : '';
     const locked = g.isLocked(it) ? ' <span title="Locked: cannot be salvaged">🔒</span>' : '';
-    let h = `<div class="tt-head"><div class="big-ico rar${it.r}">${this.icon(it)}</div><div><h4 style="color:${it.set ? SETS[it.set].color : R.color}">${it.name}${up}${locked}</h4><div class="sub">${it.set ? 'Set' : R.name} ${typeName} · item level ${it.ilvl}${clsTxt}</div>`;
+    let h = `<div class="tt-head"><div class="big-ico rar${it.r}">${this.icon(it)}</div><div><h4 style="color:${it.set ? SETS[it.set].color : R.color}">${it.name}${up}${locked}</h4><div class="sub">${it.prismatic ? 'Prismatic signature' : it.set ? 'Set' : R.name} ${typeName} · item level ${it.ilvl}${clsTxt}</div>`;
     if (it.slot === 'weapon') {
       const m = 1 + (it.upgradeLevel || 0) * 0.05;
       h += `<div class="dmg">${Math.round(it.min * m)}–${Math.round(it.max * m)} damage · ${it.spd.toFixed(2)} speed</div>`;
@@ -168,6 +168,7 @@ export function installRpgUI(UI) {
         if (aff.qualitative) h += `<div class="uq" style="color:${aff.displayColor}">★ ${aff.qualitative.name}: ${aff.qualitative.description}</div>`;
       }
     }
+    if (it.sourceHint) h += `<div class="sub">Found in: ${it.sourceHint}</div>`;
     if (it.utext) h += `<div class="uq">★ ${it.utext}</div>`;
     if (it.set) {
       const S = SETS[it.set], have = g.pstats.sets[it.set] || 0;

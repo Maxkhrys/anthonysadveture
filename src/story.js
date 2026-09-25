@@ -484,7 +484,7 @@ export class Story {
           const st = g.stats;
           g.ui.banner('CHAPTER I COMPLETE', 'The Verdant Voice', 4);
           setTimeout(() => g.ui.lines([[null, `*Thank you for playing Chapter I of Mossling: The Silent Bell.*\n\nHushlings defeated: ${st.kills || 0}   ·   Perfect parries: ${st.parries || 0}   ·   Time: ${Math.floor(g.playTime / 60)}m`],
-            [null, 'Cinderpeak and Lake Mirrow are still sealed in this build. The overworld stays open: the Hush camp bounty, the Still Mill, Ada\'s pier, the Hollow Grotto, the Sunken Courtyard and hidden leaf piles are all waiting.']]), 1500);
+            [null, 'Cinderpeak and Lake Mirrow are open for exploration. The Tide Shrine and Chime Spire await later chapters. Follow the roads to new settlements, or revisit: the Hush camp bounty, the Still Mill, Ada\'s pier, the Hollow Grotto, the Sunken Courtyard and hidden leaf piles are all waiting.']]), 1500);
         });
       }, 2200);
     });

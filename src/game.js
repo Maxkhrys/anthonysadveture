@@ -20,7 +20,7 @@ import { MONSTER_NAMES } from './entities/monsters2.js';
 import { ENEMY_MATS } from './entities/monsters3.js';
 import { CLASSES, computeStats, xpNeed, MAX_LEVEL } from './rpg/classes.js';
 import { genItem, starterWeapon, RARITY, itemPower, makeNamed, LEGENDARIES } from './rpg/items.js';
-import { GearDrop, LootChest, thornBurst, blast, chainLightning, bolt, Projectile } from './rpg/combat.js';
+import { Meteor, GearDrop, LootChest, thornBurst, blast, chainLightning, bolt, Projectile } from './rpg/combat.js';
 import { ensureTree, respecTree, rankOf, SKILLS, nodeById, treeOf } from './rpg/skills.js';
 import { react, isHeavy, elementOf, soak, fanFlames } from './rpg/elements.js';
 import { resonanceRing, Tether } from './rpg/abilities.js';
@@ -425,6 +425,15 @@ export class Game {
     const r = e.onHit({ dmg, kind: o.kind, kb: o.kb, dir: o.dir, src: o.src || p, crit, heavy });
     if (r !== 'hit') return r;
     if (heavy && !(this.impactT > this.time)) { this.impactT = this.time + 0.15; this.impact(e.x, e.z, 1.4, 0.8); }
+    if (!o.noProc && !o.echo && !(this.procDepth > 0)) {
+      const ready = key => !((this.lootProc || {})[key] > this.time);
+      const lock = (key, seconds) => { (this.lootProc ||= {})[key] = this.time + seconds; };
+      if (!o.ability && U.has('dawnbringer') && ready('dawn')) { lock('dawn',3); this.spawn(new Projectile(this,{x:p.x,z:p.z,dir:p.facing,speed:12,range:7,mult:.8,kind:'crescent',pierce:8,color:0xffd45a,noCraft:true,echo:true})); }
+      if (!o.ability && U.has('heavensdivide') && ready('heaven')) { lock('heaven',4); for(let i=0;i<6;i++)this.spawn(new Projectile(this,{x:p.x,z:p.z,dir:i*Math.PI/3,speed:11,range:5,mult:.5,kind:'crescent',pierce:3,color:0x83dfff,noCraft:true,echo:true})); }
+      if (!o.ability && U.has('starfallcrossbow') && ready('star') && Math.random()<.2) { lock('star',1); this.spawn(new Meteor(this,e.x,e.z,.65)); }
+      if (crit && U.has('verdanteclipse') && ready('vine')) { lock('vine',4); for(let i=-1;i<=1;i++)this.spawn(new Projectile(this,{x:p.x,z:p.z,dir:p.facing+i*.4,speed:9,range:7,mult:.5,kind:'thorn',homing:3,root:1.5,color:0x66eeb6,noCraft:true,echo:true})); }
+      if(o.ability && U.has('fateweaver') && Math.random()<.2 && !e.dead) { this.procDepth=(this.procDepth||0)+1; try { this.playerHit(e,{...o,mult:(o.mult??1)*.5,noProc:true,echo:true}); } finally { this.procDepth--; } }
+    }
     this.guide.event('attack');
     e.hpShow = 3;
     if (!o.quiet || crit) this.ui.float(e.x, 1.0 + (e.eliteScale ? 0.3 : 0), e.z, (crit ? '' : '') + dmg + (crit ? '!' : ''), crit ? '#ffd25e' : '#ffffff', crit);
@@ -494,7 +503,7 @@ export class Game {
       this.fx.ring(p.x, p.z, 0.3, 3, 0xffd25e, 0.7); this.fx.burst(p.x, 0.5, p.z, 30, [0xffd25e, 0xffffff], 3, { g: -1 });
       sfx('fanfare'); this.pr.addFlash(0.25, 0xffd25e);
       this.ui.banner('LEVEL UP', 'Level ' + inv.level, 2.2);
-      this.ui.toast(unlocked ? 'New ability: ' + unlocked.name + ' [' + unlocked.key + ']' : '+1 Skill Point', unlocked ? unlocked.desc : 'Press I → Skills to spend it in your skill tree.', 3);
+      this.ui.toast(unlocked ? 'New ability: ' + unlocked.name + ' [' + unlocked.key + ']' : '+1 Skill Point', unlocked ? unlocked.desc : 'Press K to spend it in your skill tree.', 3);
       this.save();
     }
   }
@@ -510,7 +519,7 @@ export class Game {
     this.ui.lootToast(it, up);
     this.guide.event('loot');
     this.stats.items = (this.stats.items || 0) + 1;
-    if (!this.flags.tutLoot) { this.flags.tutLoot = true; setTimeout(() => this.ui.toast('You found gear!', 'Press I to open your bag and equip it.', 3.5), 600); }
+    if (!this.flags.tutLoot) { this.flags.tutLoot = true; setTimeout(() => this.ui.toast('You found gear!', 'Press E to open your bag and equip it.', 3.5), 600); }
     this.hudDirty = true;
     this.save();
     return true;
@@ -1040,7 +1049,7 @@ export class Game {
       [['blot', -3, 0], ['blot', 3, 0], ['blot', -1, 3], ['blot', 1, 3]],
       // the lesson at the end: a shell that shrugs off taps. Charge, or strike after a parry.
       [['porcelain', 0, 3], ['blot', -3, 2], ['blot', 3, 2]],
-    ], { title: 'HUSHLINGS!', victory: 'Thimblewick is safe… for now.', onWave: w => { if (w === 2) setTimeout(() => this.ui.toast('A Porcelain Guard!', { samurai: 'Its glaze turns light cuts. Hold J for a spin — or parry (K) and strike.', archer: 'Its glaze turns light arrows. Hold J for a charged shot to crack it.', witch: 'Its glaze turns bolts. Hold J for a fireball to crack it.' }[this.inv.cls], 4.5), 400); }, onClear: () => { this.story.introWon(); this.revealWorld(); const p = this.player; this.spawn(new GearDrop(this, p.x, p.z + 1.2, genItem({ level: 2, cls: this.inv.cls, slot: 'weapon', rarity: 1 }))); this.spawn(new GearDrop(this, p.x + 1, p.z + 1, genItem({ level: 2, slot: 'armor', rarity: 1 }))); } });
+    ], { title: 'HUSHLINGS!', victory: 'Thimblewick is safe… for now.', onWave: w => { if (w === 2) setTimeout(() => this.ui.toast('A Porcelain Guard!', { samurai: 'Its glaze turns light cuts. Hold C / left click for a spin — or parry (Q) and strike.', archer: 'Its glaze turns light arrows. Hold C / left click for a charged shot to crack it.', witch: 'Its glaze turns bolts. Hold C / left click for a fireball to crack it.' }[this.inv.cls], 4.5), 400); }, onClear: () => { this.story.introWon(); this.revealWorld(); const p = this.player; this.spawn(new GearDrop(this, p.x, p.z + 1.2, genItem({ level: 2, cls: this.inv.cls, slot: 'weapon', rarity: 1 }))); this.spawn(new GearDrop(this, p.x + 1, p.z + 1, genItem({ level: 2, slot: 'armor', rarity: 1 }))); } });
     a.alwaysUpdate = true;
     this.spawn(a);
   }
