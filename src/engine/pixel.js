@@ -39,7 +39,7 @@ export class PixelRenderer {
         desat: { value: 0 }, bloom: { value: 0.22 }, bloomScale: { value: 1 },
         fogColor: { value: new THREE.Color(0xc8d8f0) }, fogAmt: { value: 0 }, fogNear: { value: 44 }, fogFar: { value: 60 }, contrast: { value: 1.0 },
         // Pass 10 world look: ambient occlusion, drifting cloud shadows, split-tone grade, tilt-shift
-        aoAmt: { value: 0 }, cloudAmt: { value: 0 }, detailAmt: { value: 0 }, splitAmt: { value: 0 }, tilt: { value: 0 }, time: { value: 0 }, wind: { value: new THREE.Vector2(0.9, 0.5) },
+        aoAmt: { value: 0 }, cloudAmt: { value: 0 }, detailAmt: { value: 0 }, reflAmt: { value: 0 }, beamAmt: { value: 0 }, beamCol: { value: new THREE.Color(1, 0.85, 0.6) }, sunDir: { value: new THREE.Vector2(-0.81, 0.58) }, mistAmt: { value: 0 }, mistCol: { value: new THREE.Color(0xf4ecdc) }, splitAmt: { value: 0 }, tilt: { value: 0 }, time: { value: 0 }, wind: { value: new THREE.Vector2(0.9, 0.5) },
         camPos: { value: new THREE.Vector3() }, camUp: { value: new THREE.Vector3(0, 1, 0) }, camBack: { value: new THREE.Vector3(0, 0, 1) }, viewSize: { value: new THREE.Vector2(1, 1) },
       },
       vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy,0.,1.); }`,
@@ -48,7 +48,7 @@ export class PixelRenderer {
         uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 texel; uniform vec2 offset;
         uniform float flash; uniform vec3 flashColor; uniform float vignette; uniform vec3 grade;
         uniform float near; uniform float far; uniform float desat; uniform float bloom; uniform float bloomScale; uniform vec3 fogColor; uniform float fogAmt; uniform float fogNear; uniform float fogFar; uniform float contrast;
-        uniform float aoAmt; uniform float cloudAmt; uniform float detailAmt; uniform float splitAmt; uniform float tilt; uniform float time; uniform vec2 wind;
+        uniform float aoAmt; uniform float cloudAmt; uniform float detailAmt; uniform float reflAmt; uniform float beamAmt; uniform vec3 beamCol; uniform vec2 sunDir; uniform float mistAmt; uniform vec3 mistCol; uniform float splitAmt; uniform float tilt; uniform float time; uniform vec2 wind;
         uniform vec3 camPos; uniform vec3 camUp; uniform vec3 camBack; uniform vec2 viewSize;
         varying vec2 vUv;
         float dep(vec2 uv){ return texture2D(tDepth, uv).r * (far-near); }
@@ -82,13 +82,45 @@ export class PixelRenderer {
           // cloud shadows: rebuild this pixel's world position from the linear ortho depth and
           // let slow noise clouds drift over the land
           vec3 wp = camPos + vec3(1.0, 0.0, 0.0) * (px.x - 0.5) * viewSize.x + camUp * (px.y - 0.5) * viewSize.y - camBack * (near + d);
+          // water reflections: the water shader marks its pixels with alpha 0.5. From each water
+          // pixel march up the screen to the far bank, then mirror about that bank line, so trees,
+          // houses and people on the shore appear upside down in the water, rippling
+          float wa = texture2D(tColor, px).a;
+          if (reflAmt > 0.0 && !sky && wa > 0.3 && wa < 0.7) {
+            float e = 0.0;
+            for (int i = 1; i <= 48; i++) { float qa = texture2D(tColor, px + vec2(0.0, float(i)) * texel).a; if (qa > 0.8) { e = float(i); break; } }
+            if (e > 0.0) {
+              float rip = sin(wp.x * 3.1 + time * 2.2) * 0.9 + sin(wp.z * 5.3 - time * 2.7) * 0.6;
+              vec4 rc = texture2D(tColor, px + vec2(rip * texel.x, 2.0 * e * texel.y));
+              float fade = (1.0 - smoothstep(14.0, 48.0, e)) * (0.85 + 0.15 * sin(time * 3.0 + wp.x * 2.0));
+              if (rc.a > 0.8) c = mix(c, rc.rgb * vec3(0.82, 0.9, 1.02), reflAmt * fade);
+            }
+            // the sky's drifting clouds, mirrored on the surface (moving with the cloud shadows)
+            float sk = vnoise(wp.xz * 0.07 + wind * time * 0.026 + vec2(13.0, 7.0)) * 0.65 + vnoise(wp.xz * 0.16 + wind * time * 0.04) * 0.35;
+            c = mix(c, vec3(0.97, 0.99, 1.0), smoothstep(0.5, 0.78, sk) * reflAmt * 0.55);
+          }
           // ground detail: faint world-anchored mottling so broad grass and paths never read flat
           if (detailAmt > 0.0 && !sky) c *= 1.0 + (vnoise(wp.xz * 1.7) - 0.5) * detailAmt + (vnoise(wp.xz * 0.35 + 3.1) - 0.5) * detailAmt * 0.8;
+          float cl = 0.0;
           if (cloudAmt > 0.0 && !sky) {
             vec2 q = wp.xz * 0.07 + wind * time * 0.026;
             float n = vnoise(q) * 0.65 + vnoise(q * 2.3 + 7.1) * 0.35;
-            float cl = smoothstep(0.44, 0.64, n);
+            cl = smoothstep(0.44, 0.64, n);
             c *= 1.0 - cl * cloudAmt;
+          }
+          // sunbeams: long soft streaks along the light, breaking through between the clouds
+          if (beamAmt > 0.0 && !sky) {
+            vec2 sp = vec2(dot(wp.xz, vec2(-sunDir.y, sunDir.x)), dot(wp.xz, sunDir));
+            float bm = vnoise(vec2(sp.x * 0.42 + time * 0.035, sp.y * 0.035)) * 0.7 + vnoise(vec2(sp.x * 1.1 - time * 0.02, sp.y * 0.06 + 4.0)) * 0.3;
+            bm = smoothstep(0.52, 0.86, bm) * (1.0 - cl);
+            c += beamCol * bm * beamAmt;
+          }
+          // morning mist pooling low: thick in hollows and over water, thin on raised ground
+          if (mistAmt > 0.0 && !sky) {
+            float low = 1.0 - smoothstep(-0.25, 0.45, wp.y);
+            float mn = vnoise(wp.xz * 0.16 + vec2(time * 0.06, time * 0.025)) * 0.6 + vnoise(wp.xz * 0.45 - vec2(time * 0.04, 0.0)) * 0.4;
+            // drifting wisps, not a blanket
+            c = mix(c, mistCol, clamp(low * mistAmt * smoothstep(0.35, 0.78, mn) * 1.6, 0.0, 0.6));
           }
           float dn = min(min(dep(px+vec2(texel.x,0.)), dep(px-vec2(texel.x,0.))), min(dep(px+vec2(0.,texel.y)), dep(px-vec2(0.,texel.y))));
           float edge = step(0.55, d - dn);

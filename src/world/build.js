@@ -242,7 +242,8 @@ export function buildLiquids(area, time, rect) {
           }
           if (lava > 0.5) c += vec3(0.35,0.12,0.0) * (0.5+0.5*sin(time*2.0+p.x+p.y));
           c *= lava > 0.5 ? 1.0 : light;
-          gl_FragColor = vec4(c, 1.0);
+          // alpha 0.5 marks water for the post pass (reflections); lava stays opaque-marked
+          gl_FragColor = vec4(c, lava > 0.5 ? 1.0 : 0.5);
           #include <colorspace_fragment>
         }`,
       side: THREE.DoubleSide,
