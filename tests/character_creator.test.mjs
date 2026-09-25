@@ -2,7 +2,7 @@ export default async function(page,R) {
   await page.getByText('New Character',{exact:true}).click();
   R.ok(await page.locator('#character-creator canvas').count()===1,'new character opens live creator');
   R.ok(await page.locator('#character-creator canvas').getAttribute('data-renderer')==='gameplay','creator uses shared gameplay pixel pipeline');
-  R.ok(await page.evaluate(()=>Number(document.querySelector('#character-creator canvas').dataset.texelDensity)===window.__game.pr.unitsPerPx),'preview preserves gameplay texel density');
+  R.ok(await page.evaluate(()=>Math.abs(Number(document.querySelector('#character-creator canvas').dataset.texelDensity)*2-window.__game.pr.unitsPerPx)<1e-6),'preview is exactly twice the gameplay texel density (portrait detail)');
   const root=page.locator('#character-creator');
   await root.locator('[data-key="frame"][data-value="tall"]').click();
   await root.locator('[data-key="skin"]').nth(5).click();

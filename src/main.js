@@ -163,6 +163,7 @@ async function start(fresh, cls, characterId, name = 'Mossling', appearance) {
         creator.dispose(); creator=null; input.paused=false; clearInput();
       },
     });
+    window.__creator = creator; // test hook
     return;
   }
   mode = 'starting';

@@ -7,7 +7,7 @@ export default async function(page,R){
  await page.waitForTimeout(500);R.ok(await page.evaluate(()=>window.__game.ui.doll.pixel.flash===0),'portrait animation never introduces a negative-time flash');
  await page.screenshot({path:'docs/screens/atlas/inventory-character.png'});
  R.ok(await page.locator('.doll-canvas').getAttribute('data-renderer')==='gameplay','inventory uses gameplay pixel renderer');
- R.ok(await page.evaluate(()=>{const g=window.__game;return g.ui.doll.pixel.unitsPerPx===g.pr.unitsPerPx&&g.ui.doll.hero.root.scale.x===g.player.m.root.scale.x&&g.ui.doll.hero.frame.scale.y===g.player.m.frame.scale.y;}),'inventory matches live pixel density and rig proportions');
+ R.ok(await page.evaluate(()=>{const g=window.__game;return Math.abs(g.ui.doll.pixel.unitsPerPx*2-g.pr.unitsPerPx)<1e-9&&g.ui.doll.hero.root.scale.x===g.player.m.root.scale.x&&g.ui.doll.hero.frame.scale.y===g.player.m.frame.scale.y;}),'inventory portrait is exactly twice the live pixel density, same rig proportions');
  const transforms=await page.evaluate(()=>{const g=window.__game,d=g.ui.doll;g.time=2;g.player.aimSrc='keys';g.player.blinkT=1;g.player.state='move';g.player.animate(0,0);d.t=2;d.frame(0);return ['body','head','armL','armR','sword','tail1','tail2'].every(k=>g.player.m[k].rotation.toArray().join()===d.hero[k].rotation.toArray().join());});
  R.ok(transforms,'live character and portrait use identical idle joint rotations');
  await page.evaluate(()=>{const g=window.__game;g.ui.closeInventory();});await sim(page,2);await page.screenshot({path:'docs/screens/atlas/game-character.png'});

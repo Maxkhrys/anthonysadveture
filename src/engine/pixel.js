@@ -9,6 +9,7 @@ export class PixelRenderer {
   constructor(canvas, options = {}) {
     this.viewport = options.viewport;
     this.forceScale = options.scale;
+    this.pitch = options.pitch ?? PITCH; // character screens look from lower than the game camera
     this.renderer = new THREE.WebGLRenderer({ canvas, alpha: !!options.transparent, premultipliedAlpha: !options.transparent, antialias: false, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(1);
     this.renderer.shadowMap.enabled = true;
@@ -139,8 +140,8 @@ export class PixelRenderer {
   render(scene, dt) {
     const c = this.camera;
     // Camera basis
-    const up = new THREE.Vector3(0, Math.cos(PITCH), -Math.sin(PITCH));
-    const back = new THREE.Vector3(0, Math.sin(PITCH), Math.cos(PITCH));
+    const up = new THREE.Vector3(0, Math.cos(this.pitch), -Math.sin(this.pitch));
+    const back = new THREE.Vector3(0, Math.sin(this.pitch), Math.cos(this.pitch));
     const t = this.target.clone();
     this.shakeT += dt * 60;
     this.shakeOff = this.shakeOff || new THREE.Vector3();
@@ -188,7 +189,7 @@ export class PixelRenderer {
   project(v) {
     const T = this.viewCenter(), u = this.unitsPerPx;
     const dx = v.x - T.x, dy = v.y - T.y, dz = v.z - T.z;
-    const a = dx, b = dy * Math.cos(PITCH) - dz * Math.sin(PITCH);
+    const a = dx, b = dy * Math.cos(this.pitch) - dz * Math.sin(this.pitch);
     const fx = a / (this.rw * u) + 0.5, fy = b / (this.rh * u) + 0.5;
     const r = this.renderer.domElement.getBoundingClientRect();
     return { x: r.left + fx * r.width, y: r.top + (1 - fy) * r.height };
@@ -199,7 +200,7 @@ export class PixelRenderer {
     const r = this.renderer.domElement.getBoundingClientRect();
     const fx = (cx - r.left) / r.width, fy = 1 - (cy - r.top) / r.height;
     const T = this.viewCenter(), u = this.unitsPerPx;
-    const ca = Math.cos(PITCH), sa = Math.sin(PITCH);
+    const ca = Math.cos(this.pitch), sa = Math.sin(this.pitch);
     const du = (fx - 0.5) * this.rw * u, dv = (fy - 0.5) * this.rh * u;
     // point on the camera plane through the target, then along the view ray (-back)
     const Cx = T.x + du, Cy = T.y + dv * ca, Cz = T.z - dv * sa;

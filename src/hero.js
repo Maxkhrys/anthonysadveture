@@ -17,11 +17,11 @@ const SKIN = 0xf6cda6, SKIN_D = 0xe0a882, INKC = 0x1b1426;
 
 // ------------------------------------------------------------------ class identity
 export const CLASS_LOOK = {
-  samurai: { shirt: 0x2f3f5a, shirtD: 0x223048, pants: 0x2a2f44, boots: 0x3a2a24, scarf: 0xd8342c, hair: 0x1a1420, sleeve: 0x2f3f5a },
-  archer: { shirt: 0x4a7a3a, shirtD: 0x3a6a2e, pants: 0x5a4a32, boots: 0x5a3a24, scarf: 0xe0b83a, hair: 0x7a4a24, sleeve: 0x4a7a3a },
-  witch: { shirt: 0x5a3a8a, shirtD: 0x44296e, pants: 0x3a2a5a, boots: 0x2a1e3a, scarf: 0x7fd36a, hair: 0x8a5ac0, sleeve: 0x5a3a8a },
+  samurai: { shirt: 0x3e5d8e, shirtD: 0x2d4674, pants: 0x3a4062, boots: 0x4c3628, scarf: 0xe2483c, hair: 0x1a1420, sleeve: 0x3e5d8e, trim: 0xe0b860 },
+  archer: { shirt: 0x5c8e46, shirtD: 0x46723a, pants: 0x6e5638, boots: 0x6e4629, scarf: 0xeac452, hair: 0x7a4a24, sleeve: 0x5c8e46, trim: 0xd8c08a },
+  witch: { shirt: 0x6c4aa4, shirtD: 0x563a8a, pants: 0x46366e, boots: 0x3a2c52, scarf: 0x8ad870, hair: 0x8a5ac0, sleeve: 0x6c4aa4, trim: 0xe8c860 },
   // travelling cloth, aged leather, pale spectral teal
-  soulbound: { shirt: 0x3c4450, shirtD: 0x2c323c, pants: 0x3a3b40, boots: 0x5a4432, scarf: 0x5fa8a2, hair: 0x2c2834, sleeve: 0x4a4e56 },
+  soulbound: { shirt: 0x4a5566, shirtD: 0x39414f, pants: 0x464954, boots: 0x6a5038, scarf: 0x66b8b0, hair: 0x2c2834, sleeve: 0x566070, trim: 0xa8e8e0 },
 };
 const SPIRIT = 0x8fe3dc, SPIRIT_L = 0xc8b0ff, IRON = 0x5c5a5e, IRON_L = 0x8a8890, PAPER = 0xe8dcc0, LEATHER = 0x6a4a30;
 
@@ -92,6 +92,12 @@ export function torsoParts(cls, chest) {
     B(0.32, 0.045, 0.24, 0, 0.2, 0, A ? trim : 0x5a3a24), // belt
     B(0.06, 0.05, 0.02, 0, 0.2, 0.125, A ? RAR[A.r] : 0xffd25e), // buckle shows rarity
   ];
+  if (!A) { // tailoring: a lit shoulder yoke, a crossed collar, a hem below the belt, a pouch
+    const t = C.trim || 0xd8b060;
+    P.push(B(0.31, 0.06, 0.23, 0, 0.34, 0, shade(main, 1.14)), B(0.33, 0.07, 0.235, 0, 0.1, 0, shade(main, 0.88)), B(0.12, 0.09, 0.02, 0.03, 0.1, 0.121, second));
+    P.push(B(0.075, 0.05, 0.02, -0.035, 0.35, 0.117, t, 0, 0, 0.62), B(0.075, 0.05, 0.02, 0.035, 0.35, 0.117, shade(t, 0.85), 0, 0, -0.62));
+    P.push(B(0.33, 0.012, 0.236, 0, 0.1, 0, t), B(0.07, 0.07, 0.06, 0.135, 0.15, 0.09, LEATHER), B(0.075, 0.025, 0.065, 0.135, 0.205, 0.09, shade(LEATHER, 1.3)), B(0.02, 0.02, 0.02, 0.135, 0.19, 0.125, t));
+  }
   const shape = A ? A.shape : { samurai: 'wrap', archer: 'straps', witch: 'robe' }[cls];
   if (shape === 'wrap') P.push(B(0.07, 0.2, 0.02, -0.05, 0.2, 0.115, second, 0, 0, 0.5), B(0.07, 0.2, 0.02, 0.05, 0.2, 0.115, trim, 0, 0, -0.5));
   if (shape === 'straps') P.push(B(0.05, 0.26, 0.02, -0.06, 0.16, 0.115, second, 0, 0, 0.45), B(0.05, 0.26, 0.02, 0.06, 0.16, -0.115, second, 0, 0, -0.45));
@@ -146,7 +152,7 @@ export function legParts(cls, legsItem, bootsItem, chest, side) {
   const L = legsItem ? armorLook(legsItem) : null, Bo = bootsItem ? armorLook(bootsItem) : null;
   const pants = L ? L.main : A ? A.legs : C.pants;
   const boot = Bo ? Bo.main : A ? A.boots : C.boots;
-  const P = [B(0.11, 0.1, 0.12, 0, -0.12, 0, pants), B(0.13, 0.1, 0.16, 0, -0.21, 0.015, boot), B(0.135, 0.03, 0.165, 0, -0.14, 0.015, shade(boot, 1.25))];
+  const P = [B(0.11, 0.1, 0.12, 0, -0.12, 0, pants), B(0.13, 0.1, 0.16, 0, -0.21, 0.015, boot), B(0.135, 0.03, 0.165, 0, -0.14, 0.015, shade(boot, 1.25)), B(0.136, 0.022, 0.17, 0, -0.222, 0.017, shade(boot, 0.55)), B(0.1, 0.04, 0.03, 0, -0.2, 0.09, shade(boot, 1.15))];
   if ((Bo && Bo.r >= 2) || (A && A.r >= 3)) P.push(B(0.04, 0.04, 0.02, 0, -0.17, 0.1, (Bo || A).rar));
   if (cls === 'samurai' && !L) P.push(B(0.12, 0.08, 0.13, 0, -0.08, 0, shade(pants, 1.2))); // hakama flare
   const ls = setOf(legsItem), bs = setOf(bootsItem);
@@ -162,7 +168,8 @@ export function armParts(cls, armsItem, chest, side = 1) {
   const C = CLASS_LOOK[cls] || CLASS_LOOK.samurai, A = armorLook(chest), R = armsItem ? armorLook(armsItem) : null;
   const sleeve = A ? A.arms : C.sleeve;
   const bracer = R ? R.main : A && A.r >= 1 ? A.second : shade(sleeve, 0.8);
-  const P = [B(0.09, 0.12, 0.09, 0, -0.14, 0, sleeve), B(0.1, 0.06, 0.1, 0, -0.2, 0, bracer), B(0.085, 0.06, 0.085, 0, -0.26, 0, SKIN)];
+  const cap = B(0.115, 0.1, 0.115, 0, -0.07, 0, shade(sleeve, 1.12)); cap.round = true;
+  const P = [cap, B(0.09, 0.12, 0.09, 0, -0.14, 0, sleeve), B(0.1, 0.06, 0.1, 0, -0.2, 0, bracer), B(0.104, 0.014, 0.104, 0, -0.15, 0, C.trim || 0xd8b060), B(0.085, 0.06, 0.085, 0, -0.26, 0, SKIN)];
   if (R && R.r >= 2) P.push(B(0.03, 0.03, 0.02, 0, -0.18, 0.055, R.rar));
   if (cls === 'witch') P.push(B(0.12, 0.05, 0.12, 0, -0.18, 0, shade(sleeve, 0.85))); // bell sleeves
   if (cls === 'soulbound' && side > 0) { for (let i=0;i<3;i++) P.push(B(.112,.022,.112,0,-.1-i*.045,0,i%2?IRON_L:IRON,0,i*.4)); P.push(G(.114,.014,.114,0,-.235,0,SPIRIT)); }
@@ -172,10 +179,10 @@ export function armParts(cls, armsItem, chest, side = 1) {
   if (as === 'thornstalker') for (let i = 0; i < 3; i++) P.push(B(0.025, 0.07, 0.025, 0.05, -0.12 - i * 0.05, 0, THORN, 0, 0, -0.9));
   if (as === 'cinderwoven') P.push(B(0.105, 0.08, 0.105, 0, -0.26, 0, SOOT), G(0.106, 0.012, 0.106, 0, -0.21, 0, EMBER));
   // hands: a gripping fist with a thumb
-  P.push(B(0.03, 0.035, 0.035, 0.035, -0.25, 0.035, SKIN_D));
+  P.push(B(0.03, 0.035, 0.035, 0.035, -0.25, 0.035, SKIN_D), B(0.07, 0.016, 0.02, 0, -0.245, 0.044, SKIN_D));
   return P;
 }
-export function headParts(cls, appearance) {
+export function headParts(cls, appearance, opts = {}) {
   const a = normalizeAppearance(appearance), skin = Number(a.skin.replace('#','0x')), hair = Number(a.hairColor.replace('#','0x'));
   const width = {soft:.29,angular:.28,round:.32,long:.26}[a.face];
   const P = [B(width,.29,.275,0,.01,0,skin), B(.1,.065,.12,0,-.04,0,skin),
@@ -183,19 +190,23 @@ export function headParts(cls, appearance) {
     B(.045,.012,.012,0,.05,.143,shade(skin,.58))];
   for(const side of [-1,1]) P.push(B(.045,.075,.064,side*width*.49,.1,0,skin));
   P[0].round = true;
+  // a touch of warmth on the cheeks and the corners of a small smile
+  const blush = new THREE.Color(skin).lerp(new THREE.Color(0xf07a7a), .45).getHex();
+  for(const side of [-1,1]) P.push(B(.045,.02,.012,side*.095,.1,.128,blush), B(.012,.012,.012,side*.027,.058,.141,shade(skin,.58)));
   const add = (w,h,d,x,y,z,rz=0) => { const part=B(w,h,d,x,y,z,hair,0,0,rz); part.round=true; P.push(part); };
   if(a.hair !== 'shaved') {
-    add(width+.025,.07,.285,0,.267,-.01);
+    if (!opts.hat) add(width+.025,.07,.285,0,.267,-.01);
+    const sheen = B(width*.55,.022,.12,-.03,.322,.03,shade(hair,1.55),0,0,-.12); sheen.round = true; if (!opts.hat) P.push(sheen); // light catching the crown
     add(width+.018,.14,.065,0,.16,-.13);
-    if(['tousled','swept','undercut'].includes(a.hair)) for(let i=0;i<4;i++) add(.085,.065,.15,-.105+i*.066,.27+(i%2)*.025,.063,a.hair==='swept'?-.3:(i%2?-.18:.2));
+    if(['tousled','swept','undercut'].includes(a.hair) && !opts.hat) for(let i=0;i<4;i++) add(.085,.065,.15,-.105+i*.066,.27+(i%2)*.025,.063,a.hair==='swept'?-.3:(i%2?-.18:.2));
     if(a.hair==='cropped') add(width,.035,.07,0,.24,.115);
     if(['topknot','ponytail','braided'].includes(a.hair)) {
-      add(.095,.09,.095,0,a.hair==='topknot'?.32:.2,-.115);
+      if (!(opts.hat && a.hair==='topknot')) add(.095,.09,.095,0,a.hair==='topknot'?.32:.2,-.115);
       if(a.hair!=='topknot') for(let i=0;i<5;i++) add(a.hair==='braided'?.055:.075,.06,.07,(i%2)*.015,.17-i*.052,-.17-i*.009);
       P.push(B(.1,.018,.1,0,a.hair==='topknot'?.33:.21,-.116,0xb89c5c));
     }
     if(a.hair==='long') for(const side of [-1,1]) { add(.065,.29,.135,side*.146,-.005,-.035,side*.07); add(.09,.26,.05,side*.06,.015,-.15); }
-    if(a.hair==='curly') for(let i=0;i<9;i++) { const angle=i/9*Math.PI*2; add(.09,.09,.09,Math.cos(angle)*.12,.25+(i%2)*.035,Math.sin(angle)*.11); }
+    if(a.hair==='curly') for(let i=0;i<9;i++) { const angle=i/9*Math.PI*2; add(.09,.09,.09,Math.cos(angle)*.12,(opts.hat?.2:.25)+(i%2)*.035,Math.sin(angle)*.11); }
   }
   if(a.beard!=='none') {
     const h={stubble:.025,short:.06,full:.11,moustache:.024,forked:.13}[a.beard];
@@ -483,6 +494,12 @@ function setMesh(group, parts, mat = MAT) {
   if (glow.length) { const m = new THREE.Mesh(geo(glow), MAT_GLOW); m.layers.enable(1); group.add(m); }
 }
 
+// the witch's own hat: a wide brim, a crooked cone with a green band and a brass buckle
+function witchHat() {
+  const H = 0x5a3c94, H2 = 0x6a4aae, D = 0x40286e;
+  return [B(.44,.026,.41,0,.25,0,D), B(.46,.01,.43,0,.246,0,shade(D,1.35)), B(.3,.1,.28,0,.27,0,H), B(.31,.034,.29,0,.27,0,0x8ad870), B(.05,.04,.02,.05,.275,.146,0xe8c860),
+    B(.21,.1,.2,.012,.36,-.02,H2,-.12), B(.13,.09,.12,.035,.44,-.05,H,-.3), B(.075,.08,.075,.07,.5,-.09,H2,-.6,0,-.2), B(.04,.045,.04,.1,.535,-.13,H,-.9,0,-.4)];
+}
 export function makeHero(cls = 'samurai', appearance) {
   let look = normalizeAppearance(appearance);
   const C = CLASS_LOOK[cls] || CLASS_LOOK.samurai;
@@ -528,10 +545,10 @@ export function makeHero(cls = 'samurai', appearance) {
     setMesh(legRm, legParts(cls, V.legs, V.boots, V.chest, 1));
     setMesh(armLm, skinParts(armParts(cls, V.arms, V.chest, -1)));
     setMesh(armRm, skinParts(armParts(cls, V.arms, V.chest, 1)));
-    setMesh(helm, V.head ? helmParts(cls, V.head) : cls === 'witch' ? [B(.32,.025,.3,0,.24,0,0x695437),B(.065,.065,.025,0,.245,.16,0x91ba9b)] : []);
+    setMesh(helm, V.head ? helmParts(cls, V.head) : cls === 'witch' ? witchHat() : []);
     helm.scale.set(.82,.85,.86);
     // Equipment hides hair cap and long strands cleanly; cosmetics remain saved.
-    setMesh(headM, headParts(cls, V.head ? {...look,hair:'shaved'} : look));
+    setMesh(headM, headParts(cls, V.head ? {...look,hair:'shaved'} : look, { hat: cls === 'witch' && !V.head }));
     setMesh(neck, neckParts(V.neck));
     setWeapon(V.weapon);
   };
@@ -548,7 +565,8 @@ export function makeHero(cls = 'samurai', appearance) {
     const hair=Number(look.hairColor.replace('#','0x')), iris=Number(look.eyes.replace('#','0x'));
     const P=[];
     for(const side of [-1,1]) {
-      P.push(B(.049,.052,.015,side*.068,.151,.126,INKC),B(.025,.035,.012,side*.068,.155,.136,iris),B(.009,.011,.01,side*.068-.006,.177,.144,0xf8edd5),B(.062,.016,.017,side*.068,.219,.114,hair,0,0,look.face==='angular'?side*.16:0));
+      P.push(B(.058,.064,.015,side*.07,.142,.126,INKC),B(.038,.046,.012,side*.07,.146,.134,iris),B(.03,.016,.011,side*.07,.146,.137,shade(iris,1.35)),B(.018,.026,.01,side*.07,.156,.14,shade(iris,.35)),
+        B(.014,.014,.01,side*.07-.01,.178,.145,0xfffaf0),B(.008,.008,.01,side*.07+.011,.154,.145,0xf8edd5),B(.066,.016,.017,side*.07,.222,.114,hair,0,0,look.face==='angular'?side*.16:0));
     }
     setMesh(eyes,P,MAT_GLOW); lastKey=''; setGear(currentEquip);
   };
