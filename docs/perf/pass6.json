@@ -1,0 +1,148 @@
+{
+ "thimblewick": {
+  "update": 0.31,
+  "render": 4,
+  "calls": 302,
+  "tris": 140580,
+  "entities": 582,
+  "enemies": 0,
+  "chunks": 6,
+  "geometries": 429,
+  "heapMB": 50
+ },
+ "deepwood_dense": {
+  "update": 0.9,
+  "render": 2.4,
+  "calls": 225,
+  "tris": 261248,
+  "entities": 312,
+  "enemies": 21,
+  "chunks": 6,
+  "geometries": 470,
+  "heapMB": 45
+ },
+ "glassmere": {
+  "update": 0.57,
+  "render": 2.7,
+  "calls": 192,
+  "tris": 73376,
+  "entities": 348,
+  "enemies": 4,
+  "chunks": 4,
+  "geometries": 544,
+  "heapMB": 35
+ },
+ "lake_mirrow": {
+  "update": 0.22,
+  "render": 2.9,
+  "calls": 104,
+  "tris": 28374,
+  "entities": 195,
+  "enemies": 3,
+  "chunks": 6,
+  "geometries": 582,
+  "heapMB": 44
+ },
+ "cinderpeak": {
+  "update": 0.22,
+  "render": 1.9,
+  "calls": 104,
+  "tris": 43944,
+  "entities": 101,
+  "enemies": 16,
+  "chunks": 6,
+  "geometries": 608,
+  "heapMB": 48
+ },
+ "moonfen_night": {
+  "update": 0.38,
+  "render": 3.3,
+  "calls": 185,
+  "tris": 100280,
+  "entities": 208,
+  "enemies": 16,
+  "chunks": 9,
+  "geometries": 662,
+  "heapMB": 35
+ },
+ "sunscald": {
+  "update": 0.42,
+  "render": 1.7,
+  "calls": 106,
+  "tris": 38830,
+  "entities": 216,
+  "enemies": 37,
+  "chunks": 6,
+  "geometries": 691,
+  "heapMB": 55
+ },
+ "highlands": {
+  "update": 0.41,
+  "render": 1.9,
+  "calls": 97,
+  "tris": 54848,
+  "entities": 289,
+  "enemies": 9,
+  "chunks": 4,
+  "geometries": 715,
+  "heapMB": 39
+ },
+ "heartland_rain": {
+  "update": 0.38,
+  "render": 2.3,
+  "calls": 115,
+  "tris": 96076,
+  "entities": 295,
+  "enemies": 0,
+  "chunks": 6,
+  "geometries": 731,
+  "heapMB": 32
+ },
+ "highlands_vista": {
+  "update": 0.17,
+  "render": 3,
+  "calls": 181,
+  "tris": 158970,
+  "entities": 351,
+  "enemies": 1,
+  "chunks": 12,
+  "geometries": 786,
+  "heapMB": 40,
+  "zoom": 2.4
+ },
+ "fight_24": {
+  "update": 0.73,
+  "render": 2.6,
+  "calls": 238,
+  "tris": 53272,
+  "entities": 240,
+  "enemies": 36,
+  "chunks": 12,
+  "geometries": 905,
+  "heapMB": 45
+ },
+ "rapid_travel": {
+  "idleMedianMs": 150,
+  "worstFrameMs": [
+   700.1,
+   366.6,
+   500,
+   266.6,
+   549.9
+  ],
+  "medianFrameMs": [
+   350,
+   166.7,
+   183.3,
+   150,
+   166.6
+  ],
+  "chunksBuilt": 37,
+  "avgChunkMs": 5,
+  "totalMs": 56558
+ },
+ "map_open": {
+  "firstMs": 1072.2,
+  "redrawMs": 0.2
+ }
+}

@@ -34,7 +34,7 @@ export class WorldStreamer {
     if (grp.parent) grp.parent.remove(grp);
     grp.traverse(o => {
       if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose();
-      if (o.material && o.material.isShaderMaterial) o.material.dispose();
+      if (o.material && o.material.isShaderMaterial && !o.material.userData.shared) o.material.dispose();
       if (o.isInstancedMesh) o.dispose();
     });
     this.chunks.delete(key);

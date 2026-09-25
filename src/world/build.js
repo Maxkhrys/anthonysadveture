@@ -183,6 +183,7 @@ function terrainMat() {
 }
 
 // Animated liquid surface
+const LIQ_MATS = new WeakMap();
 export function buildLiquids(area, time, rect) {
   const group = new THREE.Group();
   const X0 = rect ? rect.x0 : 0, Y0 = rect ? rect.y0 : 0, X1 = rect ? Math.min(area.w, rect.x1) : area.w, Y1 = rect ? Math.min(area.h, rect.y1) : area.h;
@@ -204,7 +205,12 @@ export function buildLiquids(area, time, rect) {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('shore', new THREE.Float32BufferAttribute(shore, 1));
-    const mat = new THREE.ShaderMaterial({
+    // one material per liquid kind (and clock): chunks come and go, and a disposed last user
+    // would make three.js throw the compiled program away and rebuild it on the next chunk
+    let byKey = LIQ_MATS.get(time); if (!byKey) LIQ_MATS.set(time, byKey = new Map());
+    const key = [shallowCol, deepCol, foamCol, lava ? 1 : 0].join(':');
+    let mat = byKey.get(key);
+    if (!mat) byKey.set(key, mat = new THREE.ShaderMaterial({
       uniforms: { time, a: { value: new THREE.Color(shallowCol) }, b: { value: new THREE.Color(deepCol) }, f: { value: new THREE.Color(foamCol) }, lava: { value: lava ? 1 : 0 }, ...waterU },
       vertexShader: `attribute float shore; varying float vS; varying vec3 vW; void main(){ vS = shore; vec4 w = modelMatrix*vec4(position,1.); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }`,
       fragmentShader: `uniform float time; uniform vec3 a; uniform vec3 b; uniform vec3 f; uniform float lava; uniform float light; uniform float rain; uniform vec3 sky; uniform float night; varying float vS; varying vec3 vW;
@@ -240,7 +246,8 @@ export function buildLiquids(area, time, rect) {
           #include <colorspace_fragment>
         }`,
       side: THREE.DoubleSide,
-    });
+    }));
+    mat.userData.shared = true;
     g.computeBoundingSphere();
     const m = new THREE.Mesh(g, mat);
     m.receiveShadow = false;

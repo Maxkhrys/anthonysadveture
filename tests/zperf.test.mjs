@@ -17,11 +17,11 @@ export default async function (page, R) {
   const at = (x, z) => page.evaluate(([x, z]) => { const g = window.__game, p = g.player; p.x = x; p.z = z; g.snapCamera(); }, [x, z]);
   const out = {};
   await page.evaluate(() => { const g = window.__game; g.flags.dayOffset = 0; g.raining = false; g.rainK = 0; g.weatherT = 999; });
-  await at(58.5, 62.5); await sim(page, 20); out.village_day = await measure(page);
+  await at(58.5 + 90, 62.5 + 70); await sim(page, 20); out.village_day = await measure(page);
   await page.evaluate(() => { window.__game.flags.dayOffset = 420 * 0.45; }); await sim(page, 30); out.village_night = await measure(page);
-  await page.evaluate(() => { const g = window.__game; g.flags.dayOffset = 0; g.raining = true; g.rainK = 1; }); await at(96, 76); await sim(page, 20); out.lake_rain = await measure(page);
-  await page.evaluate(() => { const g = window.__game; g.raining = false; g.rainK = 0; }); await at(20, 44); await sim(page, 20); out.forest = await measure(page);
-  await at(58.5, 64.5);
+  await page.evaluate(() => { const g = window.__game; g.flags.dayOffset = 0; g.raining = true; g.rainK = 1; }); await at(96 + 90, 76 + 70); await sim(page, 20); out.lake_rain = await measure(page);
+  await page.evaluate(() => { const g = window.__game; g.raining = false; g.rainK = 0; }); await at(20 + 90, 44 + 70); await sim(page, 20); out.forest = await measure(page);
+  await at(58.5 + 90, 64.5 + 70);
   await page.evaluate(() => { const g = window.__game, p = g.player; for (let i = 0; i < 24; i++) { const e = g.spawnEnemy(['blot', 'brigand', 'sporeling', 'beetle'][i % 4], p.x + Math.cos(i) * 3.5, p.z + Math.sin(i) * 3.5, { noRoom: true }); e.spawnT = 0; e.obj.scale.setScalar(1); } for (let i = 0; i < 8; i++) g.entities.filter(e => e.isEnemy)[i].die({ dir: 0 }); });
   out.combat_crowd = await measure(page);
   out.particles_live = await page.evaluate(() => window.__game.fx.p.length);

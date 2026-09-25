@@ -311,7 +311,8 @@ export class UI {
     }
     // paper grain + deckled edge
     const img = x.getImageData(0, 0, c.width, c.height), px = img.data;
-    for (let k = 0; k < px.length; k += 4) { const v = (H(k, 7, 3) - 0.5) * 14; px[k] += v; px[k + 1] += v; px[k + 2] += v * 0.8; }
+    const GR = new Float32Array(4096); for (let i = 0; i < 4096; i++) GR[i] = (H(i, 7, 3) - 0.5) * 14; // a tiled grain table (one hash per cell, not per pixel)
+    for (let k = 0, j = 0; k < px.length; k += 4, j++) { const v = GR[(j * 2654435761 >>> 20) & 4095]; px[k] += v; px[k + 1] += v; px[k + 2] += v * 0.8; }
     x.putImageData(img, 0, 0);
     const gr = x.createRadialGradient(c.width / 2, c.height / 2, c.height * 0.35, c.width / 2, c.height / 2, c.width * 0.62);
     gr.addColorStop(0, '#0000'); gr.addColorStop(1, '#5a3a1a70'); x.fillStyle = gr; x.fillRect(0, 0, c.width, c.height);

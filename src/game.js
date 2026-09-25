@@ -689,6 +689,7 @@ export class Game {
     this.snapCamera();
     this.cam.y = this.player.gy || 0;
     { const v = this.viewExtent(); this.streamer.update(this.cam.x, this.cam.z, v.hw, v.hd, Infinity); }
+    this.warmShaders(area);
     this.music = null; this.musicOvr = null;
     this.region = null;
     this.updateRegion(true);
@@ -1296,6 +1297,23 @@ export class Game {
     const h = (xx, zz) => { const v = groundY(a, xx, zz); return Math.abs(v - own) > 0.55 ? own : v; };
     const a0 = h(x0, z0), a1 = h(x0 + 1, z0), b0 = h(x0, z0 + 1), b1 = h(x0 + 1, z0 + 1);
     return (a0 * (1 - tx) + a1 * tx) * (1 - tz) + (b0 * (1 - tx) + b1 * tx) * tz;
+  }
+  // Compile every material variant the regions use once, at load (behind the fade), so the
+  // first step into a new region doesn't stall on shader compilation.
+  warmShaders(area) {
+    if (area.id !== 'overworld' || this._warmed || !this.pr.renderer.compile) return;
+    this._warmed = true;
+    // build a chunk from each region, slide it under the camera, draw it once (shadows too), drop it
+    for (const [x, z] of [[60, 200], [262, 50], [118, 44], [288, 201], [44, 110], [268, 150], [150, 96], [236, 80]]) {
+      const cx = Math.floor(x / 24), cz = Math.floor(z / 24), k = cx + ',' + cz;
+      if (this.streamer.chunks.has(k)) continue;
+      this.streamer.build(cx, cz);
+      const grp = this.streamer.chunks.get(k);
+      grp.position.set(this.cam.x - (cx + 0.5) * 24, 0, this.cam.z - (cz + 0.5) * 24);
+      grp.updateMatrixWorld(true);
+      try { this.pr.render(this.scene, 0); } catch (e) { /* keep loading even if a warm-up draw fails */ }
+      this.streamer.drop(k);
+    }
   }
   tileGround(tx, tz) { return this.area && this.area.elevated ? groundY(this.area, tx, tz) : 0; }
   viewExtent() {
