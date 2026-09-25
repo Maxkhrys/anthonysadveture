@@ -94,7 +94,7 @@ export const COMMAND_DEFINITIONS = {
     name: 'createtestprofile',
     category: 'CHARACTER',
     desc: 'Create a fresh test character profile for testing.',
-    usage: '/createtestprofile <name> <samurai|archer|witch|soulbound>',
+    usage: '/createtestprofile <name> <samurai|archer|witch|soulbound|gunslinger>',
   },
   level: {
     name: 'level',
@@ -290,7 +290,7 @@ export const COMMAND_DEFINITIONS = {
     name: 'setclass',
     category: 'COMBAT',
     desc: 'Switch active class and equip starter/representative class gear.',
-    usage: '/setclass <samurai|archer|witch|soulbound>',
+    usage: '/setclass <samurai|archer|witch|soulbound|gunslinger>',
   },
   dummylevel: {
     name: 'dummylevel',
@@ -671,13 +671,13 @@ export class DevCommands {
 
     createtestprofile(game, args, log) {
       if (!args[0] || !args[1]) {
-        log('Usage: /createtestprofile <name> <samurai|archer|witch|soulbound>', 'yellow');
+        log('Usage: /createtestprofile <name> <samurai|archer|witch|soulbound|gunslinger>', 'yellow');
         return;
       }
       const name = args[0];
       const classId = args[1].toLowerCase();
-      if (!['samurai', 'archer', 'witch', 'soulbound'].includes(classId)) {
-        log('Class must be one of: samurai, archer, witch, soulbound.', 'error');
+      if (!Object.hasOwn(CLASSES, classId)) {
+        log('Class must be one of: samurai, archer, witch, soulbound, gunslinger.', 'error');
         return;
       }
       const p = ProfileLab.createTestProfile(game, name, classId);
@@ -1118,7 +1118,7 @@ export class DevCommands {
     },
 
     setclass(game, args, log) {
-      if (!args[0]) { log('Usage: /setclass <samurai|archer|witch|soulbound>', 'yellow'); return; }
+      if (!args[0]) { log('Usage: /setclass <samurai|archer|witch|soulbound|gunslinger>', 'yellow'); return; }
       const target = args[0].toLowerCase();
       if (!CLASSES[target]) { log('Valid classes: ' + Object.keys(CLASSES).join(', ') + '.', 'error'); return; }
       game.inv.cls = target;

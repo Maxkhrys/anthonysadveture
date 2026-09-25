@@ -11,7 +11,9 @@ export function magazine(w) {
 export function completeReload(w,highNoon=false,clean=false) {
  const m=magazine(w),f=FIREARMS[w.kind];if(!m)return;
  const empty=m.rounds===0,fullCycle=m.fired>=f.capacity;
- m.opening=(clean?.25:0)+(empty&&highNoon?1:0)+(m.finalHit&&w.unique==='sundownsix'?.75:0);
+ m.reloadVersion=(m.reloadVersion||0)+1;
+ m.clean=clean?.25:0;m.openingShots=empty&&highNoon&&w.kind==='rifle'?3:1;
+ m.opening=((empty&&highNoon?1:0)+(m.finalHit&&w.unique==='sundownsix'?.75:0))/m.openingShots;
  m.spectral=w.unique==='seventhchime'&&fullCycle&&empty;
  m.rounds=f.capacity;m.fired=0;m.finalHit=false;
 }

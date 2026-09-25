@@ -12,7 +12,7 @@ const talent=(p,id)=>p.g.talent(id);
 export function gunCost(p,id,cost){return id==='satchelcharge'&&p.satchel&&!p.satchel.dead?0:cost*(talent(p,'efficientgears')&&['powdergrenade','smokebomb','satchelcharge','sentryturret','overclock'].includes(id)?.85:1);}
 export function gunReady(p,id) {return !['quickdraw','barrage'].includes(id)||(isFirearm(p.inv.equip.weapon)&&magazine(p.inv.equip.weapon).rounds>0&&!p.reload&&!p.barrage);}
 export function startReload(p){
- const w=p.inv.equip.weapon,m=magazine(w);if(!m||m.rounds===FIREARMS[w.kind].capacity||p.reload)return false;
+ const w=p.inv.equip.weapon,m=magazine(w);if(!m||m.rounds===FIREARMS[w.kind].capacity||p.reload||p.barrage)return false;
  p.reload={weapon:w,left:FIREARMS[w.kind].reload};p.g.hudDirty=true;sfx('gunreload');return true;
 }
 export function gunDodge(p){
@@ -56,7 +56,8 @@ export function fireGun(p,{ability=false,mult=1,bonus=null,bypass=false,consumeP
  if(!f||p.reload||(!bypass&&p.gunCd>0))return false;
  if(!m.rounds){startReload(p);return false;}
  p.faceAim();const origin=muzzle(p),primed=consumePrime&&!!p.gunPrimed;
- const opening=m.opening||0,spectral=!!m.spectral; m.opening=0;m.spectral=false;
+ const clean=m.clean||0,opening=(m.opening||0)+clean,spectral=!!m.spectral,version=m.reloadVersion;
+ m.clean=0;if(--m.openingShots<=0||!Number.isFinite(m.openingShots))m.opening=0;m.spectral=false;
  if(primed)p.gunPrimed=false;
  spendRounds(w);const final=m.rounds===0;
  const power=ability?1.35/f.power:1;
@@ -73,10 +74,12 @@ export function fireGun(p,{ability=false,mult=1,bonus=null,bypass=false,consumeP
    if(primed||final&&talent(p,'lastround'))e.stagger=Math.max(e.stagger||0,.3);
    if(e.attachedGrenade&&!e.attachedGrenade.dead&&w.unique==='kilnrunner')e.attachedGrenade.boost=Math.min(.5,(e.attachedGrenade.boost||0)+.1);
    if(talent(p,'linkedfire')){p.linkedTarget=e;p.linkedUntil=g.time+2;}
-   if(talent(p,'fieldservice')&&!(p.repairAt>g.time)){let repaired=false;for(const t of sentries(p))if(visible(g,p,t,4)){t.hp=Math.min(t.maxHp,t.hp+3);repaired=true;}if(repaired)p.repairAt=g.time+2;}
+   if(talent(p,'fieldservice')&&!(p.repairAt>g.time)){let repaired=false;for(const t of sentries(p))if(visible(g,p,t,4)){t.hp=Math.min(t.maxHp,t.hp+3);t.healthBar.scale.x=t.hp/t.maxHp;repaired=true;}if(repaired)p.repairAt=g.time+2;}
    if(primed&&w.unique==='bellfoundryrepeater'&&!(p.syncAt>g.time)){const t=sentries(p).find(t=>visible(g,t,e,8));if(t){p.syncAt=g.time+3;t.fire(e,1.5);}}
   }});
  shot.y=Math.max(.15,origin.y-shot.gy0);shot.manualGun=true;shot.gunOwner=p;
+ // Clean Chamber is reserved by the shot and returned on a miss, never across a newer reload.
+ const end=shot.remove.bind(shot);shot.remove=()=>{if(clean&&!awarded&&m.reloadVersion===version)m.clean=Math.max(m.clean||0,clean);end();};
  g.spawn(shot);p.gunCd=f.interval/Math.max(.5,Math.min(2,g.pstats.wspd)) /(p.overclockUntil>g.time?1.3:1);
  p.gunSpread=Math.min(.2,(p.gunSpread||0)+(w.kind==='rifle'?.028:0));p.gunRecoil=1;p.combatT=3;
  g.fx.burst(origin.x,origin.y,origin.z,4,spectral?0xbdf8ff:0xffd38b,1,{life:.07,size:.035});
@@ -122,9 +125,9 @@ class Smoke extends Entity{
  update(dt){this.t+=dt;if(this.t>4||this.owner!==this.g.player)return this.remove();const p=this.owner;if(Math.hypot(p.x-this.x,p.z-this.z)<2.5)p.smokeUntil=this.g.time+.1;else p.smokeUntil=0;for(const e of foes(this.g))if(!e.isBoss&&visible(this.g,this,e,2.5))e.applyStatus?.('chill',.15);this.m.material.opacity=.16+Math.sin(this.t*4)*.04;}
 }
 export class Sentry extends Entity{
- constructor(g,p,at,rm){super(g,at.x,at.z);this.owner=p;this.isSentry=true;this.state='idle';this.t=0;this.tick=.25;this.rm=rm;this.hp=this.maxHp=talent(p,'reinforcedhousing')?60:30;this.alwaysUpdate=true;this.m=mesh([B(.36,.1,.32,0,0,0,0x5b4433),B(.18,.25,.18,0,.1,0,0xb8904f),B(.1,.1,.5,0,.35,.15,0x343b40),B(.14,.14,.16,.13,.2,0,0x9d6f46)],MAT,true);this.obj.add(this.m);this.sync();}
+ constructor(g,p,at,rm){super(g,at.x,at.z);this.owner=p;this.isSentry=true;this.state='idle';this.t=0;this.tick=.25;this.rm=rm;this.hp=this.maxHp=talent(p,'reinforcedhousing')?60:30;this.alwaysUpdate=true;this.m=mesh([B(.36,.1,.32,0,0,0,0x5b4433),B(.18,.25,.18,0,.1,0,0xb8904f),B(.1,.1,.5,0,.35,.15,0x343b40),B(.14,.14,.16,.13,.2,0,0x9d6f46)],MAT,true);this.obj.add(this.m);this.healthBar=mesh([B(.4,.025,.04,0,.62,0,0x83c89f)],MAT,false);this.obj.add(this.healthBar);this.sync();}
  onHit(h){return this.hurt(h);}
- hurt(h){if(this.dead||!h.src?.isEnemy)return false;this.hp-=Math.max(1,(h.dmg||1)*6);this.g.fx.ring(this.x,this.z,.1,.4,0xe78663,.15);if(this.hp<=0){this.state='dead';this.remove();}return true;}
- fire(e,bonus=1){if(!visible(this.g,this,e,8))return;const g=this.g,p=this.owner;let mult=.45*this.rm*bonus*1.35/(FIREARMS[p.inv.equip.weapon?.kind]?.power||1.35)*(talent(p,'twinsentries')?.65:1);if(p.marked===e&&p.markUntil>g.time&&talent(p,'prioritytarget'))mult*=1.25;if(p.linkedTarget===e&&p.linkedUntil>g.time&&talent(p,'linkedfire'))mult*=1.2;mult*=1+(g.pstats.arpg?.stats.turretDamage||0)/100;const dir=Math.atan2(e.x-this.x,e.z-this.z);this.m.rotation.y=dir;g.spawn(new Projectile(g,{x:this.x,z:this.z,dir,speed:26,range:8,mult,kind:'bullet',color:0xe4b869,r:.06,ability:true,arpgProc:true,arpgChild:true}));}
+ hurt(h){if(this.dead||!h.src?.isEnemy)return false;this.hp-=Math.max(1,(h.dmg||1)*6);this.healthBar.scale.x=Math.max(.01,this.hp/this.maxHp);this.g.fx.ring(this.x,this.z,.1,.4,0xe78663,.15);if(this.hp<=0){this.state='dead';this.remove();}return true;}
+ fire(e,bonus=1){if(!visible(this.g,this,e,8))return;const g=this.g,p=this.owner;let mult=.45*this.rm*bonus*1.35/(FIREARMS[p.inv.equip.weapon?.kind]?.power||1.35)*(talent(p,'twinsentries')?.65:1);if(p.marked===e&&p.markUntil>g.time&&talent(p,'prioritytarget'))mult*=1.25;if(p.linkedTarget===e&&p.linkedUntil>g.time&&talent(p,'linkedfire'))mult*=1.2;mult*=1+(g.pstats.arpg?.stats.turretDamage||0)/100;const dir=Math.atan2(e.x-this.x,e.z-this.z);this.m.rotation.y=dir;g.spawn(new Projectile(g,{x:this.x,z:this.z,dir,speed:26,range:8,mult,kind:'bullet',color:0xe4b869,r:.06,ability:true,arpgProc:true,arpgChild:true,arpgDepth:1}));}
  update(dt){const g=this.g,p=this.owner;this.t+=dt;this.tick-=dt;if(this.t>12||this.hp<=0||p!==g.player||p.state==='dead')return this.remove();const all=foes(g).filter(e=>visible(g,this,e,8));const e=p.markUntil>g.time&&all.includes(p.marked)?p.marked:all.sort((a,b)=>Math.hypot(a.x-this.x,a.z-this.z)-Math.hypot(b.x-this.x,b.z-this.z))[0];if(e&&this.tick<=0){this.fire(e);this.tick=.6/(p.overclockUntil>g.time?1.3:1);}}
 }
