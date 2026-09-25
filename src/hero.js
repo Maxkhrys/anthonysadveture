@@ -1,5 +1,5 @@
 import { normalizeAppearance, FRAMES } from './appearance.js';
-import { tailoredGeometry } from './character_geometry.js';
+import { voxelHead, voxelEyes, voxelTorso, voxelArm, voxelLeg, classHat, CLASS_HAT } from './hero_voxel.js';
 import { HEIRLOOM_BY_ID } from './rpg/heirlooms.js';
 // Moss, the hero: a layered voxel figure whose equipment is drawn on the body.
 // Visual slots: head, neck, chest, arms, legs, boots, weapon. Each slot reads the equipped
@@ -490,7 +490,7 @@ function setMesh(group, parts, mat = MAT) {
   while (group.children.length) { const c = group.children[0]; group.remove(c); if (c.geometry) c.geometry.dispose(); }
   if (!parts.length) return;
   const lit = parts.filter(p => !p.glow), glow = parts.filter(p => p.glow);
-  if (lit.length) { const m = new THREE.Mesh(tailoredGeometry(lit), mat); m.castShadow = true; m.layers.enable(1); group.add(m); }
+  if (lit.length) { const m = new THREE.Mesh(geo(lit), mat); m.castShadow = true; m.layers.enable(1); group.add(m); }
   if (glow.length) { const m = new THREE.Mesh(geo(glow), MAT_GLOW); m.layers.enable(1); group.add(m); }
 }
 
@@ -508,7 +508,6 @@ export function makeHero(cls = 'samurai', appearance) {
   const body = new THREE.Group(); frame.add(body);
   const legL = pivotG(-0.075, 0.28, 0), legR = pivotG(0.075, 0.28, 0);
   const legLm = new THREE.Group(), legRm = new THREE.Group(); legL.add(legLm); legR.add(legRm);
-  legLm.scale.y = legRm.scale.y = 1.27;
   body.add(legL, legR);
   const torso = new THREE.Group(); torso.position.y = 0.08; body.add(torso);
   const head = pivotG(0, 0.50, 0);
@@ -523,6 +522,8 @@ export function makeHero(cls = 'samurai', appearance) {
   const tail1 = pivotG(0.06, 0.46, -0.12); tail1.add(new THREE.Mesh(geo([B(0.1, 0.05, 0.18, 0, -0.03, -0.09, C.scarf)]), MAT));
   const tail2 = pivotG(0, 0, -0.18); tail2.add(new THREE.Mesh(geo([B(0.09, 0.04, 0.16, 0, -0.02, -0.08, shade(C.scarf, 0.85))]), MAT));
   tail1.add(tail2); body.add(tail1);
+  // the concept sheet has no scarves; the Soulbound keeps its streaming one
+  scarfBase.visible = tail1.visible = cls === 'soulbound';
   const armR = pivotG(0.205, 0.46, 0), armL = pivotG(-0.205, 0.46, 0);
   const armRm = new THREE.Group(), armLm = new THREE.Group(); armR.add(armRm); armL.add(armLm);
   body.add(armR, armL);
@@ -540,15 +541,18 @@ export function makeHero(cls = 'samurai', appearance) {
     const key = ['head', 'neck', 'chest', 'arms', 'legs', 'boots', 'weapon'].map(k => V[k] ? V[k].uid || V[k].base + V[k].r : '-').join('|');
     if (key === lastKey) return;
     lastKey = key;
-    setMesh(torso, torsoParts(cls, V.chest));
-    setMesh(legLm, legParts(cls, V.legs, V.boots, V.chest, -1));
-    setMesh(legRm, legParts(cls, V.legs, V.boots, V.chest, 1));
-    setMesh(armLm, skinParts(armParts(cls, V.arms, V.chest, -1)));
-    setMesh(armRm, skinParts(armParts(cls, V.arms, V.chest, 1)));
-    setMesh(helm, V.head ? helmParts(cls, V.head) : cls === 'witch' ? witchHat() : []);
-    helm.scale.set(.82,.85,.86);
-    // Equipment hides hair cap and long strands cleanly; cosmetics remain saved.
-    setMesh(headM, headParts(cls, V.head ? {...look,hair:'shaved'} : look, { hat: cls === 'witch' && !V.head }));
+    // the concept-style voxel body (hero_voxel.js); set armour keeps its signature pieces on top
+    const A = armorLook(V.chest), skin = Number(look.skin.replace('#','0x'));
+    const setPieces = A && ['bellwarden','thornstalker','cinderwoven','plate','scales','leafy','robe'].includes(A.shape) ? torsoParts('none', V.chest).slice(4) : [];
+    setMesh(torso, [...voxelTorso(cls, A), ...setPieces]);
+    setMesh(legLm, voxelLeg(cls, armorLook(V.legs), armorLook(V.boots), A));
+    setMesh(legRm, voxelLeg(cls, armorLook(V.legs), armorLook(V.boots), A));
+    setMesh(armLm, voxelArm(cls, A, armorLook(V.arms), -1, skin));
+    setMesh(armRm, voxelArm(cls, A, armorLook(V.arms), 1, skin));
+    // an equipped helm sits on the big head; otherwise the class hat (witch hat, archer cap, hood)
+    setMesh(helm, V.head ? helmParts(cls, V.head) : classHat(cls, look));
+    if (V.head) { helm.scale.set(1.02, 1.05, 1.02); helm.position.y = .14; } else { helm.scale.set(1, 1, 1); helm.position.y = 0; }
+    setMesh(headM, voxelHead(cls, V.head ? {...look,hair:'shaved'} : look, { hat: V.head ? 'helm' : CLASS_HAT[cls] }));
     setMesh(neck, neckParts(V.neck));
     setWeapon(V.weapon);
   };
@@ -562,13 +566,8 @@ export function makeHero(cls = 'samurai', appearance) {
   const setAppearance = raw => {
     look = normalizeAppearance(raw);
     frame.scale.set(...FRAMES[look.frame]);
-    const hair=Number(look.hairColor.replace('#','0x')), iris=Number(look.eyes.replace('#','0x'));
-    const P=[];
-    for(const side of [-1,1]) {
-      P.push(B(.058,.064,.015,side*.07,.142,.126,INKC),B(.038,.046,.012,side*.07,.146,.134,iris),B(.03,.016,.011,side*.07,.146,.137,shade(iris,1.35)),B(.018,.026,.01,side*.07,.156,.14,shade(iris,.35)),
-        B(.014,.014,.01,side*.07-.01,.178,.145,0xfffaf0),B(.008,.008,.01,side*.07+.011,.154,.145,0xf8edd5),B(.066,.016,.017,side*.07,.222,.114,hair,0,0,look.face==='angular'?side*.16:0));
-    }
-    setMesh(eyes,P,MAT_GLOW); lastKey=''; setGear(currentEquip);
+    const P=voxelEyes(cls, look);
+    setMesh(eyes,P,MAT); // lit, so the whites never bloom into glare lastKey=''; setGear(currentEquip);
   };
   const dispose = () => root.traverse(o=>o.geometry?.dispose());
   const hero = { root, frame, body, head, eyes, helm, neck, legL, legR, armL, armR, sword, shield, torso, tail1, tail2, offhand, setWeapon, setGear, setAppearance, dispose, cls };
