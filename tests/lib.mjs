@@ -43,7 +43,7 @@ export async function fresh(page, cls = 'samurai', opts = {}) {
     const g = window.__game; g.story.opening = () => {};
     try { localStorage.clear(); } catch (e) {}
     await window.__start(true, cls);
-    g.cutscene = false; g.camFocus = null; g.flags.introFought = true; g.flags.stage = opts.stage ?? 1;
+    g.cutscene = false; g.camFocus = null; g.dead = false; g.ui.show('gameover', false); g.flags.introFought = true; g.flags.stage = opts.stage ?? 1;
     g.entities.filter(e => e.arena).forEach(e => e.remove());
     for (const e of g.entities) if (e.isEnemy) e.remove();
     if (opts.level) { g.inv.level = opts.level; g.inv.skills = [1, opts.level >= 3 ? 1 : 0, opts.level >= 6 ? 1 : 0]; g.recalc(); g.inv.hp = g.inv.maxHp; }

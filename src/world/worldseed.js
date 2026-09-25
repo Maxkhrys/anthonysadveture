@@ -33,7 +33,7 @@ export function generateManifest(seed, version = GENERATION_VERSION) {
   const R = seededRandom((seed ^ 0x9e3779b9) >>> 0);
   const pick = a => a[Math.floor(R() * a.length)];
   const pickN = (a, k) => { const c = a.slice(); for (let i = c.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [c[i], c[j]] = [c[j], c[i]]; } return c.slice(0, k); };
-  const at = a => ({ id: a.id, x: a.x, z: a.z, region: a.region });
+  const at = a => (a.region ? { id: a.id, x: a.x, z: a.z, region: a.region } : { id: a.id, x: a.x, z: a.z }); // plain JSON (no undefined keys)
   const camps = pickN(ANCHORS.camps, 7).map(a => ({ ...at(a), kinds: Array.from({ length: 3 + Math.floor(R() * 3) }, () => pick(POOLS[a.region].camp)), elite: R() < 0.35 }));
   const rare = pickN(ANCHORS.rare, 10).map(a => { const kind = pick(POOLS[a.region].rare); return { ...at(a), kind, night: R() < 0.4, name: `${pick(RARE_FIRST)} ${RARE_LAST[kind] || 'Hushling'}` }; });
   const merchants = [{ id: 'pedlar', stops: pickN(ANCHORS.merchants, 4).map(at), offset: Math.floor(R() * 4) }];

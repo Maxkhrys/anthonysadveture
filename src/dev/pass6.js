@@ -19,7 +19,7 @@ const guard = (game, args, log) => {
   return false;
 };
 // a representative, walkable spot for each region (a Bellstone or a door)
-export const REGION_SPAWN = { heartland: 'village', whisperwood: 'dungeon', deepwood: 'deepwood', glassmere: 'glassmere', lake: 'heronisle', sunscald: 'wells', cinderpeak: 'cinderrest', moonfen: 'moonfen', highlands: 'windstair' };
+export const REGION_SPAWN = { heartland: 'village', whisperwood: 'dungeon', deepwood: 'deepwood', glassmere: 'mirrorcellar', lake: 'heronisle', sunscald: 'wells', cinderpeak: 'cinderrest', moonfen: 'moonfen', highlands: 'belfry' };
 let _area = null;
 const worldArea = game => (game.area && game.area.id === 'overworld') ? game.area : (_area || (_area = buildOverworld()));
 function goTo(game, spawn) {

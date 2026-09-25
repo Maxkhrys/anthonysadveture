@@ -2,13 +2,13 @@ import * as THREE from 'three';
 import { buildOverworld, buildDungeon, buildGrotto, buildRift } from './world/maps.js';
 import { windUniform, clipUniform, waterU, windowMat, lampMat, bendUniform, groundY } from './world/build.js';
 import { WorldStreamer } from './world/stream.js';
-import { HEART, hx, hz } from './world/layout.js';
+import { HEART, hx, hz, REGIONS } from './world/layout.js';
 import { T, blocksObject } from './world/tiles.js';
 import { FX } from './fx.js';
 import { PITCH } from './engine/pixel.js';
 import { UI } from './ui.js';
 import { Story } from './story.js';
-import { sfx, playMusic, playTone } from './engine/audio.js';
+import { sfx, playMusic, playTone, setAmbience } from './engine/audio.js';
 import { angDiff, clamp } from './engine/util.js';
 import { Player } from './entities/player.js';
 import { makeEnemy } from './entities/enemies.js';
@@ -46,6 +46,17 @@ import './dev/pass6.js'; // Pass 6 world dev commands (same plug-in approach)
 import { defaultInventory, identifyItem, BELLSTONES, BELLSTONE_NAMES, worldPhase, respecInventory } from './persistence/model.js';
 import { snapshotCharacter, restoreCharacter, CharacterSession } from './persistence/session.js';
 export const BAG_SIZE = 30;
+// Pass 6: the air of each region (fog colour and amount, light, colour grade)
+const REGION_MOOD = {
+  heartland: { fog: 0xe8e0c8, amt: 0.16 }, whisperwood: { fog: 0x9ac8a0, amt: 0.3 },
+  deepwood: { fog: 0x6a9a7a, amt: 0.42, dim: 0.72, grade: [0.94, 1.02, 0.96] },
+  glassmere: { fog: 0xd8f0e8, amt: 0.2, grade: [1.0, 1.04, 1.03] },
+  lake: { fog: 0xb8d8f0, amt: 0.3, grade: [0.97, 1.0, 1.05] },
+  sunscald: { fog: 0xf8d8a0, amt: 0.28, grade: [1.08, 1.02, 0.9] },
+  cinderpeak: { fog: 0xa85a40, amt: 0.4, dim: 0.85, grade: [1.1, 0.94, 0.86], gradeK: 0.7 },
+  moonfen: { fog: 0x4a6a6a, amt: 0.48, dim: 0.7, grade: [0.9, 1.0, 1.08], gradeK: 0.7 },
+  highlands: { fog: 0xe0e8f8, amt: 0.3, grade: [0.96, 1.0, 1.06] },
+};
 // what the overworld streams in and out around the player (everything else lives all the time)
 const STREAMED = new Set(['tuft', 'bush', 'enemy', 'lootchest', 'sign', 'leafpile', 'drift', 'clue', 'vista', 'boulder', 'camp6', 'rare6', 'pocket6', 'pedlar6', 'cavemouth', 'tangle']);
 const BUILDERS = { overworld: buildOverworld, dungeon: buildDungeon, grotto: buildGrotto, devroom: buildDevRoom, conservatory: buildConservatory, ...Object.fromEntries(MINI_IDS.map(id => [id, () => buildMini(id)])) };
@@ -199,11 +210,13 @@ export class Game {
     const r = this.rainK;
     // biome mood from the region you stand in
     const reg = this.region ? this.region.name : '';
+    const rid = this.region ? this.region.id : 'heartland';
+    // Pass 6: every region has its own air (named places first, then the region)
     const MOOD = {
       'Thimblewick': { fog: 0xf6e2b8, amt: 0.12 }, 'Whisperwood': { fog: 0x9ac8a0, amt: 0.3 }, 'Sunscald Reach': { fog: 0xf8d8a0, amt: 0.26 },
       'Cinderpeak Foothills': { fog: 0xc86a4a, amt: 0.34 }, 'Hush Encampment': { fog: 0x8a7aa8, amt: 0.3 }, 'Lake Mirrow': { fog: 0xb8d8f0, amt: 0.3 },
       'Chime Gate': { fog: 0xe0e8f8, amt: 0.32 }, 'Saltwhistle Shore': { fog: 0xd8ecf4, amt: 0.22 },
-    }[reg] || { fog: 0xd0e0f0, amt: 0.18 };
+    }[reg] || REGION_MOOD[rid] || { fog: 0xd0e0f0, amt: 0.18 };
     this.moodFog = this.moodFog || new THREE.Color(MOOD.fog);
     const nightFog = new THREE.Color(0x1a2448), rainFog = new THREE.Color(0x8a96a8);
     const tgt = new THREE.Color(MOOD.fog).lerp(nightFog, N * 0.85).lerp(rainFog, r * 0.5);
@@ -219,11 +232,13 @@ export class Game {
     this.hemi.groundColor.setRGB(0.3 + 0.12 * L, 0.26 + 0.1 * L, 0.24 + 0.05 * N);
     this.scene.background.setRGB(0.06 + 0.5 * L - r * 0.1, 0.08 + 0.7 * L - r * 0.1, 0.2 + 0.7 * L - r * 0.05);
     const hush = this.flags.hushLifted ? 1 : 0;
+    if (MOOD.dim) { this.sun.intensity *= MOOD.dim; this.hemi.intensity *= 0.5 + MOOD.dim * 0.5; }
     u.grade.value.set((hush ? 1.06 : 0.98) + warm * 0.1 - N * 0.3, (hush ? 1.03 : 0.96) - warm * 0.01 - N * 0.18, (hush ? 0.96 : 1.03) - warm * 0.1 + N * 0.12);
     u.desat.value = (hush ? 0 : 0.1) + r * 0.2 + N * 0.12;
     u.vignette.value = 0.4 + N * 0.5;
     u.bloom.value = 0.25 + N * 0.45;
     u.contrast.value = 1.06 + N * 0.04;
+    if (MOOD.grade) { const k = MOOD.gradeK ?? 0.5; u.grade.value.x *= 1 + (MOOD.grade[0] - 1) * k; u.grade.value.y *= 1 + (MOOD.grade[1] - 1) * k; u.grade.value.z *= 1 + (MOOD.grade[2] - 1) * k; }
     this.playerLamp.intensity = N > 0.45 ? (N - 0.45) * 7 : 0;
     this.playerLamp.color.setHex(0xffd8a0);
     this.playerLamp.position.set(this.player.x, 1.4, this.player.z);
@@ -239,6 +254,7 @@ export class Game {
     // fireflies at night, butterflies and drifting seeds by day
     if (N > 0.55 && Math.random() < 0.35) this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 24, y: 0.4 + Math.random(), z: this.cam.z + (Math.random() - 0.5) * 18, vx: (Math.random() - 0.5) * 0.4, vz: (Math.random() - 0.5) * 0.4, g: 0, drag: 0, color: 0xd8ff8a, life: 2.5, size: 0.05, wob: 0.8 });
     if (L > 0.6 && r < 0.3 && Math.random() < 0.06) { const c = [0xffd25e, 0xf06a8a, 0x9ad8ff, 0xffffff][Math.floor(Math.random() * 4)]; this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 22, y: 0.4 + Math.random() * 0.6, z: this.cam.z + (Math.random() - 0.5) * 16, vx: (Math.random() - 0.5) * 0.8, vz: (Math.random() - 0.5) * 0.6, vy: 0.05, g: 0, drag: 0, color: c, life: 4, size: 0.07, wob: 3, shrink: false }); }
+    this.regionAir(rid, N, L, r);
     // Whisperwood sheds leaves
     if (reg === 'Whisperwood' && Math.random() < 0.25) this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 24, y: 2.5 + Math.random(), z: this.cam.z + (Math.random() - 0.5) * 18, vx: 0.4, vy: -0.35, g: 0, drag: 0, color: Math.random() < 0.5 ? 0xc8742a : 0x8aa83a, life: 6, size: 0.06, wob: 1.5, shrink: false });
     // once the Silent Toll is hung, Thimblewick rings the old toll at every dusk and dawn
@@ -251,6 +267,42 @@ export class Game {
     if (this.smokeT <= 0 && a.chimneys) {
       this.smokeT = 0.18;
       for (const c of a.chimneys) if (Math.abs(c.x - this.cam.x) < 14 && Math.abs(c.z - this.cam.z) < 11) this.fx.add({ x: c.x + (Math.random() - 0.5) * 0.1, y: c.y, z: c.z, vx: 0.25 + Math.random() * 0.1, vy: 0.45, vz: -0.05, g: 0, drag: 0.2, color: N > 0.6 ? 0x6a6a7a : 0xe8e4dc, life: 2.6, size: 0.09, grow: 2.4, shrink: false, soft: true });
+    }
+  }
+  // Pass 6: what hangs in the air of each region
+  regionAir(rid, N, L, rain) {
+    const c = this.cam, R = Math.random, add = o => this.fx.add(o);
+    const X = () => c.x + (R() - 0.5) * 24, Z = () => c.z + (R() - 0.5) * 18;
+    switch (rid) {
+      case 'cinderpeak': // embers rising from the cracks, ash coming down
+        if (R() < 0.5) add({ x: X(), y: 0.2, z: Z(), vx: (R() - 0.5) * 0.3, vy: 0.9 + R(), g: 0, drag: 0, color: R() < 0.6 ? 0xff8a2a : 0xffc04a, life: 2.2, size: 0.04, wob: 0.8 });
+        if (R() < 0.35) add({ x: X(), y: 4, z: Z(), vx: 0.3, vy: -0.4, g: 0, drag: 0, color: 0x8a8088, life: 7, size: 0.05, wob: 1.2, shrink: false });
+        break;
+      case 'highlands': // wind streaks, and a fleck of snow near the peaks
+        if (R() < 0.3) add({ x: c.x - 13, y: 0.6 + R() * 2.5, z: Z(), vx: 9 + R() * 4, vy: 0, g: 0, drag: 0, color: 0xeef4ff, life: 2.4, size: 0.03, stretch: 6, shrink: false });
+        if (R() < 0.25 && c.z < 45) add({ x: X(), y: 5, z: Z(), vx: 1.2, vy: -0.8, g: 0, drag: 0, color: 0xffffff, life: 6, size: 0.05, wob: 1.5, shrink: false });
+        break;
+      case 'sunscald': // drifting dust and the air shimmering off the flats
+        if (R() < 0.25 && !rain) add({ x: X(), y: 0.2 + R() * 0.8, z: Z(), vx: 1.5 + R(), vy: 0.05, g: 0, drag: 0, color: 0xe8c890, life: 3, size: 0.04, wob: 0.6 });
+        if (R() < 0.12 && L > 0.6) add({ x: X(), y: 0.1, z: Z(), vy: 0.6, g: 0, drag: 0, color: 0xfff0d0, life: 1.4, size: 0.25, soft: true, grow: 1.5, shrink: false });
+        break;
+      case 'moonfen': // low mist, and pale motes that only show after dark
+        if (R() < 0.35) add({ x: X(), y: 0.15 + R() * 0.3, z: Z(), vx: 0.2, vy: 0.02, g: 0, drag: 0, color: 0xa8c0c0, life: 5, size: 0.45, soft: true, grow: 1.4, shrink: false });
+        if (N > 0.5 && R() < 0.4) add({ x: X(), y: 0.3 + R(), z: Z(), vx: (R() - 0.5) * 0.3, vz: (R() - 0.5) * 0.3, g: 0, drag: 0, color: 0x7ad8ff, life: 3, size: 0.05, wob: 1 });
+        break;
+      case 'glassmere': // light glinting off broken panes
+        if (R() < 0.3 && L > 0.4) add({ x: X(), y: 0.05, z: Z(), vy: 0, g: 0, drag: 0, color: 0xffffff, life: 0.25, size: 0.07 });
+        if (R() < 0.06) add({ x: X(), y: 0.5 + R() * 2, z: Z(), vx: 0.15, vy: -0.05, g: 0, drag: 0, color: 0xc8f0a8, life: 3, size: 0.04, wob: 0.6, shrink: false });
+        break;
+      case 'lake': { // morning mist over the water
+        const day = this.dayT || 0.5;
+        if (R() < (day < 0.35 ? 0.4 : 0.08)) { const x = X(), z = Z(), t = this.tileAt(Math.floor(x), Math.floor(z)); if (t === T.WATER || t === T.DEEP) add({ x, y: 0.1, z, vx: 0.3, vy: 0.03, g: 0, drag: 0, color: 0xdfe8f0, life: 5, size: 0.5, soft: true, grow: 1.3, shrink: false }); }
+        break;
+      }
+      case 'deepwood': // dust in the few shafts of light, leaves coming down
+        if (R() < 0.2) add({ x: X(), y: 2.5 + R(), z: Z(), vx: 0.3, vy: -0.3, g: 0, drag: 0, color: R() < 0.5 ? 0x9a6a2a : 0x6a8a3a, life: 7, size: 0.06, wob: 1.4, shrink: false });
+        if (L > 0.5 && R() < 0.15) add({ x: X(), y: 0.5 + R() * 2, z: Z(), vy: 0.05, g: 0, drag: 0, color: 0xfff3c8, life: 3, size: 0.03, wob: 0.4, shrink: false });
+        break;
     }
   }
   // pool the scene's point lights onto the lamps and lit windows nearest the camera
@@ -992,20 +1044,33 @@ export class Game {
     this.spawn(a);
   }
 
-  // After the first fight: a short look at what's out there, then back to Moss
+  // After the first fight: the first look at how big the world is, then back to Moss.
+  // Pass 6: a wide shot over Lanternreach, then the places the roads lead to. Skippable
+  // (attack or interact), and each place shown is marked on the map.
   revealWorld() {
     if (this.flags.revealed) return;
     this.flags.revealed = true;
     const shots = [
-      [{ x: hx(45.5), z: hz(42) }, 'THE CRACKED CONSERVATORY', 'Something inside keeps mending the glass'],
-      [{ x: hx(22), z: hz(34) }, 'WHISPERWOOD', 'Rootwell Hollow breathes beneath the roots'],
-      [{ x: hx(74.5), z: hz(15) }, 'THE CHIME GATE', 'Three Voices sealed it'],
+      [{ x: hx(62), z: hz(50), zoom: 3.1 }, 'LANTERNREACH', 'The world is far bigger than the village', 3200],
+      [{ x: hx(45.5), z: hz(42), zoom: 1.5 }, 'THE CRACKED CONSERVATORY', 'Something inside keeps mending the glass', 2300],
+      [{ x: hx(22), z: hz(34), zoom: 1.35 }, 'WHISPERWOOD', 'Rootwell Hollow breathes beneath the roots', 2300],
+      [{ x: 136, z: 72, zoom: 2.2 }, 'THE WINDSTAIR', 'Up there: the Chime Highlands', 2300],
+      [{ x: 172, z: 184, zoom: 2.4 }, 'LAKE MIRROW', 'Ferries, islands, and something under the water', 2300],
+      [{ x: hx(74.5), z: hz(15), zoom: 1.35 }, 'THE CHIME GATE', 'Three Voices sealed it', 2300],
     ];
+    this.markLandmarks && this.markLandmarks(['dome', 'windstair', 'heron', 'landing', 'statue']);
     setTimeout(() => {
-      this.cutscene = true; this.ui.show('letterbox', true); this.camZoom = 1.35;
-      shots.forEach(([f, big, small], i) => setTimeout(() => { this.camFocus = f; this.ui.banner(small, big, 2); sfx('chime'); }, i * 2300));
-      setTimeout(() => { this.camFocus = null; this.camZoom = 1; this.cutscene = false; this.ui.show('letterbox', false); }, shots.length * 2300 + 300);
+      this.cutscene = true; this.revealing = true; this.ui.show('letterbox', true);
+      let t = 0;
+      this.revealTimers = shots.map(([f, big, small, dur]) => { const at = t; t += dur; return setTimeout(() => { if (!this.revealing) return; this.camFocus = { x: f.x, z: f.z }; this.camZoom = f.zoom; this.ui.banner(small, big, dur / 1000 - 0.3); sfx('chime'); }, at); });
+      this.revealTimers.push(setTimeout(() => this.endReveal(), t + 300));
     }, 2200);
+  }
+  endReveal() {
+    if (!this.revealing) return;
+    this.revealing = false; (this.revealTimers || []).forEach(clearTimeout);
+    this.camFocus = null; this.camZoom = 1; this.cutscene = false; this.ui.show('letterbox', false);
+    this.ui.toast('Esc opens your map', 'Roads out of Thimblewick are signposted.', 2.6);
   }
   // a heavy impact: grass flattens outward, leaves and dust jump
   impact(x, z, r = 2, k = 1) {
@@ -1204,6 +1269,9 @@ export class Game {
     let m = this.musicOvr || (this.region && this.region.music) || this.area.music;
     if (this.bossActive) m = 'boss';
     playMusic(m);
+    // Pass 6: each region has its own sound bed (see REGIONS[...].ambience)
+    const rid = this.region && this.region.id;
+    setAmbience(this.area && this.area.dungeon ? 'cave' : rid && REGIONS[rid] ? REGIONS[rid].ambience : null, !!this.isNight);
   }
   updateRegion(force) {
     if (!this.area.regions) { if (force) this.applyMusic(); return; }
@@ -1309,6 +1377,7 @@ export class Game {
     for (let i = 1; i < 4; i++) B[i].w = Math.max(0, B[i].w - dt * 0.9);
     this.liquidTime.value = this.time;
     const input = this.input;
+    if (this.revealing && (input.pressed('interact') || input.pressed('attack'))) this.endReveal();
     this.ui.update(dt);
     if (this.dead) { this.aimView.hide(); if (input.pressed('interact')) this.revive(); this.render(dt); return; }
     if (this.ui.updateShop(input)) { this.render(dt); return; }
@@ -1375,7 +1444,7 @@ export class Game {
     const ty = this.camFocus ? (this.camFocus.y ?? this.groundAt(this.camFocus.x, this.camFocus.z)) : (this.player ? this.player.gy || 0 : 0);
     this.cam.y += (ty - this.cam.y) * (1 - Math.exp(-dt * 4));
     this.pr.target.copy(this.cam);
-    { const v = this.viewExtent(); this.streamer.update(this.cam.x, this.cam.z, v.hw, v.hd, dt === 0 ? Infinity : 1); }
+    { const v = this.viewExtent(); this.streamer.update(this.cam.x, this.cam.z, v.hw, v.hd, dt === 0 ? Infinity : this.cutscene ? 4 : 1); }
     // sun & shadows follow the camera
     this.sun.position.set(this.cam.x - 7, 16, this.cam.z + 5);
     this.sun.target.position.set(this.cam.x, 0, this.cam.z);

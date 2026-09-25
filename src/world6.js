@@ -187,6 +187,7 @@ export function installWorld6(Game) {
     else if (L.hidden && Math.abs(L.x - p.x) < 5 && Math.abs(L.z - p.z) < 5) this.discoverLandmark(L, false);
     // NPCs who keep night hours
     const night = !!this.isNight;
+    if (this._lastNight !== night) { this._lastNight = night; this.applyMusic(); }
     for (const e of this.entities) if (e instanceof NPC && e.sdef) {
       const d = e.sdef;
       if (d.nightOnly) { e.obj.visible = night; e.interactable = night; e.solid = night; continue; }

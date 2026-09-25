@@ -58,9 +58,11 @@ export function discoverSystems(game = null) {
   // 10. Overworld landmarks & regions
   let regions = [];
   let spawns = {};
+  let overworldLandmarks = [];
   try {
     const ow = buildOverworld();
     regions = (ow.regions || []).map(r => ({ name: r.name, level: r.level, x: (r.x0 + r.x1) / 2, z: (r.y0 + r.y1) / 2 }));
+    overworldLandmarks = (ow.landmarks || []).map(l => ({ id: l.id, name: l.name, region: l.region }));
     spawns = ow.spawns || {};
   } catch (e) {
     // Fallback if headless
@@ -100,6 +102,13 @@ export function discoverSystems(game = null) {
         bosses: REGISTRY.bosses,
         areas: Object.keys(REGISTRY.areas),
         affixTiers: REGISTRY.affixTiers.map(t => ({ id: t.id, probability: t.probability })),
+      },
+      // Pass 6 world, from the same registry
+      pass6: {
+        size: REGISTRY.world.size, regions: Object.keys(REGISTRY.world.regions), settlements: REGISTRY.world.settlements.map(s => s.name),
+        miniDungeons: REGISTRY.world.miniDungeons.map(m => m.id), worldBosses: REGISTRY.world.worldBosses.map(b => b.id),
+        storyDungeons: REGISTRY.world.storyDungeons, eventTypes: REGISTRY.world.eventTypes, generationVersion: REGISTRY.world.generationVersion,
+        landmarks: overworldLandmarks,
       },
     },
     // Systems that are currently hardcoded or authored as specific scripts:
