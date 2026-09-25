@@ -1,3 +1,4 @@
+import {polishInventory} from './ui_inventory.js';
 import {renderCreative} from './dev/creative.js';
 // Shared journal presentation. Uses existing inventory, quest, map and service systems.
 import { glyph, controlsHTML } from './engine/actions.js';
@@ -29,7 +30,7 @@ export function installJournalUI(UI) {
     renderInventory.call(this);
     bindNav(this, document.querySelector('.inv-panel'), this.invTab === 'skills' ? 'skills' : 'bag');
     document.querySelector('#inventory .tabs').classList.add('hidden');
-    if (this.invTab === 'skills') { renderCreative(this); return; }
+    if (this.invTab === 'skills') { renderCreative(this); polishInventory(this); return; }
     const inv = this.g.inv, slots = this.dollSlots();
     $('paperdoll').querySelectorAll('[data-eq]').forEach(el => {
       const it = inv.equip[slots[+el.dataset.eq].key];
@@ -66,10 +67,11 @@ export function installJournalUI(UI) {
     const selectedCard = $('tooltip').querySelector('.tt');
     const delta = selectedCard?.querySelector('.delta');
     if (delta) selectedCard.querySelector('.tt-head')?.after(delta);
-    if (!it) $('tooltip').innerHTML = '<div class="empty-inventory"><span>◇</span><h3>Your next discovery awaits.</h3><p>Pick up equipment from foes and treasure chests.<br>Select any equipped slot to inspect it.</p></div>';
+    if (!it) $('tooltip').innerHTML = '<div class="empty-inventory"><h3>Inspect your equipment</h3><p>Select a bag item or equipped slot to see its stats, effects and comparison.</p></div>';
     document.querySelector('.inv-keys').textContent = 'Arrows select · F equip · V protect · X salvage · T sort · G filter';
     buttonize($('inventory'));
     renderCreative(this);
+    polishInventory(this);
   };
   const skills = P.renderSkills;
   P.renderSkills = function () {

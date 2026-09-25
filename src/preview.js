@@ -32,7 +32,7 @@ export class DollPreview {
     this.cam.position.set(0, 1.1, 4); this.cam.lookAt(0, 0.5, 0);
     const plinth = new THREE.Mesh(geo([B(1.1, 0.1, 1.1, 0, -0.1, 0, 0x5a4a6a), B(1.0, 0.04, 1.0, 0, 0, 0, 0x4f8a3a), B(0.2, 0.05, 0.2, 0.3, 0.03, 0.25, 0x6fb04a), B(0.14, 0.04, 0.14, -0.32, 0.02, -0.2, 0x6fb04a)]), MAT);
     this.scene.add(plinth);
-    this.rotY = 0.5; this.spin = 0.35; this.cls = null; this.t = 0; this.zoom = 1;
+    this.rotY = 0.35; this.spin = 0; this.cls = null; this.t = 0; this.zoom = 1;
   }
   setZoom(z) { this.zoom = Math.max(0.55, Math.min(1.25, z)); const k = this.zoom; this.cam.left = -0.8 * k; this.cam.right = 0.8 * k; this.cam.top = 0.5 + 0.7 * k; this.cam.bottom = 0.5 - 1.45 * k; this.cam.updateProjectionMatrix(); }
   mount(el) {

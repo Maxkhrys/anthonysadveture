@@ -62,7 +62,7 @@ export function renderCreative(ui){
  host.querySelector('.creative-reset').onclick=()=>{ui.creativeSearch='';ui.creativeCategory='All items';ui.creativeRarity='All rarities';ui.creativeOrder='name';ui.renderInventory();input.focus();};
  host.querySelector('#creative-toggle').onclick=()=>{ui.creativeActive=!ui.creativeActive;display();};
  function display(){
-  panel.classList.toggle('creative-mode',ui.creativeActive);host.querySelector('.creative-body').hidden=!ui.creativeActive;
+  panel.classList.toggle('creative-mode',ui.creativeActive);panel.classList.toggle('inventory-mode',!ui.creativeActive);const detail=document.getElementById('inventory-detail');if(detail)detail.hidden=ui.creativeActive;host.querySelector('.creative-body').hidden=!ui.creativeActive;
   host.querySelector('#creative-toggle').textContent=ui.creativeActive?'My bag':'Creative catalogue';grid.style.display=ui.creativeActive?'none':'';
   document.querySelector('.bag-search').style.display=ui.creativeActive?'none':'';
  }
