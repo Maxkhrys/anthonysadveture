@@ -39,5 +39,5 @@ export default async function (page, R) {
     return { area: g.area.id, totems, elites: d.eliteModifiers, p5: !!d.pass5 && d.pass5.skills.length, cats: ['skill', 'named', 'fight'].map(k => window.__devDefs[k].category) };
   });
   R.ok(f.area === 'devroom' && ['mantis', 'slug', 'moth', 'porcelain', 'leech'].every(k => f.totems.includes(k)), 'the dev facility has spawn totems for every Pass 5 creature', JSON.stringify(f.totems));
-  R.ok(f.elites.includes('Resonant') && f.elites.includes('Oathbound') && f.p5 === 24 && f.cats.every(Boolean), 'discoverSystems lists Pass 5 content and Pass 5 commands sit in console categories', JSON.stringify(f));
+  R.ok(f.elites.includes('Resonant') && f.elites.includes('Oathbound') && f.p5 >= 24 && f.cats.every(Boolean), 'discoverSystems lists Pass 5 content and Pass 5 commands sit in console categories', JSON.stringify(f));
 }

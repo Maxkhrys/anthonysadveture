@@ -19,7 +19,7 @@ export default async function(page,R){
  await search.fill('nothingmatches123');R.ok(await page.getByText('No items found').isVisible(),'empty search has clear feedback');
  await search.fill('');await page.getByLabel('Item category',{exact:true}).selectOption('Equipment');
  await page.getByLabel('Item rarity',{exact:true}).selectOption('Prismatic');
- R.ok(await page.locator('.creative-item').count()===4,'Prismatic filter isolates three signature weapons and Worldseed');
+ R.ok(await page.locator('.creative-item').count()===5,'Prismatic filter isolates four signature weapons and Worldseed');
  await page.waitForFunction(()=>[...document.querySelectorAll('.creative-item img')].every(i=>i.complete&&i.naturalWidth>0));
  R.ok(await page.locator('.creative-item img').evaluateAll(imgs=>imgs.every(i=>i.complete&&i.naturalWidth>0)),'all visible entries have loaded image icons');
  R.ok(await page.evaluate(async()=>{const {CREATIVE_ITEMS}=await import('./src/dev/creative.js');return CREATIVE_ITEMS.filter(x=>x.preview).every(x=>{const actual=window.__items.makeNamed(x.id.slice(5),1);return x.preview.r===actual.r&&!!x.preview.prismatic===!!actual.prismatic;});}),'rarity labels agree with every granted equipment variant');

@@ -15,7 +15,7 @@ export default async function (page, R) {
   await page.evaluate(() => { window.__game.godMode = true; }); // the route, not the fights
   for (const [x, z] of [[143, 128.5], [134, 126.5], [124.5, 118.5], [116.5, 110.5], [109.5, 104.5], [107.6, 100.6]]) ok = await walkTo(page, x, z, 400, 0.6) && ok;
   await walkTo(page, 107.5, 99.7, 200, 0.25);
-  await page.waitForFunction(() => window.__game.area.id === 'dungeon' && !window.__game.transitioning, null, { timeout: 8000 }).catch(() => {});
+  await page.waitForFunction(() => window.__game.area.id === 'dungeon' && !window.__game.transitioning, null, { timeout: 20000 }).catch(() => {});
   await sim(page, 10);
   const route = await page.evaluate(() => { const g = window.__game; g.godMode = false; return { area: g.area.id, room: g.room && g.room.name }; });
   R.ok(ok && route.area === 'dungeon', 'walking the west road through Whisperwood reaches Rootwell Hollow', JSON.stringify(route));

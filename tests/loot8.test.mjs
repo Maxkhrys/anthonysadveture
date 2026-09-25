@@ -14,7 +14,7 @@ export default async function(page,R){
  g.inv.bag=all;g.ui.navigate('bag');g.ui.invSel=4;g.ui.renderInventory();
  return {valid,arrows,speed:fast.speed,pierce,count:all.length};
  });
- R.ok(result.valid&&result.count===15,'15 named reference weapons have valid stats, models and identities');
+ R.ok(result.valid&&result.count===20,'20 named reference weapons (five per class) have valid stats, models and identities');
  R.ok(result.arrows===3,'Thornwood fires three actual projectiles');R.ok(result.speed===11,'Hickory projectile speed applies');R.ok(result.pierce,'Crossbow pierces');
  R.ok(await page.locator('#tooltip').innerText().then(t=>t.includes('Prismatic signature')),'prismatic signature is shown without changing save rarity');
  await page.screenshot({path:'/tmp/mossling-loot8.jpg'});
