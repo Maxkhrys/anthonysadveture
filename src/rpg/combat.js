@@ -347,15 +347,19 @@ export class GearDrop extends Entity {
     this.t += dt;
     this.vy -= 14 * dt; this.y = Math.max(0.2, this.y + this.vy * dt);
     if (this.y <= 0.2) { this.vx *= 0.8; this.vz *= 0.8; this.vy = 0; }
-    this.moveMode = 'fly'; move(g, this, this.vx * dt, this.vz * dt);
+    // loot lands only where the player can stand (not inside props, over ledges or in water),
+    // then drifts to you once you're close, so a drop can never end up out of reach
+    this.moveMode = 'player'; move(g, this, this.vx * dt, this.vz * dt);
+    const dp = Math.hypot(p.x - this.x, p.z - this.z);
+    if (this.t > 0.5 && dp < 1.8 && dp > 0.05 && p.state !== 'dead' && !this.warned) { const k = Math.min(1, dt * (4 + (1.8 - dp) * 6)) / dp; this.x += (p.x - this.x) * k * dp * 0.5; this.z += (p.z - this.z) * k * dp * 0.5; }
     this.icon.rotation.y += dt * 2; this.icon.position.y = this.y + Math.sin(this.t * 3) * 0.05;
     if (this.beam) this.beam.material.opacity = 0.35 + Math.sin(this.t * 4) * 0.12;
     if (this.item.r >= 2 && Math.random() < 0.15) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.4, y: 0.2, z: this.z + (Math.random() - 0.5) * 0.4, vy: 1.4, g: 0, color: RARITY[this.item.r].hex, life: 0.8, size: 0.05 });
-    if (this.t > 0.5 && Math.hypot(p.x - this.x, p.z - this.z) < 0.55 && p.state !== 'dead') {
+    if (this.t > 0.5 && Math.hypot(p.x - this.x, p.z - this.z) < 0.8 && p.state !== 'dead') {
       if (g.pickupItem(this.item)) this.remove();
       else if (!this.warned) { this.warned = true; g.ui.toast('Your bag is full!', 'Press I and salvage something.', 2); }
-    } else if (Math.hypot(p.x - this.x, p.z - this.z) > 1.2) this.warned = false;
-    this.obj.position.set(this.x, 0, this.z);
+    } else if (Math.hypot(p.x - this.x, p.z - this.z) > 2.2) this.warned = false;
+    this.obj.position.set(this.x, g.groundAt ? g.groundAt(this.x, this.z) : 0, this.z);
   }
 }
 
