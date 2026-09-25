@@ -1,5 +1,6 @@
 import { Onboarding, VillageTarget, WelcomeChest } from './onboarding.js';
 import { normalizeAppearance } from './appearance.js';
+import { Hover } from './hover.js';
 import { itemCombat } from './rpg/arpg/runtime.js';
 import {bagCapacity,BOONS} from './rpg/relics.js';
 import {buildEmberwell} from './world/emberwell.js';
@@ -83,6 +84,7 @@ export class Game {
     this.fx = new FX(this.scene);
     this.fx.groundAt = (x, z) => this.groundAt(x, z);
     this.ui = new UI(this);
+    this.hover = new Hover(this); // mouse inspection: highlight, name tags, drop tooltips, click to pick up
     this.story = new Story(this);
     if (typeof document !== 'undefined') {
       this.devConsole = new DevConsole(this);
@@ -1443,6 +1445,7 @@ export class Game {
     this.liquidTime.value = this.time;
     if(this.pstats?.uniques.has('worldseed')&&!this.dead&&this.player.state!=='dead'&&!this.locked()&&!this.ui.invOpen&&this.area.id!=='devroom'){const key='boon:'+this.area.id;if(this.flags[key]){if(this.inv.areaBoon!==this.flags[key]){this.inv.areaBoon=this.flags[key];this.recalc();}}else{this.ui.ask('Worldseed','Choose a boon for '+this.area.name+'. This choice stays with this adventure.',Object.entries(BOONS).map(([id,b])=>({label:b.name+' · '+b.text,cb:()=>{this.flags[key]=id;this.inv.areaBoon=id;this.recalc();this.save();}})));}}
     const input = this.input;
+    if (this.hover && this.player) this.hover.update(dt);
     if (this.revealing && (input.pressed('interact') || input.pressed('attack'))) this.endReveal();
     this.ui.update(dt);
     if (this.dead) { this.aimView.hide(); if (input.pressed('interact')) this.revive(); this.render(dt); return; }

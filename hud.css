@@ -98,3 +98,21 @@
 /* slot numbers sit under the slots, like the reference */
 #abilities .ab{overflow:visible!important}
 #abilities .ab b{display:block!important;z-index:4;left:50%!important;transform:translateX(-50%)!important;top:auto!important;bottom:-21px!important;font-size:13px!important}
+
+/* ---------------------------------------------------------------- mouse inspection (hover.js) */
+#hover-tag,#hover-tip,#drop-labels span{position:absolute;left:0;top:0;pointer-events:none;z-index:6}
+#hover-tag{padding:4px 10px 5px;text-align:center;white-space:nowrap;background:linear-gradient(180deg,var(--pa),var(--pa2));border:2px solid var(--edge);border-radius:6px;
+  box-shadow:0 2px 0 #2a1b0f66,0 4px 10px #0003;color:var(--ink);font:700 14px var(--display)}
+#hover-tag b{display:block;color:var(--ink)}
+#hover-tag.k-drop b{text-shadow:0 1px 0 #3a291b,0 0 1px #3a291b}
+#hover-tag small{display:block;font:11px Tahoma;margin-top:1px}
+#hover-tag small.near{color:#3f7a2a}#hover-tag small.far{color:#9a5a3a}
+#hover-tag.k-enemy{background:linear-gradient(180deg,#3a2420,#24140f);border-color:#8a2a22;color:#f6e0d0}
+#hover-tag.k-enemy b.foe{color:#ffd8c8}#hover-tag.k-enemy small{color:#e8b8a0}
+#hover-tag .hp{display:block;width:110px;height:6px;margin:4px auto 0;background:#1a0c0a;border:1px solid #000}
+#hover-tag .hp i{display:block;height:100%;background:linear-gradient(#ff6a5a,#c02a20)}
+#hover-tip{width:300px;max-height:70vh;overflow:hidden;padding:12px;background:#201c17f2;border:3px solid var(--edge);border-radius:8px;box-shadow:0 0 0 2px #b58a43,0 10px 26px #0006;color:#eee1c6;font-size:12px}
+#hover-tip .tt-head{display:flex;gap:10px;align-items:center}#hover-tip .big-ico{width:56px;height:56px}#hover-tip h4{font:700 16px var(--display);margin:0}
+#drop-labels span{pointer-events:auto;cursor:pointer;padding:2px 8px;background:#1b1510e6;border:1px solid #6a5232;border-radius:4px;font:700 13px var(--display);white-space:nowrap;text-shadow:0 1px 0 #000}
+#drop-labels span.far{opacity:.75}#drop-labels span:hover{background:#3a2c1c;border-color:#e0b860}
+#hud.hidehud~#hover-tag{display:none}
