@@ -523,7 +523,7 @@ export class Game {
     this.ui.lootToast(it, up);
     this.guide.event('loot');
     this.stats.items = (this.stats.items || 0) + 1;
-    if (!this.flags.tutLoot) { this.flags.tutLoot = true; setTimeout(() => this.ui.toast('You found gear!', 'Press E to open your bag and equip it.', 3.5), 600); }
+    if (!this.flags.tutLoot && this.area.id !== 'devroom') { this.flags.tutLoot = true; setTimeout(() => this.ui.toast('You found gear!', 'Press E to open your bag and equip it.', 3.5), 600); }
     this.hudDirty = true;
     this.save();
     return true;

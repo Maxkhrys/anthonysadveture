@@ -1,6 +1,6 @@
 # Pass 8 — loot, Emberwell and alpha polish
 
-Preview: https://mossling-6vgvchcmq-maxs-projects-f319fcff.vercel.app
+Preview: https://mossling-31wbewbyn-maxs-projects-f319fcff.vercel.app
 
 ## Included
 
@@ -31,3 +31,9 @@ Balance checks cover all three classes at multiple levels, ordinary/heavy incomi
 Tide Shrine and Chime Spire remain future campaign chapters. Controller hardware testing is deferred at the user's request. Touch/mobile gameplay and long-session hardware performance have not been certified. Existing UI checks exercise 390–2560px layouts, but this does not establish full mobile gameplay support.
 
 Saves belong to a browser origin. To move an existing adventure onto a new preview URL, export a recovery copy from its old title screen, then choose **Import adventures…** on the new title screen.
+
+## Creative armoury polish
+
+The devroom catalogue now takes the full journal width. Every entry has an image: equipment uses cached renders of the actual models; supplies use illustrated inventory symbols. Select an entry to inspect its effect and category before pressing Add. Rarity filtering and sorting use the same rarity resolution as granted gear; non-equipment entries are explicitly Unranked. Search also matches class, type and rarity. Clear/reset controls preserve normal keyboard focus. The preview keeps its Add button visible on short desktop screens. Mobile uses a single-column catalogue and scrolls the selected preview into view.
+
+Validation: 18 creative browser checks passed, including loaded images, all equipment rarity mappings, filters, sorting, quantities, desktop Add visibility and 390px overflow. Nine existing interaction checks also passed. Screenshots: `docs/screens/pass8/creative-armoury.jpg` and `creative-mobile.jpg`.
