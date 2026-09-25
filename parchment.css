@@ -276,3 +276,11 @@ html,body,#ui,#ui *,.screen,.screen *,#character-creator,#character-creator *,bu
 .fx-tile.result .fx-ico{border-color:var(--gold)!important;background:radial-gradient(#fbe7a8,#e6b95c)!important;box-shadow:0 0 12px #c8963a88!important}
 #craft-detail h4{color:#7a4a12!important;text-shadow:none!important}
 #craft-detail .sub{color:var(--ink2)!important}
+
+/* Astra's enemy cards and boss bar, on parchment */
+.enemy-card{color:var(--ink)!important}
+.enemy-card header{background:var(--parch)!important;color:var(--ink)!important;border-color:var(--edge)!important}
+.enemy-card.elite header{background:var(--parch-on)!important;color:#5a2a08!important;border-color:#8a5a1c!important}
+.enemy-card footer span,.boss-detail span{background:#f1e2bf!important;border-color:var(--edge)!important;text-shadow:none!important;filter:brightness(.7) saturate(1.4)}
+#boss-bar{background:var(--book) center/cover,var(--parch)!important;border-color:var(--edge)!important;color:var(--ink)!important}
+#boss-bar .name{color:#7a1f14!important;text-shadow:none!important}.boss-detail,.boss-detail b{color:var(--ink)!important}
