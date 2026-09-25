@@ -33,18 +33,22 @@ import { ensureCraftState, gainMat, learn } from './rpg/crafting.js';
 import { tileBlocks } from './entities/entity.js';
 import { buildDevRoom } from './world/devroom.js';
 import { buildConservatory } from './world/conservatory.js';
+import { buildMini, MINI_IDS } from './world/minidungeons.js';
 import { HangingBell, BellSequence, CrackedGlass, BossTrigger, TollRack } from './entities/objects5.js';
 import { Seamkeeper, CrownedToad } from './entities/bosses5.js';
 import { MATS, recipeById } from './rpg/crafting.js';
 import { DevConsole } from './dev/console.js';
 import './dev/pass5.js'; // Pass 5 dev commands plug into the console's tables
+import { installWorld6 } from './world6.js';
+import { installStory6 } from './story6.js';
+import './dev/pass6.js'; // Pass 6 world dev commands (same plug-in approach)
 
 import { defaultInventory, identifyItem, BELLSTONES, BELLSTONE_NAMES, worldPhase, respecInventory } from './persistence/model.js';
 import { snapshotCharacter, restoreCharacter, CharacterSession } from './persistence/session.js';
 export const BAG_SIZE = 30;
 // what the overworld streams in and out around the player (everything else lives all the time)
-const STREAMED = new Set(['tuft', 'bush', 'enemy', 'lootchest', 'sign', 'leafpile', 'drift', 'clue', 'vista', 'boulder']);
-const BUILDERS = { overworld: buildOverworld, dungeon: buildDungeon, grotto: buildGrotto, devroom: buildDevRoom, conservatory: buildConservatory };
+const STREAMED = new Set(['tuft', 'bush', 'enemy', 'lootchest', 'sign', 'leafpile', 'drift', 'clue', 'vista', 'boulder', 'camp6', 'rare6', 'pocket6', 'pedlar6', 'cavemouth', 'tangle']);
+const BUILDERS = { overworld: buildOverworld, dungeon: buildDungeon, grotto: buildGrotto, devroom: buildDevRoom, conservatory: buildConservatory, ...Object.fromEntries(MINI_IDS.map(id => [id, () => buildMini(id)])) };
 
 export const defaultInv = defaultInventory;
 
@@ -290,6 +294,7 @@ export class Game {
         }
       }
     }
+    this.world6Tick();
   }
   makeChampion(e) {
     if (!e.elite) this.makeElite(e);
@@ -342,6 +347,11 @@ export class Game {
     if ((S.freeze > 0 || S.chill > 0) && this.talent('brittle')) dmg *= 1 + 0.1 * this.talent('brittle');
     if (S.root > 0 && U.has('briarbond')) dmg *= 1.15;
     if (S.wet > 0 && U.has('toadsignet')) dmg *= 1.15;
+    // Pass 6 accessories
+    if (S.wet > 0 && U.has('tidebell')) dmg *= 1.1;
+    if (S.burn > 0 && U.has('wickring')) dmg *= 1.2;
+    if (U.has('moonwellcenser') && this.isNight) dmg *= 1.15;
+    if (U.has('kilnheart') && elementOf(o) === 'fire') dmg *= 1.25;
     // elemental reactions (wet+lightning, frozen+heavy, fire+wind ...)
     dmg = react(this, e, o, dmg);
     // Wax Seal engraving: a sealed foe cracks open under fire
@@ -587,6 +597,7 @@ export class Game {
     this.bossActive = null; this.ui.bossBar(null);
     const area = id === 'rift' ? buildRift(this.riftFloor || 1, this.riftLevel || 3, Math.floor(Math.random() * 1e9)) : BUILDERS[id]();
     this.area = area;
+    this.world6Prepare(area); // the character's seeded optional content
     // the ground is streamed in chunks around the camera (see world/stream.js)
     this.streamer.reset(area, this.world, this.liquidTime);
     // lights & mood
@@ -659,7 +670,7 @@ export class Game {
       case 'riftportal': e = new RiftPortal(this, d); break;
       case 'riftstone': e = new O.Sign(this, { ...d, text: '' }); e.obj.visible = false; e.solid = false; e.interact = () => this.story.riftStone(); Object.defineProperty(e, 'prompt', { get: () => 'Touch the Rift Stone' }); break;
       case 'board': e = new O.Sign(this, { ...d, text: '' }); e.interact = () => this.story.board(); Object.defineProperty(e, 'prompt', { get: () => 'Bounties' }); e.obj.visible = false; e.solid = false; break;
-      case 'npc': e = new O.NPC(this, d.id === 'oswin' && f.tollHung ? { ...d, x: hx(54.5), z: hz(58.4) } : d); break;
+      case 'npc': if (d.requires && !f[d.requires]) return; e = new O.NPC(this, d.id === 'oswin' && f.tollHung ? { ...d, x: hx(54.5), z: hz(58.4) } : d); break;
       case 'bellstone': e = new O.Bellstone(this, d); break;
       case 'workbench': e = new O.Workbench(this, d); break;
       case 'millyard': if (f.q_mill !== 2) return; e = new O.MillYard(this, d); break;
@@ -704,7 +715,7 @@ export class Game {
         e = new CrownedToad(this, d.x, d.z); e.alwaysUpdate = true; this.fenToad = e;
         break;
       }
-      default: return;
+      default: e = this.spawnDef6(d); if (!e) return; break;
     }
     if (e) { if (d.room) e.room = d.room; e.sdef = d; d._ent = e; this.spawn(e); }
     return e;
@@ -764,7 +775,7 @@ export class Game {
     this.lastDeathDrop = { drop, lostOld };
     this.save();
     const h = this.player.lastHit;
-    const rest = { village: 'the Thimblewick Bellstone', entrance: 'the Hollow\'s entrance Bellstone', pre: 'the Bellstone before the Root Gate', dungeon: 'the Hollow\'s mouth', atrium: 'the Glass Atrium Bellstone', canopy: 'the Bellfruit Canopy Bellstone' }[this.checkpoint.spawn] || 'your last rest';
+    const rest = { village: 'the Thimblewick Bellstone', entrance: 'the Hollow\'s entrance Bellstone', pre: 'the Bellstone before the Root Gate', dungeon: 'the Hollow\'s mouth', atrium: 'the Glass Atrium Bellstone', canopy: 'the Bellfruit Canopy Bellstone' }[this.checkpoint.spawn] || (BELLSTONE_NAMES[this.checkpoint.area + ':' + this.checkpoint.spawn] ? 'the ' + BELLSTONE_NAMES[this.checkpoint.area + ':' + this.checkpoint.spawn] + ' Bellstone' : 'your last rest');
     const el = document.querySelector('#gameover .recap');
     if (el) el.innerHTML = (h ? `Felled by <b>${h.by}</b>${h.lvl ? ' (Lv ' + h.lvl + ')' : ''} — the last blow took <b>${h.n}</b> health.<br>` : '') + `You will wake at ${rest} with full health and tonics. Gear, crafting and story progress are kept.` + (this.lastDeathDrop.drop ? `<br><span style="color:#ffd25e">◆ ${this.lastDeathDrop.drop} pips fell where you did — go back for them.</span>` : '') + (this.lastDeathDrop.lostOld ? `<br><span style="color:#f99">The ${this.lastDeathDrop.lostOld} pips from your last fall are gone.</span>` : '');
     setTimeout(() => { this.dead = true; this.ui.show('gameover', true); }, 1300);
@@ -1073,7 +1084,7 @@ export class Game {
       this.spawn(new O.GustEcho(this, p.x, p.z, p.facing, power));
       if (!this.flags.echoTip) { this.flags.echoTip = true; this.ui.toast('Your gust will echo…', 'The Verdant Chime repeats it from where you stood, 1.5 s later.', 3); }
     }
-    const valve = this.inv.galeValve ? 1.4 : 1;
+    const valve = (this.inv.galeValve ? 1.4 : 1) * (this.pstats.uniques.has('crowmantle') ? 1.4 : 1);
     const range = (power === 2 ? 7 : 4.5) * valve;
     const half = power === 2 ? 0.5 : 0.36;
     sfx(power === 2 ? 'gale' : 'gust');
@@ -1145,6 +1156,8 @@ export class Game {
     if (c.kind === 'named') { const L = LEGENDARIES.find(l => l.id === c.id); text = `You found *${L ? L.name : 'a treasure'}*!\n${L ? L.text : ''}`; }
     if (c.kind === 'recipe') { const r = recipeById(c.id); text = `You learned the *${r.name}* engraving!\n${r.effect}\nCraft it at Posy's workbench.`; }
     if (c.kind === 'mat') text = `You found *${c.n || 1} ${MATS[c.mat].name}*!\n${MATS[c.mat].desc}`;
+    if (c.kind === 'quest') text = `You found *${c.name}*!\n${c.desc}`;
+    if (c.kind === 'mapfrag') text = `You found a *map fragment*!\nSomeone sketched ${({ deepwood: 'the Deepwood', moonfen: 'Moonfen', highlands: 'the Chime Highlands', cinderpeak: 'Cinderpeak', sunscald: 'Sunscald Reach', lake: 'Lake Mirrow', glassmere: 'Glassmere', whisperwood: 'Whisperwood', heartland: 'the Heartland' })[c.region] || 'a far place'} on it. It goes on your map.`;
     setTimeout(() => {
       this.ui.say(null, text, () => {
         this.endHold();
@@ -1159,6 +1172,8 @@ export class Game {
           case 'named': { const it = makeNamed(c.id, Math.max(c.level || 7, inv.level)); if (!this.pickupItem(it)) this.spawn(new GearDrop(this, this.player.x, this.player.z + 0.8, it)); break; }
           case 'recipe': learn(this, c.id); break;
           case 'mat': gainMat(this, c.mat, c.n || 1); break;
+          case 'quest': this.flags[c.flag] = true; this.ui.toast(c.name, 'A quest item.', 2.4); break;
+          case 'mapfrag': this.revealRegion(c.region); this.stats.mapfrags = (this.stats.mapfrags || 0) + 1; break;
           case 'score': this.flags.bellscore = true; this.ui.toast("Bellwright's Score", 'Bring it to Elder Tamsin in Thimblewick.', 3); break;
         }
         this.ui.updateHud(); this.save();
@@ -1344,13 +1359,14 @@ export class Game {
     this.ui.updateFloats(dt);
     this.guide.tick(dt);
     this.worldTick(dt);
+    this.world6Fast(dt);
     this.aimView.update();
     if (this.held) { this.held.rotation.y += dt * 2; this.held.position.y = 1.35 + Math.sin(this.time * 3) * 0.05; }
     this.render(dt);
   }
   render(dt) {
     // camera distance: the player's setting, times any dramatic zoom (boss intros)
-    const vh = (this.baseVH || 12) * ((this.settings && this.settings.zoom) || 1) * (this.camZoom || 1);
+    const vh = (this.baseVH || 12) * ((this.settings && this.settings.zoom) || 1) * (this.camZoom || 1) * (this.vistaK || 1);
     if (Math.abs(vh - this.pr.viewHeight) > 0.01) this.pr.setViewHeight(this.pr.viewHeight + (vh - this.pr.viewHeight) * Math.min(1, dt * 4 + (dt === 0 ? 1 : 0)));
     const t = this.camTarget();
     const k = 1 - Math.exp(-dt * (this.room ? 7 : 6));
@@ -1418,3 +1434,6 @@ class RiftPortal extends Entity {
     if (Math.random() < 0.3) this.g.fx.add({ x: this.x + (Math.random() - 0.5) * 1.2, y: 0.3 + Math.random() * 1.2, z: this.z, vy: 0.5, g: 0, color: this.col, life: 0.6, size: 0.05 });
   }
 }
+
+installWorld6(Game);
+installStory6(Story);

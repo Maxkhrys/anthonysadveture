@@ -206,8 +206,14 @@ export class Story {
             '"Never let the Last Toll ring," you said she whispered. I have read every book in this village, Moss. Not one of them mentions a Last Toll.',
             'Which means someone made very sure they wouldn\'t.',
           ], short: ['The Bellwrights hid the Voices on purpose. We need to know why.'] },
+          { id: 'world', label: 'How big is Lanternreach?', when: () => s >= 1, lines: [
+            'Bigger than any of us walk in a year, Moss. Let me mark a few places on your map.',
+            'East over the trowel bridge: the *Sunscald Reach*, and the wells where the caravans water. South across the lake: *Mirrow Landing*, fisherfolk — Ada\'s ferry will take you.',
+            'Up the *Windstair*, north of the glasshouse: the *Chime Highlands*. West, past Rootwell, the *Deepwood* — and south of it, *Moonfen*. Don\'t go to Moonfen at night.',
+            'And the forge-camp of *Cinder Rest*, beyond the Reach. Smiths. Loud ones.',
+          ], then: () => { g.markLandmarks(['wells', 'landing', 'windstair', 'lantern', 'cinderrest', 'dome']); ui.toast('Your map has new marks', 'Esc: map', 2.4); } },
           { id: 'next', label: 'What now?', when: () => s >= 3, lines: [
-            'The Ember Chime burns past *Cinderpeak Pass*; the Tide Chime sleeps beneath *Lake Mirrow*. Both roads are shut for now.',
+            'The Ember Chime burns past *Cinderpeak Pass*; the Tide Chime sleeps beneath *Lake Mirrow*. Both dungeons are shut for now — but the land around them is open. Go and see it.',
             f.q_mill === 2 ? 'Meanwhile the mill sings, the camp — well. Help where you can. Posy\'s bench might teach that ' + cw.tool + ' some new tricks.' : 'Meanwhile, Oswin\'s mill still stands silent. Perhaps that bellows of yours could help.',
           ] },
         ]);

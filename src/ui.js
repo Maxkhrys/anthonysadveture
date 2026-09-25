@@ -1,4 +1,5 @@
 // HTML overlay: HUD, dialogue, prompts, menus, maps.
+import { drawDevOverlay } from './dev/pass6.js';
 import { sfx, duckMusic } from './engine/audio.js';
 import { T } from './world/tiles.js';
 import { installRpgUI } from './ui_rpg.js';
@@ -353,7 +354,8 @@ export class UI {
     const sc = Math.min(cv.width / a.w, cv.height / a.h);
     x.drawImage(this.illus, 0, 0, a.w * sc, a.h * sc);
     // Pass 6: land you haven't seen stays under the fog (the map remembers what you walked)
-    if (g.world6 && a.id === 'overworld' && !g.flags.devRevealMap) { const fog = this.fogCanvas(); if (fog) x.drawImage(fog, 0, 0, a.w * sc, a.h * sc); }
+    if (g.world6 && a.id === 'overworld' && !g.devMapOverlay) { const fog = this.fogCanvas(); if (fog) x.drawImage(fog, 0, 0, a.w * sc, a.h * sc); }
+    if (g.devMapOverlay && g.world6 && a.id === 'overworld') drawDevOverlay(g, x, sc);
     // markers: friendly pins, the current objective pulses
     const t = performance.now() / 1000;
     for (const m of this.g.story.markers()) {

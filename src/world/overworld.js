@@ -262,6 +262,7 @@ export function buildOverworld() {
   g.def({ type: 'bellstone', x: 57.5, z: 131.5, spawn: 'deepwood', name: 'Deepwood Shrine' });
   sign(52.5, 131.5, 'DEEPWOOD SHRINE\nThe lamplighters kept a flame here for travellers.\nIt went out three nights ago.');
   g.def({ type: 'npc', id: 'tallow', name: 'Tallow', x: 55.5, z: 126.8, look: 'shop' });
+  g.def({ type: 'npc', id: 'wick', name: 'Wick', x: 59.5, z: 127.5, look: 'kid', requires: 'wickHome', wander: 2 });
   // Fernhollow: a hidden glade behind a root tangle, with a Bellstone nobody remembers
   for (let y = 124; y <= 136; y++) for (let x = 10; x <= 25; x++) g.set(x, y, x >= 14 && x <= 22 && y >= 126 && y <= 134 ? T.GRASS : T.TREE);
   for (const x of [23, 24, 25]) g.set(x, 130, T.FOREST);

@@ -264,3 +264,26 @@ export class Pedlar extends Entity {
     this.sync();
   }
 }
+
+// ------------------------------------------------ a cracked wall (or a crazed pane) with something behind
+export class CrackedWall extends Entity {
+  constructor(g, d) {
+    super(g, d.x, d.z); this.d = d; this.key = 'mdsecret:' + d.id; this.solid = true; this.hw = 0.5; this.hd = 0.5;
+    const c = d.glass ? [0xbfe8e0, 0x6a8a84] : [0x6a5a50, 0x2a2220];
+    this.obj.add(mesh([B(1, 1.5, 1, 0, 0, 0, c[0]), B(0.04, 0.9, 1.02, 0.1, 0.3, 0, c[1], 0, 0, 0.5), B(0.04, 0.6, 1.02, -0.2, 0.6, 0, c[1], 0, 0, -0.6), B(0.5, 0.04, 1.02, 0.1, 1.0, 0, c[1], 0, 0, 0.3)]));
+    if (g.flags[this.key]) this.remove();
+  }
+  onHit(h) {
+    const g = this.g; if (this.dead) return 'hit';
+    const heavy = h.heavy || h.kind === 'spin' || h.kind === 'spin3' || h.kind === 'surge' || h.kind === 'quake' || h.kind === 'blast' || h.element === 'fire' || h.kind === 'fireball';
+    if (!heavy) { sfx('clang'); if (!this.hinted) { this.hinted = true; g.ui.toast('This wall sounds hollow.', 'A heavy blow might break it.', 2); } return 'hit'; }
+    g.flags[this.key] = true; sfx(this.d.glass ? 'shatter' : 'thud'); g.pr.addShake(0.3);
+    g.fx.burst(this.x, 0.7, this.z, 24, this.d.glass ? [0xdff8f0, 0x9ad8c8] : [0x6a5a50, 0x8a7a70], 3);
+    const c = this.d.contents;
+    if (c.kind === 'pips') dropPips(g, this.x, this.z, c.n); else if (c.kind === 'mat') gainMat(g, c.mat, c.n, this.x, this.z);
+    g.ui.toast('A secret!', 'Something was walled up here.', 2); g.stats.secrets = (g.stats.secrets || 0) + 1;
+    this.remove(); g.save();
+    return 'hit';
+  }
+  update() {}
+}

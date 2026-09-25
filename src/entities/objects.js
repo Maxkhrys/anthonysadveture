@@ -17,6 +17,7 @@ export const ITEM_INFO = {
   echo: { name: 'Hollow Echo', desc: 'A sound that forgot to stop. Posy could work it into something.', color: 0x9ad8ff },
   score: { name: "Bellwright's Score", desc: 'A toll written down a hundred years ago. Elder Tamsin should see this.', color: 0xe0b860 },
   recipe: { name: 'Recipe', desc: '', color: 0x9ad8ff }, named: { name: 'Treasure', desc: '', color: 0xff9a2a }, mat: { name: 'Material', desc: '', color: 0xe8e0d0 },
+  mapfrag: { name: 'Map Fragment', desc: '', color: 0xe8d6a8 }, quest: { name: 'Something important', desc: '', color: 0xffd25e },
 };
 function itemModel(c) {
   switch (c.kind) {
@@ -776,7 +777,7 @@ export class Arena extends Entity {
       this.opts.onWave && this.opts.onWave(this.wave);
       for (const [kind, ox, oz, tag] of this.waves[this.wave]) {
         const e = g.spawnEnemy(kind, this.cxr + ox, this.czr + oz, { aggro: 30, eliteChance: this.opts.eliteChance });
-        if (e) { e.arena = this; if (tag === 'champion') g.makeChampion(e); }
+        if (e) { e.arena = this; if (tag === 'champion') g.makeChampion(e); else if (tag === 'elite' && !e.elite) g.makeElite(e); }
       }
     }
   }

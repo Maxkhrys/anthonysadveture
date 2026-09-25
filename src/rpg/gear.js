@@ -89,6 +89,14 @@ export const ACCESSORIES = [
   { id: 'quickthread', base: 'threadring', name: 'Quickthread Ring', lvl: 6, r: 3, text: 'Each critical hit grants +5% move speed for 3 s, stacking five times.' },
   { id: 'toadsignet', base: 'silverring', name: 'Crowned Signet', lvl: 8, r: 4, text: '+15% damage to wet foes. Lightning and heavy blows splash water, soaking foes nearby.' },
   { id: 'tuningfork', base: 'clapperchain', name: "Bellmaker's Tuning Fork", lvl: 6, r: 4, text: 'Bell Surge also resets every ability cooldown. Bell Surge fills 25% slower.' },
+  // Pass 6: found out in the wider world (mini-dungeons, secrets, the Tollcrow)
+  { id: 'moonwellcenser', base: 'clapperchain', name: 'Moonwell Censer', lvl: 10, r: 4, text: 'By night: +15% damage, and you slowly mend.' },
+  { id: 'crowmantle', base: 'porcelainpendant', name: 'Tollcrow Mantle', lvl: 14, r: 4, text: '+15% move speed. Your gales reach 40% further.' },
+  { id: 'wickring', base: 'copperring', name: "Lamplighter's Wick", lvl: 6, r: 3, text: 'Burning foes take 20% more damage from you.' },
+  { id: 'tidebell', base: 'shellring', name: 'Tide-rung Bell', lvl: 9, r: 3, text: 'Wading in shallow water mends you. Wet foes take 10% more damage.' },
+  { id: 'kilnheart', base: 'porcelainpendant', name: 'Kiln Heart', lvl: 10, r: 3, text: 'Your fire deals 25% more damage.' },
+  { id: 'nestcarapace', base: 'clapperchain', name: 'Thornback Carapace', lvl: 7, r: 3, text: '+15% armour.' },
+  { id: 'mirrorshard', base: 'shellring', name: 'Mirror Shard', lvl: 7, r: 3, text: 'Your projectiles are 25% larger.' },
 ];
 
 // ------------------------------------------------------------------ named weapons

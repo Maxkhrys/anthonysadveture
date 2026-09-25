@@ -16,6 +16,9 @@ export const MATS = {
   filament: { name: 'Resonant Filament', icon: '〰', color: '#e0b860', desc: 'A hair-thin bell-metal thread that hums when plucked. Bell Leeches grow them.' },
   seamthread: { name: "Seamkeeper's Thread", icon: '⌇', color: '#d84a6a', desc: 'A red thread strong enough to stitch the air shut.' },
   crownpearl: { name: 'Crown Pearl', icon: '●', color: '#bfe8d0', desc: 'A green-gold pearl from the Crowned Toad\'s crown.' },
+  // Pass 6 materials (world events and the Tollcrow)
+  stardust: { name: 'Stardust', icon: '✦', color: '#c8e8ff', desc: 'Cold, bright grit from a fallen star\'s crater. It hums a note nobody taught it.' },
+  crowfeather: { name: 'Tollcrow Feather', icon: '⸙', color: '#6a6a7a', desc: 'An iron-dark feather from the bird that nests in the Great Bell. It rings when it falls.' },
 };
 const ALL_BASES = ['katana', 'bow', 'staff', 'wand', 'oversized'];
 

@@ -96,6 +96,10 @@ export function computeStats(inv) {
   if (s.setBonus.bellwarden >= 5) s.dr *= 0.9;
   if (rankOf(inv, 'cinderheart')) s.dr *= 1.15;
   if (s.uniques.has('tuningfork')) s.surgeGain = 0.75;
+  // Pass 6 accessories
+  if (s.uniques.has('crowmantle')) s.speed *= 1.15;
+  if (s.uniques.has('nestcarapace')) s.dr = 100 / (100 + s.armor * 1.15 * 1.8) * (s.dr / (100 / (100 + s.armor * 1.8)));
+  if (s.uniques.has('mirrorshard')) s.projSize = (s.projSize || 0) + 25;
   return s;
 }
 
