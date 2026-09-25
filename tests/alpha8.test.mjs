@@ -3,7 +3,7 @@ import {fresh,sim,talkThrough} from './lib.mjs';
 export default async function(page,R){
  await fresh(page,'witch',{level:16,stage:1});
  R.ok(await page.evaluate(()=>window.__game.story.objective().includes('Hobb')),'opening objective offers short Hobb route');
- const relic=await page.evaluate(()=>{const g=window.__game,I=window.__items;g.inv.equip.charm=I.makeNamed('wayfarersatchel',7);g.recalc();g.inv.bag=Array.from({length:31},()=>I.genItem({level:3}));const cap=g.bagCapacity();g.ui.navigate('bag');g.ui.renderInventory();return cap;});
+ const relic=await page.evaluate(()=>{const g=window.__game,I=window.__items;g.inv.equip.charm=I.makeNamed('wayfarersatchel',7);g.recalc();g.inv.bag=Array.from({length:31},()=>I.genItem({ developer:true,level:3}));const cap=g.bagCapacity();g.ui.navigate('bag');g.ui.renderInventory();return cap;});
  R.ok(relic===32,'satchel expands usable bag to 32');
  R.ok(await page.locator('.bag-capacity').innerText().then(t=>t.includes('/ 32')),'capacity displayed consistently');
  const safe=await page.evaluate(()=>{const g=window.__game;g.inv.bag[0]=window.__items.makeNamed('phoenixfeather',12);g.equipItem(0);return g.inv.equip.charm.unique==='wayfarersatchel';});R.ok(safe,'cannot replace satchel while excess items remain');

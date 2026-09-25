@@ -23,6 +23,7 @@ export class Projectile extends Entity {
   constructor(g, o) {
     super(g, o.x, o.z);
     Object.assign(this, { dir: o.dir, speed: o.speed ?? 14, range: o.range ?? 9, mult: o.mult ?? 1, kind: o.kind, pierce: o.pierce ?? 0, homing: o.homing ?? 0, seek: o.seek || null, dir0: o.dir, aoe: o.aoe ?? 0, ability: !!o.ability, kb: o.kb ?? 3, color: o.color ?? 0xffffff, noSplit: o.noSplit, noCraft: !!o.noCraft, root: o.root || 0, echo: !!o.echo, element: o.element || null, bounce: o.bounce || 0, onExplode: o.onExplode || null, onHitFx: o.onHitFx || null, basic: !!o.basic, charged: !!o.charged, critBonus: o.critBonus || 0 });
+    this.arpgExtra=!!o.arpgExtra;
     this.speed *= 1 + (g.pstats.projSpeed || 0) / 100;
     // Projectile Size affix: bigger hitbox and model (basic shots and abilities alike)
     const ps = 1 + (g.pstats.projSize || 0) / 100;
@@ -50,6 +51,7 @@ export class Projectile extends Entity {
     itemCombat(g).prepareProjectile(this, o);
   }
   update(dt) {
+    if(this.kind==='bullet'&&dt>1/120){let left=dt;while(left>0&&!this.dead){const step=Math.min(left,1/120);this.update(step);left-=step;}return;}
     const g = this.g;
     // Singularity Wake (qualitative affix): basic shots tug nearby foes toward their path
     if (this.basic && g.pstats.qual.has('singularity_wake')) for (const e of g.entities) { if (!e.isEnemy || e.dead || e.isBoss) continue; const dx = this.x - e.x, dz = this.z - e.z, d = Math.hypot(dx, dz); if (d < 1.6 && d > 0.2) { e.kx += dx / d * 6 * dt * 4; e.kz += dz / d * 6 * dt * 4; } }
@@ -106,7 +108,7 @@ export class Projectile extends Entity {
     for (const [, e] of hits) {
       this.hit.add(e);
       if (this.aoe) { this.x = e.x; this.z = e.z; return this.explode(); }
-      g.playerHit(e, { mult: this.mult, kind: this.kind, element: this.element, kb: this.kb, dir: this.dir, ability: this.ability, echo: this.echo, basic: this.basic, critBonus: this.critBonus, arpgDepth: this.arpgDepth, arpgProc: this.arpgProc, noProc: this.arpgProc, arpgStatus: this.arpgStatus, arpgProjectile: this });
+      this.hitResult = g.playerHit(e, { mult: this.mult, kind: this.kind, element: this.element, kb: this.kb, dir: this.dir, ability: this.ability, echo: this.echo, basic: this.basic, critBonus: this.critBonus + (this.manualGun&&this.gunOwner?.marked===e&&this.gunOwner.markUntil>g.time?20:0), arpgDepth: this.arpgDepth, arpgProc: this.arpgProc, noProc: this.arpgProc, arpgStatus: this.arpgStatus, arpgProjectile: this });
       this.onImpact(e);
       if (this.onHitFx) this.onHitFx(this, e);
       // Skipping Shot / Endless Quiver: turn toward the next foe instead of stopping
@@ -162,6 +164,7 @@ export class EchoShot extends Entity {
     this.alwaysUpdate = true;
   }
   update(dt) {
+    if(this.kind==='bullet'&&dt>1/120){let left=dt;while(left>0&&!this.dead){const step=Math.min(left,1/120);this.update(step);left-=step;}return;}
     const g = this.g; this.t += dt;
     if (Math.random() < 0.5) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.3, y: 0.45, z: this.z + (Math.random() - 0.5) * 0.3, g: 0, color: 0x9ad8ff, life: 0.3, size: 0.05 });
     this.obj.scale.setScalar(1 + Math.sin(this.t * 30) * 0.1);
@@ -180,6 +183,7 @@ export class EmberSeed extends Entity {
     this.alwaysUpdate = true;
   }
   update(dt) {
+    if(this.kind==='bullet'&&dt>1/120){let left=dt;while(left>0&&!this.dead){const step=Math.min(left,1/120);this.update(step);left-=step;}return;}
     const g = this.g; this.t += dt;
     const k = this.t / this.fuse;
     this.seed.scale.setScalar(1 + k * 1.2 + Math.sin(this.t * (10 + k * 30)) * 0.12 * k);
@@ -195,6 +199,7 @@ export class IaidoEcho extends Entity {
     this.ghost = mesh([B(0.3, 0.5, 0.2, 0, 0.3, 0, 0x9ad8ff)], MAT_GLOW, false); this.obj.add(this.ghost);
   }
   update(dt) {
+    if(this.kind==='bullet'&&dt>1/120){let left=dt;while(left>0&&!this.dead){const step=Math.min(left,1/120);this.update(step);left-=step;}return;}
     const g = this.g; this.t += dt;
     const k = Math.max(0, (this.t - 0.5) / 0.2);
     this.ghost.visible = this.t < 0.5 ? Math.floor(this.t * 20) % 2 === 0 : true;
@@ -220,6 +225,7 @@ export class RimeField extends Entity {
     g.fx.ring(x, z, r - 0.1, r, 0xdff4ff, dur, 0.02);
   }
   update(dt) {
+    if(this.kind==='bullet'&&dt>1/120){let left=dt;while(left>0&&!this.dead){const step=Math.min(left,1/120);this.update(step);left-=step;}return;}
     const g = this.g; this.t += dt; this.tick -= dt;
     for (let i = 0; i < 2; i++) { const a = Math.random() * 6.28, rr = Math.sqrt(Math.random()) * this.r; g.fx.add({ x: this.x + Math.cos(a) * rr, y: 0.05, z: this.z + Math.sin(a) * rr, vy: 0.3, g: 0, color: 0xdff4ff, life: 0.6, size: 0.05 }); }
     if (this.tick <= 0) { this.tick = 0.25; for (const e of enemiesNear(g, this.x, this.z, this.r)) e.applyStatus && e.applyStatus('chill', 0.6); }
@@ -271,6 +277,7 @@ export class Trap extends Entity {
 export class RainZone extends Entity {
   constructor(g, x, z, mult, dur = 2.2) { super(g, x, z); this.mult = mult; this.t = 0; this.tick = 0; this.dur = dur; g.fx.ring(x, z, 2.5, 2.6, 0x7fd36a, dur, 0.05); }
   update(dt) {
+    if(this.kind==='bullet'&&dt>1/120){let left=dt;while(left>0&&!this.dead){const step=Math.min(left,1/120);this.update(step);left-=step;}return;}
     const g = this.g; this.t += dt; this.tick -= dt;
     for (let i = 0; i < 3; i++) { const a = Math.random() * 6.28, r = Math.random() * 2.5; g.fx.add({ x: this.x + Math.cos(a) * r, y: 3, z: this.z + Math.sin(a) * r, vy: -14, g: 0, drag: 0, color: 0xe8e0d0, life: 0.2, size: 0.05, stretch: 4 }); }
     if (this.tick <= 0) { this.tick = 0.25; for (const e of enemiesNear(g, this.x, this.z, 2.5)) { g.playerHit(e, { mult: this.mult, kind: 'rain', kb: 0.5, dir: 0, ability: true, quiet: true }); if (this.wet) e.applyStatus && e.applyStatus('wet', 4); } sfx('cut'); }
@@ -360,12 +367,12 @@ export class GearDrop extends Entity {
     if (item.slot === 'weapon') { this.icon.geometry?.dispose(); this.drop = weaponDrop(item, weaponMesh); this.icon = this.drop.icon; this.obj.add(this.drop.group); }
     else { this.icon.rotation.z = 0.6; this.obj.add(this.icon); }
     if (item.r >= 1 && !this.drop) {
-      const h = [0, 1.2, 2.2, 3.5, 6][item.r];
+      const h = [0, 1.2, 2.2, 3.5, 6, 6][item.r]||6;
       const beam = new THREE.Mesh(new THREE.BoxGeometry(0.16 + item.r * 0.04, h, 0.16 + item.r * 0.04), new THREE.MeshBasicMaterial({ color: R.hex, transparent: true, opacity: 0.45, depthWrite: false }));
       beam.position.y = h / 2; this.obj.add(beam); this.beam = beam;
     }
     this.vy = 4; this.y = 0.3; const a = Math.random() * 6.28; this.vx = Math.cos(a) * 1.2; this.vz = Math.sin(a) * 1.2;
-    if (item.r >= 3) { sfx(item.r === 4 ? 'fanfare' : 'secret'); g.pr.addFlash(0.2, R.hex); }
+    if (item.r >= 2 && g.onScreen(x,z,.2)) { sfx('lootbell');g.fx.ring(x,z,.15,item.r>=4?1.4:.85,R.hex,.65);g.ui.float(x,1,z,item.prismatic?'PRISMATIC':item.r>=4?'LEGENDARY':item.r===3?'EPIC':'RARE',R.color,true); }
   }
   update(dt) {
     const g = this.g, p = g.player;
@@ -420,7 +427,7 @@ export class LootChest extends Entity {
     const n = T.items[0] + Math.floor(Math.random() * (T.items[1] - T.items[0] + 1));
     const lvl = Math.max(this.level, g.inv.level - 1);
     setTimeout(() => {
-      for (let i = 0; i < n; i++) g.spawn(new GearDrop(g, this.x, this.z + 0.5, genItem({ level: lvl, cls: Math.random() < 0.75 ? g.inv.cls : null, mf: g.pstats.mf, floor: T.floor, bonus: T.bonus })));
+      for (let i = 0; i < n; i++) g.spawn(new GearDrop(g, this.x, this.z + 0.5, genItem({ level: lvl, cls: g.inv.cls, mf: g.pstats.mf, floor: T.floor, bonus: T.bonus })));
       import('../entities/common.js').then(m => m.dropPips(g, this.x, this.z + 0.5, T.pips[0] + Math.floor(Math.random() * (T.pips[1] - T.pips[0]))));
       g.gainXp(10 + this.tier * 15);
     }, 250);

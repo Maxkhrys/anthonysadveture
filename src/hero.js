@@ -17,6 +17,7 @@ const SKIN = 0xf6cda6, SKIN_D = 0xe0a882, INKC = 0x1b1426;
 
 // ------------------------------------------------------------------ class identity
 export const CLASS_LOOK = {
+ gunslinger:{shirt:0x765039,shirtD:0x493327,pants:0x39434a,boots:0x3c2c24,scarf:0xa64532,hair:0x38281f,sleeve:0x765039,trim:0xd6ac64},
   samurai: { shirt: 0x3e5d8e, shirtD: 0x2d4674, pants: 0x3a4062, boots: 0x4c3628, scarf: 0xe2483c, hair: 0x1a1420, sleeve: 0x3e5d8e, trim: 0xe0b860 },
   archer: { shirt: 0x5c8e46, shirtD: 0x46723a, pants: 0x6e5638, boots: 0x6e4629, scarf: 0xeac452, hair: 0x7a4a24, sleeve: 0x5c8e46, trim: 0xd8c08a },
   witch: { shirt: 0x6c4aa4, shirtD: 0x563a8a, pants: 0x46366e, boots: 0x3a2c52, scarf: 0x8ad870, hair: 0x8a5ac0, sleeve: 0x6c4aa4, trim: 0xe8c860 },
@@ -433,8 +434,8 @@ function oversized(base, it) {
   return { parts: [B(0.06, 0.9, 0.06, 0, -0.1, 0, 0x8a7a6a)], glow: [] };
 }
 export function weaponModel(item, cls = 'samurai') {
-  const kind = item ? item.kind : { archer: 'bow', witch: 'staff', soulbound: 'chain' }[cls] || 'katana';
-  const base = item ? item.base : { archer: 'huntbow', witch: 'acornstaff', soulbound: 'tetherchain' }[cls] || 'rustkatana';
+  const kind = item ? item.kind : { archer: 'bow', witch: 'staff', soulbound: 'chain',gunslinger:'revolver' }[cls] || 'katana';
+  const base = item ? item.base : { archer: 'huntbow', witch: 'acornstaff', soulbound: 'tetherchain',gunslinger:'trailrevolver' }[cls] || 'rustkatana';
   // every base on the approved weapon sheet (and its heirloom/variant palettes) is built from
   // the visual registry; named curios and anything unknown keep the hand-built models below
   const built = buildWeapon(item, base);
@@ -561,6 +562,7 @@ export function makeHero(cls = 'samurai', appearance) {
     const w = weaponMesh(item, cls);
     if (w.userData.kind === 'bow') { offhand.add(w); w.rotation.x = Math.PI / 2 * 0.2; }
     else sword.add(w);
+    shield.visible=!['revolver','rifle'].includes(w.userData.kind);
   };
   root.traverse(o => { if (o.isMesh) o.layers.enable(1); });
   const setAppearance = raw => {
@@ -605,5 +607,6 @@ export function poseHeroIdle(m, family, time, blink=false) {
  m.armL.rotation.set(0,0,-.1-br*.04);m.armR.rotation.set(0,0,.1+br*.04);m.legL.rotation.set(0,0,0);m.legR.rotation.set(0,0,0);
  m.head.rotation.set(Math.sin(time*.7)*.04,0,0);m.sword.rotation.set(family==='staff'||family==='wand'?.25:Math.PI/2*.9,0,0);
  m.tail1.rotation.set(-.4+Math.sin(time*13)*.036,0,0);m.tail2.rotation.x=-.2+Math.sin(time*13+1)*.054;
+ if(['revolver','rifle'].includes(family)){m.armR.rotation.set(-1.12,0,-.08);m.sword.rotation.set(1.12,0,0);if(family==='rifle')m.armL.rotation.set(-1.05,0,-.55);m.shield.visible=false;}
  m.eyes.scale.y=blink?.15:1;m.eyes.position.y=.175*(1-m.eyes.scale.y);
 }

@@ -41,11 +41,20 @@ function bell(f, dur = 2.5, vol = 0.25, delay = 0) {
 }
 
 const SFX = {
+ revolvershot:()=>{noise(.11,{freq:1700,vol:.32,slide:.3});tone(125,.13,{vol:.18,slide:.4});},
+ rifleshot:()=>{noise(.055,{freq:2400,vol:.18,slide:.35});tone(160,.055,{vol:.1,slide:.5});},
+ gunreload:()=>{noise(.06,{freq:3200,vol:.1});tone(700,.05,{vol:.08});},
+ gunready:()=>tone(900,.06,{type:'triangle',vol:.1,slide:.6}),
+ seventhshot:()=>{bell(660,.7,.15);noise(.09,{freq:1900,vol:.24});},
+ gunblast:()=>{noise(.35,{freq:500,vol:.28,slide:.2});tone(70,.3,{vol:.2,slide:.3});},
   swing: () => noise(0.12, { freq: 2400, slide: 0.4, vol: 0.25, q: 2 }),
   swing2: () => noise(0.14, { freq: 3000, slide: 0.35, vol: 0.28, q: 2 }),
   spin: () => { noise(0.35, { freq: 1500, slide: 3, vol: 0.3, q: 3 }); tone(300, 0.3, { slide: 2, vol: 0.08 }); },
-  hit: () => { tone(180, 0.09, { slide: 0.5, vol: 0.35 }); noise(0.08, { freq: 900, vol: 0.35 }); },
-  heavyhit: () => { tone(110, 0.2, { slide: 0.4, vol: 0.45 }); noise(0.18, { freq: 500, vol: 0.45 }); },
+  elitewarn:()=>{bell(440,.22,.09);bell(660,.18,.06,.12);},
+  guardbreak:()=>{noise(.16,{freq:1800,vol:.24});bell(330,.3,.14);},
+  lootbell:()=>{bell(660,.7,.12);tone(990,.55,{type:'sine',vol:.1,delay:.13});tone(1320,.65,{type:'sine',vol:.08,delay:.26});},
+  hit: () => { tone(180, 0.09, { slide: 0.5, vol: 0.23 }); noise(0.06, { freq: 1100, vol: 0.22 }); },
+  heavyhit: () => { tone(95, 0.18, { slide: 0.4, vol: 0.34 }); noise(0.13, { freq: 650, vol: 0.31 });bell(220,.2,.07); },
   clang: () => { tone(1250, 0.25, { type: 'triangle', vol: 0.2 }); tone(1870, 0.18, { type: 'triangle', vol: 0.12 }); noise(0.05, { freq: 5000, vol: 0.2 }); },
   parry: () => { bell(1320, 0.6, 0.25); noise(0.06, { freq: 6000, vol: 0.3 }); },
   block: () => { tone(420, 0.1, { type: 'triangle', vol: 0.3, slide: 0.7 }); noise(0.06, { freq: 1500, vol: 0.2 }); },
@@ -131,7 +140,8 @@ const SFX = {
   windmill: () => { tone(60, 1.5, { type: 'sawtooth', vol: 0.1, slide: 1.5 }); noise(1.2, { freq: 400, vol: 0.2 }); },
 };
 
-export function sfx(name) { if (ctx && SFX[name]) SFX[name](); }
+const played=new Map();
+export function sfx(name) {if(!ctx||!SFX[name])return;const gap=({hit:.065,heavyhit:.1,crit:.14,zap:.1,shatter:.2,snap:.09,gunrifle:.075,enemydie:.09,elitewarn:.3,lootbell:1,lash:.09,lash2:.1,chainpull:.15,bolt:.1,ember:.1})[name]||0;if(ctx.currentTime-(played.get(name)??-99)<gap)return;played.set(name,ctx.currentTime);SFX[name]();}
 
 // ---------------- music -----------------
 // Each track: bpm, and lines of "note:len" tokens. Note names like C4, rests as '-'.

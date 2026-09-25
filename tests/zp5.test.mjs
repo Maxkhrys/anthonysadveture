@@ -47,7 +47,7 @@ export default async function (page, R) {
       inv.equip.weapon = N('spoolstring'); inv.equip.weapon.upgradeLevel = 6;
       for (const [k, id] of [['helm', 'ts_helm'], ['armor', 'ts_chest'], ['arms', 'ts_arms'], ['legs', 'ts_legs'], ['charm', 'echoclapper'], ['ring1', 'quickthread']]) inv.equip[k] = N(id);
       for (const id of ['ts_boots', 'glasswing', 'lilypad', 'teaspoon', 'bw_chest', 'stillwater', 'cw_helm']) inv.bag.push(N(id));
-      for (let i = 0; i < 9; i++) inv.bag.push(I.genItem({ level: 10, rarity: i % 5 }));
+      for (let i = 0; i < 9; i++) inv.bag.push(I.genItem({ developer:true, level: 10, rarity: i % 5 }));
       const w = I.genItem({ level: 10, slot: 'weapon', cls: 'archer', rarity: 3 }); w.rolledAffixes[0] = { ...w.rolledAffixes[0], ...window.__items.rollAffixValue(w.affixes[0], 10, { targetTier: 'mythic' }) }; w.highestAffixTier = 'mythic'; w.highestAffixColor = '#e040fb'; inv.bag.push(w);
       inv.lockedItems = [inv.bag[1].itemInstanceId];
       g.recalc(); g.ui.openInventory(); g.ui.invTab = 'bag'; g.ui.invSel = 0; g.ui.renderInventory();

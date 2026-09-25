@@ -223,7 +223,7 @@ class Brigand extends Enemy {
     this.m = { root, body, eyes, spear, shield }; this.obj.add(root);
   }
   modifyHit(h) {
-    const heavy = h.kind === 'spin' || h.kind === 'surge' || h.kind === 'blast' || h.kind === 'power' || h.kind === 'dash';
+    const heavy = h.heavy || h.kind === 'spin' || h.kind === 'surge' || h.kind === 'blast' || h.kind === 'power' || h.kind === 'dash';
     if (!heavy && this.state !== 'attack' && this.state !== 'recover' && Math.abs(angDiff(this.facing, h.dir + Math.PI)) < 1.0) return 'clang';
     return 1;
   }
@@ -237,7 +237,7 @@ class Brigand extends Enemy {
         if (d < 3) return this.circle(dt, 2.6);
         return this.chase(dt, 2.2);
       case 'windup':
-        this.facing = angleLerp(this.facing, this.angleTo(p), dt * 6); this.telegraph(this.st);
+        if(this.st<.38)this.facing = angleLerp(this.facing, this.angleTo(p), dt * 6); this.telegraph(this.st);
         if (this.st > 0.6) { this.setState('attack'); this.m.eyes.visible = true; this.ldir = this.facing; this.hitDone = false; sfx('swing2'); }
         return [0, 0];
       case 'attack': {

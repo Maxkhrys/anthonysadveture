@@ -407,7 +407,7 @@ export class DevMannequin extends Entity {
     }
 
     const b = bases[Math.floor(Math.random() * bases.length)];
-    const it = genItem({ level: g.inv.level || 5, rarity: 2 });
+    const it = genItem({ developer:true, level: g.inv.level || 5, rarity: 2 });
     it.base = b.id;
     it.name = b.name;
     it.slot = this.slot;

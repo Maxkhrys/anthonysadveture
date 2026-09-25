@@ -19,6 +19,7 @@ const INK = 0x1b1426, GOLD = 0xe0b040, GOLD_D = 0x9a6a1e, WHITE = 0xf6f2e8;
 
 // class palettes (the concept sheet); armour recolours main/second/trim but keeps the silhouette
 export const OUTFIT = {
+ gunslinger:{main:0x77513b,second:0x4b352a,trim:0xd4a25a,plate:0xa34b35,belt:0x35271f,boot:0x332a26,strap:0x9c6f41,pants:0x39434a,hat:0x715038,hat2:0x453127},
   samurai: { main: 0x2e4a86, second: 0x223a6e, trim: 0xd83a34, plate: 0xd23a32, belt: 0x241a20, boot: 0x241c22, strap: 0xc8302c, pants: 0x2a3a6c },
   archer: { main: 0x4f9a3a, second: 0x3c7c2e, trim: 0x7ac25a, plate: 0x6ab24c, belt: 0x6a4222, boot: 0x5a3820, strap: 0x7a4a26, pants: 0x5a4028, cap: 0x5aa83e, cap2: 0x4a8c32 },
   witch: { main: 0x6a3aa6, second: 0x542c8a, trim: 0x8a5ac8, plate: 0x7a4ab8, belt: 0x2a1e3a, boot: 0x2e2240, strap: 0x3a2a54, pants: 0x3a2a5a, hat: 0x6a3aa6, hat2: 0x5a2e92, band: 0x2a1e44 },
@@ -29,7 +30,7 @@ const look = raw => normalizeAppearance(raw);
 // ------------------------------------------------------------------ head
 export const HEAD = { soft: [.4, .36], angular: [.38, .36], round: [.42, .35], long: [.37, .39] };
 // what each class wears on its head when no helm is equipped
-export const CLASS_HAT = { samurai: null, archer: 'cap', witch: 'witchhat', soulbound: 'hood' };
+export const CLASS_HAT = { gunslinger:'cowboy', samurai: null, archer: 'cap', witch: 'witchhat', soulbound: 'hood' };
 
 export function voxelHead(cls, appearance, opts = {}) {
   const a = look(appearance), skin = hex(a.skin), hair = hex(a.hairColor);
@@ -101,6 +102,10 @@ export function classHat(cls, appearance) {
   const kind = CLASS_HAT[cls]; if (!kind) return [];
   const a = look(appearance), [W, H] = HEAD[a.face], O = OUTFIT[cls], D = .38;
   const P = [];
+  if(kind==='cowboy'){
+   P.push(B(W+.24,.04,D+.2,0,H-.04,0,O.hat2),B(W+.06,.14,D,0,H,0,O.hat),B(W+.07,.04,D+.01,0,H+.02,0,0x392a23),B(.07,.04,.02,0,H+.025,D/2+.01,GOLD));
+   for(const s of [-1,1])P.push(B(.09,.06,D+.18,s*(W/2+.11),H-.005,0,O.hat,0,0,s*.25));
+  }
   if (kind === 'witchhat') {
     P.push(B(W + .18, .035, D + .16, 0, H - .03, 0, O.hat2), B(W + .2, .012, D + .18, 0, H - .035, 0, shade(O.hat2, 1.3)));
     P.push(B(W + .04, .12, D + .02, 0, H, 0, O.hat), B(W + .05, .05, D + .03, 0, H + .01, 0, O.band), B(.08, .06, .02, 0, H + .005, D / 2 + .026, GOLD), B(.04, .03, .021, 0, H + .02, D / 2 + .027, O.band));
@@ -125,7 +130,11 @@ export function voxelTorso(cls, A) {
   const main = A ? A.main : O.main, second = A ? A.second : O.second, trim = A ? A.trim : O.trim, plate = A ? A.main : O.plate;
   const P = [B(.34, .3, .22, 0, .12, 0, main), B(.36, .05, .24, 0, .37, 0, shade(main, 1.12))]; // body + lit shoulders
   const belt = (col = O.belt, buckle = GOLD) => P.push(B(.37, .05, .25, 0, .15, 0, col), B(.075, .055, .02, 0, .147, .126, buckle), B(.035, .025, .022, 0, .162, .127, col));
-  if (cls === 'samurai') {
+  if(cls==='gunslinger'){
+   P.push(B(.38,.16,.25,0,.26,0,second),B(.36,.06,.26,0,.21,0,plate),B(.12,.28,.025,-.12,.04,.125,main),B(.12,.28,.025,.12,.04,.125,main),B(.1,.13,.08,.22,.09,0,O.belt));
+   belt();for(let i=0;i<5;i++)P.push(B(.025,.06,.025,-.12+i*.06,.145,.14,GOLD));
+   P.push(B(.06,.06,.025,-.11,.32,.15,GOLD));
+  } else if (cls === 'samurai') {
     P.push(B(.3, .19, .02, 0, .2, .112, plate), B(.3, .02, .022, 0, .37, .112, shade(plate, .75)), B(.1, .19, .021, 0, .2, .113, shade(plate, .88)));
     for (const s of [-1, 1]) for (let i = 0; i < 2; i++) { // layered sode, trimmed in red
       const y = .31 - i * .075, w = .13 - i * .01;

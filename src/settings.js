@@ -4,8 +4,17 @@ import {attachAlphaTools} from './alpha.js';
 import { controlsHTML } from './engine/actions.js';
 import { setVolumes, sfx } from './engine/audio.js';
 
+import {HUD_DEFAULTS,sanitizeHud} from './hud_settings.js';
 const KEY = 'mossling-settings';
 const OPTS = [
+ {k:'hudMode',name:'HUD layout',vals:['classic','compact','immersive'],labels:['Classic / full','Compact','Immersive']},
+ {k:'enemyBars',name:'Enemy bar density',vals:['balanced','focused','off'],labels:['Balanced · up to 12','Focused · up to 4','Off (bosses remain)']},
+ {k:'barStyle',name:'Enemy bar style',vals:['detailed','slim'],labels:['Detailed status labels','Slim status icons']},
+ {k:'panelMode',name:'Quest / guide behaviour',vals:['always','exploration','hidden'],labels:['Always','Hide during combat','Hidden']},
+ {k:'miniScale',name:'Minimap size',vals:[.75,1,1.2],labels:['Compact','Normal','Large']},
+ {k:'secondaryPanels',name:'Secondary panels',vals:[true,false],labels:['Shown','Hide purse / hints / chimes']},
+ {k:'damageIntensity',name:'Damage number intensity',vals:['full','reduced','minimal'],labels:['Full','Reduced','Minimal · critical hits']},
+ {k:'hitFlash',name:'Hit flash intensity',vals:[0,.5,1],labels:['Off','Reduced','Full']},
   { k: 'difficulty', name: 'Difficulty', vals: ['story', 'normal', 'hard'], labels: ['Story (gentle)', 'Normal', 'Hard'] },
   { k: 'master', name: 'Master volume', vals: [0, 0.25, 0.5, 0.75, 1], pct: true },
   { k: 'music', name: 'Music volume', vals: [0, 0.25, 0.5, 0.75, 1, 1.25], pct: true },
@@ -41,10 +50,10 @@ export const WORLD_FX = {
   balanced: { ao: 0.6, cloud: 0.16, split: 0.55, tilt: 0, detail: 0.1, refl: 0.32, beams: 0.07, mist: 0.3, birds: 0.28, soft: 1 },
   full: { ao: 0.8, cloud: 0.2, split: 0.75, tilt: 0.55, detail: 0.13, refl: 0.42, beams: 0.1, mist: 0.4, birds: 0.34, soft: 1 },
 };
-export const DEFAULTS = { world: 'balanced', zoom: 1, difficulty: 'normal', master: 1, music: 1, sfx: 1, shake: 1, numbers: true, guide: true, pixel: 0, quality: 'high', preset: 'default', bloom: 1, fx: 1, hudScale: 1, combatText: true, abilityLabels: false, questGuide: true, reducedMotion: false };
+export const DEFAULTS = { ...HUD_DEFAULTS, world: 'balanced', zoom: 1, difficulty: 'normal', master: 1, music: 1, sfx: 1, shake: 1, numbers: true, guide: true, pixel: 0, quality: 'high', preset: 'default', bloom: 1, fx: 1, hudScale: 1, combatText: true, abilityLabels: false, questGuide: true, reducedMotion: false };
 
 export function loadSettings() {
-  try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { return { ...DEFAULTS }; }
+  try { return sanitizeHud(Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY) || '{}'))); } catch (e) { return { ...DEFAULTS }; }
 }
 export function saveSettings(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {} }
 
@@ -52,6 +61,11 @@ export function applySettings(s, game) {
   setVolumes(s.master, s.music, s.sfx);
   const pr = game.pr;
   pr.shakeScale = s.shake;
+  pr.flashScale = s.hitFlash??1;
+  const root=document.documentElement;
+  for(const k of ['hudMode','enemyBars','barStyle','panelMode'])root.dataset[k]=s[k]||HUD_DEFAULTS[k];
+  root.classList.toggle('hide-secondary',s.secondaryPanels===false);
+  root.style.setProperty('--mini-scale',s.miniScale??1);root.dataset.hudScale=String(s.hudScale??1);
   const scale = s.pixel || null;
   if (pr.forceScale !== scale) { pr.forceScale = scale; pr.resize(); }
   const sz = s.quality === 'low' ? 1024 : s.quality === 'max' ? 4096 : 2048;
@@ -90,7 +104,8 @@ export class SettingsPanel {
     const groups = {
       Graphics: ['preset','pixel','quality','world','bloom','fx','zoom'],
       Audio: ['master','music','sfx'], Gameplay: ['difficulty','shake'],
-      Interface: ['hudScale','numbers','combatText','guide','questGuide','abilityLabels','reducedMotion'], Controls: []
+      HUD: ['hudMode','hudScale','secondaryPanels','panelMode','miniScale','enemyBars','barStyle','damageIntensity','shake','hitFlash'],
+      Interface: ['numbers','combatText','guide','questGuide','abilityLabels','reducedMotion'], Controls: []
     };
     return groups[this.category || 'Graphics'].map(k => OPTS.findIndex(o => o.k === k));
   }
@@ -98,7 +113,7 @@ export class SettingsPanel {
     this.category ||= 'Graphics';
     const ids = this.categoryOptions();
     if (!ids.includes(this.sel)) this.sel = ids[0] ?? 0;
-    this.el.innerHTML = `<div class="page-heading"><span class="page-kicker">Make yourself at home</span><h2>Settings</h2></div><div class="settings-layout"><nav class="settings-nav" aria-label="Settings categories">${['Graphics','Audio','Gameplay','Controls','Interface'].map(c => `<button data-category="${c}" class="${c === this.category ? 'on' : ''}">${c}</button>`).join('')}</nav><div class="settings-options">${this.category === 'Controls' ? controlsHTML() : ids.map(i => {
+    this.el.innerHTML = `<div class="page-heading"><span class="page-kicker">Make yourself at home</span><h2>Settings</h2></div><div class="settings-layout"><nav class="settings-nav" aria-label="Settings categories">${['Graphics','Audio','Gameplay','Controls','HUD','Interface'].map(c => `<button data-category="${c}" class="${c === this.category ? 'on' : ''}">${c}</button>`).join('')}</nav><div class="settings-options">${this.category === 'Controls' ? controlsHTML() : ids.map(i => {
       const o = OPTS[i];
       return `<div class="setrow ${i === this.sel ? 'on' : ''}" data-i="${i}"><label for="setting-${o.k}">${o.name}</label>${['master','music','sfx','hudScale'].includes(o.k) ? `<input id="setting-${o.k}" type="range" min="0" max="${o.vals.length-1}" step="1" value="${Math.max(0,o.vals.indexOf(this.g.settings[o.k]))}" aria-label="${o.name}"><output>${this.label(o)}</output>` : `<select id="setting-${o.k}" aria-label="${o.name}">${o.vals.map((v,j)=>`<option value="${j}" ${v === this.g.settings[o.k] ? 'selected' : ''}>${o.labels ? o.labels[j] : o.pct ? Math.round(v*100)+'%' : String(v)}</option>`).join('')}</select>`}</div>`;
     }).join('')}<p class="setnote">Changes apply immediately and are saved on this device.${this.onClose ? ' Esc to return.' : ''}</p></div></div>`;

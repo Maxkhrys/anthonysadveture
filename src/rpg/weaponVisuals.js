@@ -24,6 +24,17 @@ export const ICON_INDEX = { shinai: 0, rustkatana: 1, wakizashi: 2, tachi: 3, uc
 
 const GOLD = 0xd8a840, GOLD_D = 0x9a6a1e, INK = 0x1e1620;
 export const WEAPON_VISUALS = {
+ trailrevolver:{family:'revolver',model:'firearm',hold:'one',icon:null},
+ copperrevolver:{family:'revolver',model:'firearm',hold:'one',icon:null},
+ marshalrevolver:{family:'revolver',model:'firearm',hold:'one',icon:null},
+ woodrifle:{family:'rifle',model:'firearm',hold:'two',icon:null},
+ brassrifle:{family:'rifle',model:'firearm',hold:'two',icon:null},
+ ironrifle:{family:'rifle',model:'firearm',hold:'two',icon:null},
+ sundownsix:{family:'revolver',model:'firearm',hold:'one',icon:null},
+ kilnrunner:{family:'rifle',model:'firearm',hold:'two',icon:null},
+ bellfoundryrepeater:{family:'rifle',model:'firearm',hold:'two',icon:null},
+ seventhchime:{family:'revolver',model:'firearm',hold:'one',icon:null},
+
   wandererschain: { via: 'wayfarerlinks', icon: 36 },
   whisperingchain: { via: 'tidewhisper', icon: 37 },
   grievingcoil: { via: 'duskcoil', icon: 38 },

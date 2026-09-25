@@ -68,6 +68,7 @@ export class ItemCombat {
   dispatch(e) {
     for(const instance of this.build.effects) {
       const d=PROC_DEFS[instance.id];if(!d||d.event!==e.type)continue;
+      if(d.kind==='resource'&&this.g.inv.cls==='gunslinger'&&e.depth>0)continue;
       if(d.onlyStatus&&d.onlyStatus!==e.status)continue;
       if(d.requiresElement&&d.requiresElement!==e.element)continue;
       const status=e.statuses?.[d.requires||d.status]||this.statuses.get(e.target)?.get(d.requires||d.status);

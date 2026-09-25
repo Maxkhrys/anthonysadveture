@@ -126,7 +126,10 @@ export function installJournalUI(UI) {
     } else {
       resEl.querySelector('.bar i').style.width = `${this.g.res}%`;
       resEl.querySelector('.bar i').style.backgroundColor = C.resColor;
-      resEl.querySelector('.bar span').textContent = `${Math.floor(this.g.res)} ${C.res}`;
+      const w=inv.equip.weapon,m=w?.magazine,p=this.g.player;
+      const rounds=m ? ` · ${m.rounds}/${w.kind==='rifle'?18:6}` : '';
+      resEl.querySelector('.bar span').textContent = `${Math.floor(this.g.res)} ${C.res}${rounds}${p?.reload?' · Reloading':''}`;
+      resEl.querySelector('.res-label').textContent=inv.cls==='gunslinger' ? [p?.gunPrimed?'Primed':'',p?.satchel&&!p.satchel.dead?'Satchel ready':'',p?.overclockUntil>this.g.time?'Overclock':''].filter(Boolean).join(' · ') : '';
     }
     $('map-caption').textContent = this.g.area?.name || 'The world';
     $('objective').classList.toggle('hidden', this.g.settings.questGuide === false);

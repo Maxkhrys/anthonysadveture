@@ -1,5 +1,13 @@
 // Crisp engraved ability marks, independent of the platform emoji font.
 const marks = {
+ quickdraw:'M3 10h24v6H14l-3 12H5l3-12H3zM20 10V6m4 4V6',
+ barrage:'M3 12h22v6H12l-3 10H4l3-10M25 5h5M27 12h4M25 22h5',
+ deadeyemark:'M16 2v7m0 14v7M2 16h7m14 0h7M16 8a8 8 0 100 16 8 8 0 000-16',
+ powdergrenade:'M13 9h6l6 7v9l-9 5-9-5v-9zM16 9V4h7l3 3',
+ smokebomb:'M5 25c-9-8 4-14 8-9-4-12 15-15 13-3 11 2 6 15-2 12z',
+ satchelcharge:'M6 12h20v15H6zM11 12V7h10v5M16 17v6M13 20h6',
+ sentryturret:'M5 10h23v5H5zM14 15v7m5-7v7M16 22L5 29m11-7 11 7M8 5v5',
+ overclock:'M16 3a13 13 0 1013 13M16 8v9l6 4M24 2v8h7',
  iaido:'M4 23L23 4M5 8l3-3 15 15-3 3zM3 26l5-5',
  ghostdraw:'M7 25V12a8 8 0 0116 0v13l-4-3-3 3-4-3zM12 12v3m8-3v3',
  threadsever:'M4 4l24 24M28 4L4 28M6 14l8-8m4 20l8-8',

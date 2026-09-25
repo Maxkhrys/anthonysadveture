@@ -29,7 +29,7 @@ export default async function (page, R) {
   await sim(page, 4); await shot(page, '05b_deaths');
   await page.evaluate(() => { for (const e of window.__game.entities) if (e.isEnemy) e.remove(); });
   // inventory
-  await page.evaluate(() => { const g = window.__game, inv = g.inv; for (const s of ['weapon', 'helm', 'armor', 'charm']) inv.equip[s] = window.__items.genItem({ level: 5, cls: 'samurai', slot: s, rarity: 3 }); for (let i = 0; i < 8; i++) inv.bag.push(window.__items.genItem({ level: 5, rarity: i % 5 })); g.recalc(); g.ui.openInventory(); });
+  await page.evaluate(() => { const g = window.__game, inv = g.inv; for (const s of ['weapon', 'helm', 'armor', 'charm']) inv.equip[s] = window.__items.genItem({ level: 5, cls: 'samurai', slot: s, rarity: 3 }); for (let i = 0; i < 8; i++) inv.bag.push(window.__items.genItem({ developer:true, level: 5, rarity: i % 5 })); g.recalc(); g.ui.openInventory(); });
   await sim(page, 2); await shot(page, '06_inventory');
   await page.evaluate(() => window.__game.ui.closeInventory());
   await page.evaluate(() => { const g = window.__game; Object.assign(g.inv.mats, { thornheart: 1, shard: 9 }); g.inv.recipes.push('thornrebuke'); g.inv.coins = 200; g.ui.openCraft(); });

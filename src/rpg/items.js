@@ -1,3 +1,4 @@
+import { eligible, modifierEligible } from './eligibility.js';
 import { PROC_DEFS, LEGENDARY_DEFS, PRISMATIC_DEFS, AFFIX_DEFS as GAMEPLAY_AFFIXES } from './arpg/definitions.js';
 import { rollGameplay } from './arpg/items.js';
 import {RELICS} from './relics.js';
@@ -22,6 +23,12 @@ export const unitAt = lvl => 6 * (1 + 0.3 * (Math.max(1, lvl) - 1));
 // ---------------------------------------------------------------- weapon bases
 // kind: katana | bow | staff | wand.  spd: attacks-per-second multiplier. dmg: relative damage.
 export const WEAPONS = [
+{id:'trailrevolver',name:'Trail Revolver',lvl:1,cls:'gunslinger',kind:'revolver',dmg:1.35,spd:1,col:9267264},
+{id:'copperrevolver',name:'Copper Cylinder',lvl:4,cls:'gunslinger',kind:'revolver',dmg:1.35,spd:1,col:12154952},
+{id:'marshalrevolver',name:'Marshal Six',lvl:10,cls:'gunslinger',kind:'revolver',dmg:1.35,spd:1,col:10333880},
+{id:'woodrifle',name:'Woodstock Repeater',lvl:1,cls:'gunslinger',kind:'rifle',dmg:0.5,spd:1,col:9130032},
+{id:'brassrifle',name:'Brassline Rifle',lvl:6,cls:'gunslinger',kind:'rifle',dmg:0.5,spd:1,col:11769166},
+{id:'ironrifle',name:'Ironbark Automatic',lvl:14,cls:'gunslinger',kind:'rifle',dmg:0.5,spd:1,col:5594728},
   // Samurai
   { id: 'shinai', name: 'Bamboo Shinai', cls: 'samurai', kind: 'katana', lvl: 1, dmg: 0.85, spd: 1.15, reach: 1.2, col: 0xd8c070 },
   { id: 'rustkatana', name: 'Rusted Katana', cls: 'samurai', kind: 'katana', lvl: 1, dmg: 1.0, spd: 1.0, reach: 1.25, col: 0xb89a80 },
@@ -141,7 +148,7 @@ export const LEGENDARIES = [
   { id: 'firstchime', base: 'bellcharm', name: 'The First Chime', lvl: 5, u: 'firstchime', text: '+20% damage. Bell Surge fills twice as fast.' },
   { id: 'pipmagnet', base: 'rabbitfoot', name: 'Pip Magnet', lvl: 2, u: 'pipmagnet', text: '+80% Magic Find. Pips fly to you from further away.' },
   { id: 'mossheart', base: 'mosstunic', name: 'Mossheart Tunic', lvl: 4, u: 'mossheart', text: 'Regenerate 2% of your health each second out of combat… and 0.5% in it.' },
-  ...NAMED_WEAPONS.map(w => ({ id: w.id, base: w.id, name: w.name, lvl: w.lvl, u: w.id, text: w.text, weight: w.weight, named: true })),
+  ...NAMED_WEAPONS.map(w => ({ id: w.id, base: w.id, name: w.name, lvl: w.lvl, u: w.id, text: w.text, weight: w.weight, r:w.r, named: true })),
 ];
 export { NAMED_WEAPONS, ACCESSORIES };
 const weighted = list => { let t = Math.random() * list.reduce((a, l) => a + (l.weight ?? 1), 0); for (const l of list) if ((t -= l.weight ?? 1) <= 0) return l; return list[list.length - 1]; };
@@ -159,37 +166,40 @@ export function rollRarity(mf = 0, floor = 0, bonus = 0) {
   return 0;
 }
 
-export function genItem({ level = 1, rarity = null, slot = null, cls = null, mf = 0, floor = 0, bonus = 0 } = {}) {
+export function genItem({ level = 1, rarity = null, slot = null, cls = null, mf = 0, floor = 0, bonus = 0, developer = false } = {}) {
+  if (!cls && !developer) throw new Error("Reward recipient class is required; use developer:true for catalogue grants");
+  const fits = (b,u) => developer && !cls ? true : eligible(b,cls,u);
   const r = rarity ?? rollRarity(mf, floor, bonus);
   if ((!slot || slot === 'weapon') && Math.random() < 0.12) {
-    const pool = HEIRLOOMS.filter(w => w.r === r && w.lvl <= level && (!cls || w.cls === cls) && (!w.prismatic || Math.random() < 0.04));
-    if (pool.length) return makeNamed(pick(pool).id, level);
+    const pool = HEIRLOOMS.filter(w => w.r === r && w.lvl <= level && fits(w) && (!w.prismatic || Math.random() < 0.04));
+    if (pool.length) return makeNamed(pick(pool).id, level,null,cls);
   }
   const ilvl = Math.max(1, Math.round(level + rnd(-1, 1)));
-  if((!slot||slot==='charm')&&Math.random()<.12){const pool=RELICS.filter(a=>a.r===r&&a.lvl<=level&&(!a.prismatic||Math.random()<.04));if(pool.length)return makeNamed(pick(pool).id,level);}
+  if((!slot||slot==='charm')&&Math.random()<.12){const pool=RELICS.filter(a=>a.r===r&&a.lvl<=level&&(!a.prismatic||Math.random()<.04));if(pool.length)return makeNamed(pick(pool).id,level,null,cls);}
   // Legendary: pick a hand-made unique that fits (named weapons carry their own weights)
-  if (r === 4) {
+  if (r >= 4) {
     const slotOf = b => b.kind ? 'weapon' : b.slot;
-    const cands = LEGENDARIES.filter(l => { const b = baseById(l.base); return (l.weight ?? 1) > 0 && l.lvl <= ilvl + 2 && (!slot || slotOf(b) === slot) && (!cls || !b.cls || b.cls === cls); });
-    if (cands.length) { const L = weighted(cands); return makeItem(baseById(L.base), 4, ilvl, L); }
+    const cands = LEGENDARIES.filter(l => { const b = baseById(l.base); return (l.r ?? 4) === r && (l.weight ?? 1) > 0 && l.lvl <= ilvl + 2 && (!slot || slotOf(b) === slot) && fits(b,l); });
+    if (cands.length) { const L = weighted(cands); return makeItem(baseById(L.base), L.r ?? 4, ilvl, L, cls); }
   }
   // Epic and better: sometimes a build accessory or an armour-set piece
   if (r >= 3 && r < 5 && (!slot || slot === 'ring' || slot === 'charm') && Math.random() < 0.2) {
-    const cands = ACCESSORIES.filter(a => !RELICS.includes(a) && a.lvl <= ilvl + 2 && (!slot || baseById(a.base).slot === slot));
-    if (cands.length) { const A = pick(cands); return makeItem(baseById(A.base), Math.max(r, A.r), ilvl, { name: A.name, u: A.id, text: A.text }); }
+    const cands = ACCESSORIES.filter(a => !RELICS.includes(a) && a.lvl <= ilvl + 2 && fits(baseById(a.base),a) && (!slot || baseById(a.base).slot === slot));
+    if (cands.length) { const A = pick(cands); return makeItem(baseById(A.base), Math.max(r, A.r), ilvl, { name: A.name, u: A.id, text: A.text }, cls); }
   }
   if (r >= 3 && r < 5 && slot !== 'weapon' && Math.random() < 0.25) {
-    const cands = ARMORS.filter(a => a.set && a.lvl <= ilvl + 3 && (!slot || a.slot === slot));
-    if (cands.length) return makeItem(pick(cands), 3, Math.max(ilvl, 7));
+    const cands = ARMORS.filter(a => a.set && fits(a) && a.lvl <= ilvl + 3 && (!slot || a.slot === slot));
+    if (cands.length) return makeItem(pick(cands), r, ilvl, null, cls);
   }
   let pool;
-  if (slot === 'weapon' || (!slot && Math.random() < 0.5)) pool = WEAPONS.filter(w => !w.named && (!cls || w.cls === cls) && w.lvl <= ilvl + 1);
-  else pool = ARMORS.filter(a => !a.set && (!slot || a.slot === slot) && a.lvl <= ilvl + 1);
-  if (!pool.length) pool = WEAPONS.filter(w => w.lvl <= 1 && !w.named);
+  if (slot === 'weapon' || (!slot && Math.random() < 0.5)) pool = WEAPONS.filter(w => !w.named && fits(w) && w.lvl <= ilvl + 1);
+  else pool = ARMORS.filter(a => !a.set && fits(a) && (!slot || a.slot === slot) && a.lvl <= ilvl + 1);
+  if (!pool.length) pool = (slot && slot !== 'weapon' ? ARMORS.filter(a=>!a.set&&a.slot===slot) : WEAPONS.filter(w=>!w.named)).filter(b=>fits(b)).sort((a,b)=>a.lvl-b.lvl).slice(0,1);
+  if(!pool.length) throw new Error('No compatible reward base for '+cls+' / '+slot);
   // favour bases near the item level
   pool.sort((a, b) => b.lvl - a.lvl);
   const base = Math.random() < 0.6 ? pool[Math.floor(Math.random() * Math.min(3, pool.length))] : pick(pool);
-  return makeItem(base, r, ilvl);
+  return makeItem(base, r, ilvl, null, cls);
 }
 export function baseById(id) { return WEAPONS.find(w => w.id === id) || ARMORS.find(a => a.id === id); }
 
@@ -211,7 +221,7 @@ export function rollAffixValue(k, ilvl, opts = {}) {
   inst.actualRoll = v;
   return inst;
 }
-function makeItem(base, r, ilvl, legend = null) {
+function makeItem(base, r, ilvl, legend = null, recipient = base?.cls) {
   const R = RARITY[r];
   const isW = !!base.kind;
   const it = { uid: uid++ + '-' + Math.floor(Math.random() * 1e6), base: base.id, slot: isW ? 'weapon' : base.slot, cls: base.cls || null, kind: base.kind || null, r, ilvl, stats: {}, affixes: [] };
@@ -231,9 +241,9 @@ function makeItem(base, r, ilvl, legend = null) {
     if (base.set) it.set = base.set;
   }
   const slotKey = AFFIX_SLOT(it.slot);
-  const kindKey = it.kind === 'oversized' || it.kind === 'chain' ? 'katana' : it.kind; // melee affixes
+  const kindKey = ['revolver','rifle'].includes(it.kind) ? 'bow' : it.kind === 'oversized' || it.kind === 'chain' ? 'katana' : it.kind; // melee affixes
   const pool = Object.keys(AFFIXES).filter(k => {
-    if (AFFIXES[k].devOnly) return false;
+    if (AFFIXES[k].devOnly || !modifierEligible(k,recipient)) return false;
     if (AFFIXES[k].slots && !AFFIXES[k].slots.includes(slotKey)) return false;
     const D = AFFIX_DEFINITIONS[k];
     if (isW && D && D.kinds && !D.kinds.includes(kindKey)) return false;
@@ -260,19 +270,28 @@ function makeItem(base, r, ilvl, legend = null) {
     it.name = name;
   }
   it.value = Math.round((4 + ilvl * 3) * [1, 2, 5, 12, 30, 60][r] * (top ? 1 + Math.min(20, top.tierIndex * top.tierIndex * 0.15) : 1));
-  return identifyItem(rollGameplay(it));
+  return identifyItem(rollGameplay(it, Math.random, recipient));
 }
 // Named item by id (weapons, accessories, set pieces) for rewards, recipes and dev tools.
-export function makeNamed(id, ilvl = 6, r = null) {
+export function makeNamed(id, ilvl = 6, r = null, recipient = null) {
   const H = HEIRLOOM_BY_ID[id];
   if (H) { const it = makeItem(baseById(id), H.r, ilvl, {name:H.name,u:H.id,text:H.text}); for(const [k,v] of Object.entries(H.fixed)) it.stats[k]=(it.stats[k]||0)+v; it.prismatic=H.prismatic; it.sourceHint=H.src; it.rolledStats.stats=structuredClone(it.stats); return it; }
   const L = LEGENDARIES.find(l => l.id === id);
-  if (L) return makeItem(baseById(L.base), 4, ilvl, L);
+  if (L) return makeItem(baseById(L.base), L.r ?? 4, ilvl, L, recipient||baseById(L.base).cls);
   const A = ACCESSORIES.find(a => a.id === id);
-  if (A) {const it=makeItem(baseById(A.base),r??A.r,ilvl,{name:A.name,u:A.id,text:A.text});if(A.prismatic)it.prismatic=true;return it;}
+  if (A) {const it=makeItem(baseById(A.base),r??A.r,ilvl,{name:A.name,u:A.id,text:A.text},recipient);if(A.prismatic)it.prismatic=true;return it;}
   const b = baseById(id);
-  if (b) return makeItem(b, r ?? (b.set ? 3 : 1), ilvl);
+  if (b) return makeItem(b, r ?? (b.set ? 3 : 1), ilvl, null, recipient||b.cls);
   return null;
+}
+export function makeReward(id, cls, ilvl=6) {
+ const L=LEGENDARIES.find(l=>l.id===id), A=ACCESSORIES.find(a=>a.id===id), H=HEIRLOOM_BY_ID[id];
+ const base=baseById(L?.base||A?.base||id);
+ if(!base) throw new Error('Unknown named reward '+id);
+ if(eligible(base,cls,L||A||H)) return makeNamed(id,ilvl,null,cls);
+ const r=H?.r??A?.r??L?.r??(L?4:base.set?3:1);
+ const it=genItem({level:ilvl,cls,slot:base.kind?'weapon':base.slot,rarity:r});
+ it.rewardSource=id; return it;
 }
 export function makeBuildItem(id, cls, ilvl = 16) {
   const unique = PRISMATIC_DEFS[id] || LEGENDARY_DEFS[id];
@@ -282,14 +301,14 @@ export function makeBuildItem(id, cls, ilvl = 16) {
   const it = makeItem(base, PRISMATIC_DEFS[id] ? 5 : 4, ilvl);
   it.name = unique.name; it.unique = 'arpg:' + id; it.element = unique.element;
   it.effects = unique.effects.map(id => ({id, chance: PROC_DEFS[id].chance}));
-  const ranged = ['bow','wand','staff'].includes(it.kind);
+  const ranged = ['bow','wand','staff','revolver','rifle'].includes(it.kind);
   it.skillMods = unique.skillMods.filter(id => ranged || id === 'echo_cast');
   it.modifiers = it.modifiers.map(m => GAMEPLAY_AFFIXES[m.id]?.element ? {...m,id:unique.element+'Damage'} : m);
   it.prefixes = it.modifiers.slice(0, Math.ceil(it.modifiers.length/2)).map(m => m.id);
   it.suffixes = it.effects.map(e => e.id);
   return it;
 }
-export const SLOT_ICON = { chain: '⛓️', katana: '🗡️', bow: '🏹', staff: '🪄', wand: '✨', oversized: '🥄', helm: '⛑️', armor: '🥋', charm: '📿', arms: '🧤', legs: '👖', boots: '🥾', ring: '💍' };
+export const SLOT_ICON = { revolver:'🔫',rifle:'🔫', chain: '⛓️', katana: '🗡️', bow: '🏹', staff: '🪄', wand: '✨', oversized: '🥄', helm: '⛑️', armor: '🥋', charm: '📿', arms: '🧤', legs: '👖', boots: '🥾', ring: '💍' };
 export function itemIcon(it) { return SLOT_ICON[it.kind || it.slot] || '?'; }
 
 // A single-number score for "is this an upgrade?" arrows
@@ -314,6 +333,6 @@ export function statLine(k, v) {
 }
 
 export function starterWeapon(cls) {
-  const b = { samurai: 'rustkatana', archer: 'huntbow', witch: 'acornstaff', soulbound: 'tetherchain' }[cls];
+  const b = { samurai: 'rustkatana', archer: 'huntbow', witch: 'acornstaff', soulbound: 'tetherchain', gunslinger:'trailrevolver' }[cls];
   return makeItem(baseById(b), 0, 1);
 }

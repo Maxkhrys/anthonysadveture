@@ -1,0 +1,3 @@
+export const HUD_DEFAULTS={hudMode:'classic',enemyBars:'balanced',barStyle:'detailed',panelMode:'always',miniScale:1,secondaryPanels:true,damageIntensity:'full',hitFlash:1};
+export const HUD_VALUES={hudMode:['classic','compact','immersive'],enemyBars:['balanced','focused','off'],barStyle:['detailed','slim'],panelMode:['always','exploration','hidden'],miniScale:[.75,1,1.2],secondaryPanels:[true,false],damageIntensity:['full','reduced','minimal'],hitFlash:[0,.5,1]};
+export function sanitizeHud(s={}){const out={...s};for(const [k,v]of Object.entries(HUD_VALUES))out[k]=v.includes(s[k])?s[k]:HUD_DEFAULTS[k];out.hudScale=[.8,.9,1,1.15,1.3].includes(s.hudScale)?s.hudScale:1;return out;}

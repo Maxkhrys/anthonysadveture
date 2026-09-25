@@ -5,6 +5,7 @@ import { sfx } from '../engine/audio.js';
 
 const flashMats = {};
 export function flashObj(obj, dur = 0.08, color = 0xffffff) {
+  if(dur<=0)return;
   const mat = flashMats[color] || (flashMats[color] = new THREE.MeshBasicMaterial({ color }));
   obj.traverse(o => {
     if (!o.isMesh) return;

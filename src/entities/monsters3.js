@@ -192,7 +192,7 @@ class LanternMoth extends Enemy {
     const p = this.p, g = this.g, d = this.dist(p);
     // support: allies near the lantern fight harder while it lives
     this.buffT = (this.buffT || 0) - dt;
-    if (this.buffT <= 0) { this.buffT = 0.3; for (const e of g.entities) if (e.isEnemy && e !== this && !e.dead && !e.isBoss && Math.hypot(e.x - this.x, e.z - this.z) < 3) { e.litT = 0.5; e.litBy = this; } }
+    if (this.buffT <= 0) { this.buffT = 0.3; for (const e of g.entities) if (e.isEnemy && e !== this && !e.dead && !e.isBoss && Math.hypot(e.x - this.x, e.z - this.z) < 3) { e.litT = 0.5; e.litBy = this;if(g.onScreen(this.x,this.z,.4)&&g.onScreen(e.x,e.z,.4))g.fxBolt(this.x,this.z,e.x,e.z,0xffe6a0); } }
     switch (this.state) {
       case 'idle': this.alt += (1.2 - this.alt) * dt * 2; if (this.playerVisible()) this.setState('chase'); return this.wander(dt);
       case 'chase': {
@@ -397,7 +397,7 @@ class ResonantEcho extends Entity {
     if (Math.random() < 0.4) g.fx.add({ x: this.x + (Math.random() - 0.5) * this.r, y: 0.2, z: this.z + (Math.random() - 0.5) * this.r, vy: 0.8, g: 0, color: 0xc46bff, life: 0.4, size: 0.05 });
     if (this.t >= 0.9) {
       g.fx.ring(this.x, this.z, 0.2, this.r, 0xc46bff, 0.35); g.fx.burst(this.x, 0.4, this.z, 12, [0xc46bff, 0xffffff], 3); sfx('heavyhit');
-      if (Math.hypot(p.x - this.x, p.z - this.z) < this.r + p.r) p.hurt({ dmg: this.dmg, x: this.x, z: this.z, src: this.src, kb: 5 });
+      if (g.onScreen(this.x,this.z,.2)&&g.shotClear(this.x,this.z,p.x,p.z)&&Math.hypot(p.x - this.x, p.z - this.z) < this.r + p.r) p.hurt({ dmg: this.dmg, x: this.x, z: this.z, src: this.src, kb: 5 });
       this.remove();
     }
   }
@@ -405,7 +405,7 @@ class ResonantEcho extends Entity {
 }
 const _setState = Enemy.prototype.setState, _update = Enemy.prototype.update, _onHit = Enemy.prototype.onHit;
 Enemy.prototype.setState = function (s) {
-  if (s === 'attack' && this.elite === 'Resonant' && !this.dead && this.g && this.g.entities) this.g.spawn(new ResonantEcho(this.g, this));
+  if (s === 'attack' && this.elite === 'Resonant' && !this.dead && this.g && this.g.entities && this.g.onScreen(this.x,this.z,.4) && this.g.entities.filter(e=>e instanceof ResonantEcho&&!e.dead).length<2) this.g.spawn(new ResonantEcho(this.g, this));
   return _setState.call(this, s);
 };
 Enemy.prototype.update = function (dt) {

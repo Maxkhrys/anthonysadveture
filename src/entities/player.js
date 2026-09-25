@@ -1,3 +1,4 @@
+import { isFirearm, gunTick, fireGun, gunPose, gunDodge, gunCost, gunReady, gunAbility, detonateSatchel } from '../rpg/gunslinger.js';
 import { poseHeroIdle } from '../hero.js';
 import { itemCombat } from '../rpg/arpg/runtime.js';
 import * as THREE from 'three';
@@ -24,10 +25,10 @@ const SOUL_STATES = new Set(['lash', 'hook', 'hookzip', 'coil', 'veil', 'rend', 
 
 const _v = new THREE.Vector3();
 // how far each basic shot flies (used by both the shot and its on-screen path preview)
-const SHOT_RANGE = { arrow: 10, power: 13, bolt: 9, fireball: 9 };
+const SHOT_RANGE = { bullet:11, arrow: 10, power: 13, bolt: 9, fireball: 9 };
 // ground-placed abilities: max cast range, effect radius, keyboard default distance
 const SELF_CAST = { tempest: 1, nova: 1, familiar: 1 };
-const RANGED = { bow: 1, staff: 1, wand: 1 };
+const RANGED = { revolver:1,rifle:1, bow: 1, staff: 1, wand: 1 };
 
 const SPEED = 5.0;
 
@@ -98,13 +99,13 @@ export class Player extends Entity {
     }
   }
   faceAim() { if (this.aiming) this.facing = this.aimDir; }
-  shotKind(power) { return this.family === 'bow' ? (power ? 'power' : 'arrow') : (power ? (this.family === 'wand' ? 'bolt' : 'fireball') : 'bolt'); }
+  shotKind(power) { if(isFirearm(this.inv.equip.weapon))return 'bullet'; return this.family === 'bow' ? (power ? 'power' : 'arrow') : (power ? (this.family === 'wand' ? 'bolt' : 'fireball') : 'bolt'); }
   // the path the next basic shot will take, for the on-screen preview
   shotPreview() {
     if (!this.ranged || !this.aiming) return null;
     const s = this.state;
     const drawing = s === 'shoot' || s === 'aim';
-    if (!drawing && !(this.aimSrc === 'pad' && s === 'move')) return null;
+    if (!drawing && !(this.aimSrc === 'pad' && s === 'move') && !isFirearm(this.inv.equip.weapon)) return null;
     const charged = s === 'aim' && this.aimT >= this.chargeTimeNow;
     const max = SHOT_RANGE[this.shotKind(charged)];
     return { dir: this.aimDir, len: this.g.shotLen(this.x, this.z, this.aimDir, max), charged };
@@ -153,6 +154,7 @@ export class Player extends Entity {
     this.dodgeDir = mlen > 0.1 ? Math.atan2(mx, mz) : this.aiming ? this.aimDir + Math.PI : this.facing;
     this.rollDir = this.dodgeDir; this.facing = this.rollDir; this.targeting = null;
     itemCombat(this.g).emit('dash');
+    gunDodge(this);
     this.setState('roll'); sfx('roll'); this.g.guide.event('roll');
   }
   get inv() { return this.g.inv; }
@@ -208,12 +210,13 @@ export class Player extends Entity {
     this.targeting = null;
     this.invuln = 0.65;
     sfx('hurt'); g.pr.addShake(0.6); g.hitstop(0.06);
-    flashObj(this.obj, 0.12, 0xff5a5a);
+    flashObj(this.obj, 0.12*(g.settings?.hitFlash??1), 0xff5a5a);
     g.fx.burst(this.x, 0.5, this.z, 8, [0xff5a5a, 0xffffff], 2.5);
     return 'hit';
   }
   // raw = damage in legacy "half-heart" units; scaled by the attacker's level and our armour
   takeDamage(raw, lvl, src) {
+    if(this.smokeUntil>this.g.time && src?.isEnemy&&!src.isBoss)raw*=.65;
     if (this.godMode || this.g.godMode) return;
     const inv = this.inv, g = this.g;
     const L = lvl || g.zoneLevel(this.x, this.z);
@@ -301,6 +304,7 @@ export class Player extends Entity {
     return ((b && b.reach) || 2.5) * (1 + (this.g.pstats.reach || 0) / 100);
   }
   basicAttack() {
+    if(isFirearm(this.inv.equip.weapon))return fireGun(this);
     if (this.family === 'chain') return startLash(this);
     if (!this.ranged) return this.startAttack();
     const g = this.g;
@@ -367,6 +371,7 @@ export class Player extends Entity {
       if (!id) { sfx('error'); g.ui.toast('Empty ability slot', 'Assign abilities in the Skills tab (I).', 1.4); return false; }
       const S = SKILLS[id], rank = rankOf(inv, id);
       if (!rank) { sfx('error'); g.ui.toast(S.name + ' is locked', 'Unlock it in the skill tree.', 1.4); return false; }
+      if(id==='satchelcharge'&&this.satchel&&!this.satchel.dead)return detonateSatchel(this);
       if (this.cdOf(id) > 0) { sfx('error'); g.ui.flashSlot && g.ui.flashSlot(i, 'cd'); return false; }
       if (g.res < this.costOf(id)) { sfx('error'); g.ui.flashSlot && g.ui.flashSlot(i, 'res'); g.ui.toast('Not enough ' + CLASSES[this.cls].res, '', 0.8); return false; }
       // with a cursor or right stick, placed abilities show a preview while the key is held
@@ -376,12 +381,15 @@ export class Player extends Entity {
     }
     return false;
   }
-  costOf(id) { return (id === 'iaido' || id === 'ghostdraw') && this.counterT > 0 ? 0 : SKILLS[id].cost * (1 - Math.min(.5, (this.g.pstats.arpg?.stats.resourceCostReduction || 0) / 100)); }
+  costOf(id) { return (id === 'iaido' || id === 'ghostdraw') && this.counterT > 0 ? 0 : gunCost(this,id,SKILLS[id].cost) * (1 - Math.min(.5, (this.g.pstats.arpg?.stats.resourceCostReduction || 0) / 100)); }
   // costs are only paid once the ability actually goes off
   castAbility(id, at) {
     if (typeof id === 'number') id = this.inv.loadout[id]; // legacy callers pass a slot index
     const g = this.g, S = SKILLS[id], rank = rankOf(this.inv, id);
+    if(id==='satchelcharge'&&this.satchel&&!this.satchel.dead)return detonateSatchel(this);
+    if(!gunReady(this,id)) {sfx('error');return false;}
     if (!S || !rank || this.cdOf(id) > 0 || g.res < this.costOf(id)) { sfx('error'); return false; }
+    if(S.target==='ground'&&!at)at=this.groundTarget({id,range:S.range,radius:S.radius,def:S.def});
     if (at && !at.ok) { sfx('error'); g.ui.toast('No clear line to that spot', '', 0.9); return false; }
     let first = null;
     if (S.target === 'unit') { first = this.chainTarget(S.range || 7); if (!first) { sfx('error'); g.ui.toast('No target in sight', 'Point at an enemy within range.', 0.9); return false; } }
@@ -408,6 +416,7 @@ export class Player extends Entity {
     else if (id !== 'iaido' && id !== 'galestep' && !SELF_CAST[id]) { const t = g.nearestEnemy(this.x, this.z, 8, f, 0.9); if (t) this.facing = Math.atan2(t.x - this.x, t.z - this.z); }
     const F = this.facing;
     this.castCrit = !!crit;
+    if (gunAbility(this,id,rm,at,first))return;
     if (beginSoulAbility(this, id, rm, rank, at, first)) return;
     switch (id) {
       case 'iaido': this.setState('dash'); this.attackId++; this.hitSet.clear(); this.invuln = 0.35; this.abMult = 2.2 * rm; this.dashFrom = { x: this.x, z: this.z }; sfx('spin'); break;
@@ -452,6 +461,7 @@ export class Player extends Entity {
     this.invuln = Math.max(0, this.invuln - dt);
     this.rollCd = Math.max(0, this.rollCd - dt);
     const locked = g.locked();
+    gunTick(this,dt,locked);
     let mx = locked ? 0 : inp.mx, mz = locked ? 0 : inp.mz;
     const mlen = Math.hypot(mx, mz);
     let speed = 0;
@@ -525,10 +535,10 @@ export class Player extends Entity {
     if (soul) { vx = soul[0]; vz = soul[1]; speed = soul[2]; }
     else switch (s) {
       case 'move': {
-        speed = ps.speed * (1 + (g.quickT > g.time ? 0.05 * (g.quickStacks || 0) : 0) + (g.thornstepT > g.time ? 0.25 : 0));
+        speed = ps.speed * (isFirearm(inv.equip.weapon)&&inp.down('attack')?(g.talent('steadyhands')?.95:.8):1) * (1 + (g.quickT > g.time ? 0.05 * (g.quickStacks || 0) : 0) + (g.thornstepT > g.time ? 0.25 : 0));
         if (mlen > 0.1) this.facing = angleLerp(this.facing, Math.atan2(mx, mz), Math.min(1, dt * 18));
         if (!locked) {
-          if (inp.pressed('attack') && !this.targeting) { this.basicAttack(); break; }
+          if ((inp.pressed('attack') || isFirearm(inv.equip.weapon)&&inp.down('attack')&&!inp.pressed('roll')) && !this.targeting && !(isFirearm(inv.equip.weapon)&&(this.gunCd>0||this.reload||this.barrage))) { this.basicAttack(); break; }
           if (this.tryAbility()) break;
           if (inp.pressed('roll') && this.rollCd <= 0) { this.startRoll(mx, mz, mlen); break; }
           if (inp.down('shield')) { this.setState('block'); this.blockT = 0; g.guide.event('guard'); break; }
@@ -793,7 +803,7 @@ export class Player extends Entity {
     }
     if (speed > 0 && mlen > 0.1 && this.state !== 'roll') {
       const wade = this.wading ? 0.85 : 1;
-      vx += mx * speed * this.speedMul * wade; vz += mz * speed * this.speedMul * wade;
+      vx += mx * speed * this.speedMul * (this.depthSlowUntil>g.time?.65:1) * wade; vz += mz * speed * this.speedMul * (this.depthSlowUntil>g.time?.65:1) * wade;
     }
     // knockback
     if (this.kx) {
@@ -974,6 +984,7 @@ export class Player extends Entity {
     if (s === 'roll') { const k = this.st / 0.34; m.body.scale.set(1 + Math.sin(k * Math.PI) * 0.1, 0.8, 1); }
     if (s === 'attack' && this.st < 0.05) m.body.scale.set(1.08, 0.92, 1.08); // anticipation squash
     if (this.pushing) { m.armL.rotation.x = -1.4; m.armR.rotation.x = -1.4; m.body.rotation.x = 0.25; }
+    if(isFirearm(this.inv.equip.weapon)&&!['dead','roll','hurt','fall'].includes(s))gunPose(this);
     // hurt flicker
     this.m.root.visible = !(this.invuln > 0 && this.state !== 'surge' && Math.floor(this.invuln * 20) % 2 === 0);
   }

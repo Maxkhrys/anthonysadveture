@@ -288,6 +288,25 @@ function uniqueAccent(u, W, V) {
 }
 
 export function buildWeapon(item, base) {
+ if(['revolver','rifle'].includes(item?.kind)){
+  const rifle=item.kind==='rifle',c=item.r>=4?0xc9a354:0x747b80,wood=item.base==='ironrifle'?0x493b31:0x875033;
+  const P=[C(.085,.15,.08,0,-.08,0,wood),C(.115,.095,rifle?.3:.16,0,.06,.05,c),C(.05,.055,rifle?.48:.27,0,.09,rifle?.3:.19,0x303940),C(.07,.07,.025,0,.082,rifle?.54:.32,0x171e24)];
+  if(rifle){P.push(C(.095,.09,.21,0,.055,-.16,wood),C(.085,.07,.18,0,.04,.28,wood));for(let i=0;i<3;i++)P.push(C(.06,.065,.08,0,-.015-i*.05,.12+i*.015,0x3a4246));}
+  else {P.push(C(.145,.12,.12,0,.04,.055,c));for(const x of [-.07,.07])P.push(C(.012,.055,.02,x,.07,.06,0xd8b874));}
+  // Silhouettes distinguish the normal bases and named mechanisms, not just their tints.
+  let tip=rifle?.55:.33;
+  if(['marshalrevolver','sundownsix'].includes(item.base)){P.push(C(.055,.055,.16,0,.09,.39,0x727b80));tip=.47;}
+  if(item.base==='copperrevolver')P.push(C(.17,.025,.14,0,.155,.06,0xb97848));
+  if(item.base==='brassrifle')P.push(C(.035,.06,.32,0,.16,.16,0xd4b267));
+  if(item.base==='ironrifle')P.push(C(.06,.06,.14,0,.09,.6,0x343d42));
+  if(item.base==='ironrifle')tip=.68;
+  if(item.base==='kilnrunner')for(let i=0;i<4;i++)P.push(C(.11,.025,.035,0,.035+i*.025,.23,0xc07a45));
+  if(item.base==='bellfoundryrepeater')P.push(C(.12,.16,.16,.12,.04,.05,0xc4a35f),C(.025,.08,.08,.19,.075,.05,0x5b4932));
+  if(item.base==='seventhchime')P.push(C(.17,.025,.15,0,.05,.06,0xc9a354),C(.07,.11,.07,0,.02,-.11,0xbdefff));
+  const glow=item.unique?[C(.025,.025,.025,.065,.12,.04,item.unique==='seventhchime'?0xaaf7ff:0xffba6b)]:[];
+  return {parts:P,glow,prism:[],scale:1,anchors:{tip:[0,.11,tip],gem:[.06,.12,.04],edge:[[0,.06],[0,.15]]}};
+ }
+
   const V = getWeaponVisual(base || item);
   if (!V || V.model === 'legacy' || !BUILD[V.model]) return null;
   const W = BUILD[V.model](V);
