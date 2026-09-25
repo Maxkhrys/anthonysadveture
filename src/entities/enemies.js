@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {depthTick,tacticalMove,eliteHit} from '../enemy_depth.js';
 import { Entity, move } from './entity.js';
 import { makeBlot, makeBeetle, makePuffer, makeWisp, makeKnight, mesh, B, MAT_GLOW } from '../models.js';
 import { sfx } from '../engine/audio.js';
@@ -46,7 +47,7 @@ export class Enemy extends Entity {
     return this.gunTarget||player;
   }
   remove() { if (this.warnMk && this.warnMk.parent) this.warnMk.parent.remove(this.warnMk); this.warnMk = null; super.remove(); }
-  setState(s) { this.state = s; this.st = 0; }
+  setState(s) { this.state = s; this.st = s==='recover'&&this.elite==='Brutal' ? -.35 : 0; }
   takeToken() {
     if (this.token) return true;
     // nobody commits to an attack from off-screen
@@ -61,7 +62,7 @@ export class Enemy extends Entity {
   onHit(h) {
     if (this.dead || this.spawnT > 0) return null;
     const g = this.g;
-    let dmg = h.dmg;
+    let dmg = h.dmg * eliteHit(this,h);
     const r = this.modifyHit ? this.modifyHit(h) : 'hit';
     if (r === 'clang') {
       sfx('clang'); g.fx.sparks(this.x, 0.35, this.z, h.dir + Math.PI, 10);
@@ -72,13 +73,12 @@ export class Enemy extends Entity {
     if (typeof r === 'number') dmg *= r;
     this.hp -= dmg;
     g.addSurge(this.surgeGain);
-    flashObj(this.obj, 0.08);
+    flashObj(this.obj, 0.08*(g.settings?.hitFlash??1));
     g.fx.burst(this.x, 0.35, this.z, 6, INK, 3, { life: 0.4 });
     g.fx.sparks(this.x, 0.35, this.z, h.dir, 5);
     const heavy = h.heavy || h.kind === 'spin' || h.kind === 'surge' || h.kind === 'spin3';
-    sfx(heavy ? 'heavyhit' : 'hit');
-    g.hitstop(heavy ? 0.07 : 0.045);
-    g.pr.addShake(heavy ? 0.35 : 0.15);
+    const primary=!h.secondary&&!h.shared;
+    if(primary){sfx(heavy?'heavyhit':h.crit?'crit':'hit');if(!(g.feelAt>g.time)){g.feelAt=g.time+.09;g.hitstop(heavy?.055:h.crit?.035:.018);g.pr.addShake(heavy?.28:h.crit?.18:.06);}}
     const kb = (h.kb ?? 4) * (this.poise && !heavy ? 0.15 : 1) * (this.kbMul ?? 1);
     this.kx = Math.sin(h.dir) * kb; this.kz = Math.cos(h.dir) * kb;
     if ((!this.poise && !this.elite) || heavy) { this.stagger = heavy ? 0.5 : 0.28; this.onStagger && this.onStagger(); this.dropToken(); if (this.state === 'windup' || this.state === 'attack') this.setState('recover'); }
@@ -148,13 +148,13 @@ export class Enemy extends Entity {
     this.warn(dt);
     // rain soaks everything outdoors; wet foes conduct lightning and flash-freeze
     if (g.rainK > 0.5 && g.area && g.area.id === 'overworld' && !(this.status && this.status.wet > 1)) this.applyStatus('wet', 2);
-    if (this.elite === 'Vampiric' && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.02 * dt);
+    depthTick(this,dt);
     if (this.aura) this.aura.rotation.z += dt * 2;
     const frozen = S && (S.freeze > 0 || S.root > 0);
     this.stagger = Math.max(0, this.stagger - dt);
     this.parried = Math.max(0, (this.parried || 0) - dt);
     let vx = 0, vz = 0;
-    if (this.stagger <= 0 && !g.cutscene && !frozen) { const v = this.think(dt) || [0, 0]; const sl = S && S.chill > 0 ? 0.5 : 1; vx = v[0] * sl; vz = v[1] * sl; }
+    if (this.stagger <= 0 && !g.cutscene && !frozen) { const v = tacticalMove(this,this.think(dt) || [0, 0]); const sl = S && S.chill > 0 ? 0.5 : 1; vx = v[0] * sl; vz = v[1] * sl; }
     if (frozen && this.token) this.dropToken();
     const knocked = Math.abs(this.kx) + Math.abs(this.kz) > 0.3;
     if (this.moveMode !== 'fly') this.moveMode = knocked ? 'knock' : 'walk';

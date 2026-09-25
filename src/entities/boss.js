@@ -138,7 +138,7 @@ export class Boss extends Entity {
     }
     const dmg = h.kind === 'surge' && this.state !== 'stunned' ? 1 : h.dmg;
     this.hp -= dmg; this.stunHits++;
-    flashObj(this.obj, 0.08); sfx('heavyhit'); g.hitstop(0.08); g.pr.addShake(0.4);
+    flashObj(this.obj, 0.08*(g.settings?.hitFlash??1)); sfx('heavyhit'); g.hitstop(0.08); g.pr.addShake(0.4);
     g.fx.burst(this.x, 0.9, this.z + 0.9, 12, [0xff7ab0, 0x7fd36a, 0xffffff], 4);
     g.addSurge(3);
     g.ui.bossBar(this.name, this.hp / this.maxHp);

@@ -6,6 +6,7 @@ import {bagCapacity,BOONS} from './rpg/relics.js';
 import {buildEmberwell} from './world/emberwell.js';
 import {installEmberwell} from './emberwell.js';
 import * as THREE from 'three';
+import {spawnWarning} from './enemy_depth.js';
 import { buildOverworld, buildDungeon, buildGrotto, buildRift } from './world/maps.js';
 import { onLashHit } from './rpg/soulbound.js';
 import { windUniform, clipUniform, waterU, windowMat, lampMat, bendUniform, groundY } from './world/build.js';
@@ -173,14 +174,14 @@ export class Game {
     return e;
   }
   makeElite(e) {
-    const mods = ['Swift', 'Brutal', 'Vampiric', 'Armoured', 'Volatile', 'Resonant', 'Oathbound'];
+    const mods = ['Swift', 'Brutal', 'Vampiric', 'Armoured', 'Volatile', 'Resonant', 'Oathbound', 'Stormtouched', 'Frostbound'];
     e.elite = mods[Math.floor(Math.random() * mods.length)];
-    e.hp *= 3; e.maxHp = e.hp; e.xpValue *= 4;
+    e.hp *= 2.2; e.maxHp = e.hp; e.xpValue *= 4;
     e.obj.scale.setScalar(1.35); e.eliteScale = 1.35;
-    if (e.elite === 'Swift') e.speed *= 1.5;
-    if (e.elite === 'Brutal') e.dmgMul = 1.6;
-    if (e.elite === 'Armoured') e.dmgTaken = 0.6;
-    const col = { Swift: 0x7ad8ff, Brutal: 0xff5a4a, Vampiric: 0xc4386a, Armoured: 0xc0c0d0, Volatile: 0xffb347, Resonant: 0xc46bff, Oathbound: 0xffd25e }[e.elite];
+    if (e.elite === 'Swift') e.speed *= 1.15;
+    if (e.elite === 'Brutal') e.dmgMul = 1.2;
+    if (e.elite === 'Armoured') e.dmgTaken = 1;
+    const col = { Swift: 0x7ad8ff, Brutal: 0xff5a4a, Vampiric: 0xc4386a, Armoured: 0xc0c0d0, Volatile: 0xffb347, Resonant: 0xc46bff, Oathbound: 0xffd25e, Stormtouched:0x80d8ff,Frostbound:0xc9f2ff }[e.elite];
     e.auraColor = col;
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.55, 20), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false }));
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; e.obj.add(ring); e.aura = ring;
@@ -454,7 +455,7 @@ export class Game {
     const previousProcDepth = this.procDepth;
     if (o.arpgProc) this.procDepth = Math.max(2, previousProcDepth || 0);
     let r;
-    try { r = e.onHit({ dmg, kind: o.kind, kb: o.kb, dir: o.dir, src: o.src || p, crit, heavy }); if (e.hp <= 0 && (e.dead || e.state === 'dying')) arpg.kill(e); }
+    try { r = e.onHit({ dmg, kind: o.kind, kb: o.kb, dir: o.dir, src: o.src || p, crit, heavy, secondary:!!(o.arpgProc||o.arpgExtra||o.echo||o.quiet) }); if (e.hp <= 0 && (e.dead || e.state === 'dying')) arpg.kill(e); }
     finally { arpg.context = previousContext; this.procDepth = previousProcDepth; }
     if (r === 'hit') arpg.hit(e, o, dmg, crit);
     if (r !== 'hit' || o.arpgProc) return r;
@@ -537,7 +538,7 @@ export class Game {
       const p = this.player;
       this.fx.ring(p.x, p.z, 0.3, 3, 0xffd25e, 0.7); this.fx.burst(p.x, 0.5, p.z, 30, [0xffd25e, 0xffffff], 3, { g: -1 });
       sfx('fanfare'); this.pr.addFlash(0.25, 0xffd25e);
-      this.ui.banner('LEVEL UP', 'Level ' + inv.level, 2.2);
+      this.ui.banner('LEVEL '+inv.level+' · +1 SKILL POINT', 'Your legend grows', 2.2);
       this.ui.toast(unlocked ? 'New ability: ' + unlocked.name + ' [' + unlocked.key + ']' : '+1 Skill Point', unlocked ? unlocked.desc : 'Press K to spend it in your skill tree.', 3);
       this.save();
     }
@@ -1074,7 +1075,7 @@ export class Game {
     if (e.status && e.status.burn > 0 && this.talent('wildfire') && this.procDepth < 2) { this.procDepth++; try { fanFlames(this, e, e.status); } finally { this.procDepth--; } }
     if (e.status && e.status.hex > 0 && this.talent('soulsiphon')) { this.res = Math.min(100, this.res + 8); this.fx.burst(e.x, 0.6, e.z, 8, 0xb88aff, 2, { g: -2 }); }
     if (ps.uniques.has('hexbloom') && this.procDepth < 2) { this.procDepth++; try { blast(this, e.x, e.z, 1.8, 0.9, 0x8b5cf6, { ability: true }); } finally { this.procDepth--; } }
-    if (e.elite === 'Volatile') { this.fx.ring(e.x, e.z, 0.2, 2, 0xffb347, 0.4); const p = this.player; if (Math.hypot(p.x - e.x, p.z - e.z) < 2) p.hurt({ dmg: 2, x: e.x, z: e.z, src: e, kb: 6 }); }
+    if (e.elite === 'Volatile' && this.onScreen(e.x,e.z,.4)) spawnWarning(e,'Volatile');
     // crafting materials come from the fights you already have, not a separate gathering game
     if (e.elite) gainMat(this, 'shard', 1 + (Math.random() < 0.5 ? 1 : 0));
     if (e.champion && Math.random() < 0.5) gainMat(this, 'echo', 1, e.x, e.z);
@@ -1489,7 +1490,7 @@ export class Game {
         if (d < m && d > 1e-4) { const k = (m - d) * 0.5; a.x -= dx / d * k; a.z -= dz / d * k; b.x += dx / d * k; b.z += dz / d * k; }
       }
       const dx = p.x - a.x, dz = p.z - a.z, d = Math.hypot(dx, dz), m = a.r + p.r;
-      if (d < m && d > 1e-4 && a.moveMode !== 'fly') { const k = (m - d); a.x -= dx / d * k; a.z -= dz / d * k; }
+      if (d < m && d > 1e-4 && a.moveMode !== 'fly' && p.state !== 'veil') { const k = (m - d); a.x -= dx / d * k; a.z -= dz / d * k; }
     }
     this.entities = this.entities.filter(e => !e.dead);
     this.streamTick(dt);

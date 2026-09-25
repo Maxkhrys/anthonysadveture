@@ -1,3 +1,5 @@
+import {updateEnemyHud} from './enemy_hud.js';
+import {textAllowed} from './rpg/combat_readability.js';
 import { gameplayLines } from './rpg/arpg/items.js';
 import { abilityIcon } from './ui_icons.js';
 // RPG-layer UI: vitals, ability bar, floating numbers, enemy bars, loot feed, inventory, skills, class select.
@@ -49,8 +51,11 @@ export function installRpgUI(UI) {
 
   // ---------------- floating numbers & enemy bars
   P.float = function (x, y, z, text, color, big, small) {
-    if (this.g.settings && this.g.settings.numbers === false && !small) return;
+    if (this.g.settings && this.g.settings.numbers === false && /^[+−\-]?\d/.test(text)) return;
     if (this.g.settings && this.g.settings.combatText === false && small && /[A-Z]{3}/.test(text)) return;
+    if(!textAllowed(this.g.settings?.damageIntensity,text,big,small,this.g.time,this.numberAt??-1))return;
+    if(/^[+−\-]?\d/.test(text))this.numberAt=this.g.time;
+    if(small&&/[A-Z]{3}/.test(text)){this.labelTimes ||=new Map();if(this.g.time-(this.labelTimes.get(text)??-10)<.35)return;this.labelTimes.set(text,this.g.time);if(this.labelTimes.size>32)this.labelTimes.delete(this.labelTimes.keys().next().value);}
     const el = document.createElement('div');
     el.className = 'flt' + (big ? ' crit' : '') + (small ? ' small' : '');
     el.textContent = text; el.style.color = color;
@@ -69,28 +74,7 @@ export function installRpgUI(UI) {
       f.el.style.left = s.x + 'px'; f.el.style.top = s.y + 'px';
       f.el.style.opacity = Math.min(1, (0.9 - f.t) * 3);
     }
-    // enemy health bars
-    const g = this.g, host = $('floaters');
-    this.bars = this.bars || new Map();
-    const seen = new Set();
-    for (const e of g.entities) {
-      if (!e.isEnemy || e.dead || e.isBoss) continue;
-      if (e.hpShow > 0) e.hpShow -= dt;
-      if (!(e.hpShow > 0 || e.elite)) continue;
-      if (Math.abs(e.x - g.player.x) > 16 || Math.abs(e.z - g.player.z) > 12) continue;
-      if (g.room && g.roomAt(e.x, e.z) !== g.room) continue;
-      seen.add(e);
-      let b = this.bars.get(e);
-      if (!b) {
-        b = document.createElement('div'); b.className = 'ehp' + (e.elite ? ' elite' : '');
-        b.innerHTML = `<i></i>${e.elite ? `<label>${e.displayName}</label>` : ''}<small>${e.level || ''}</small>`;
-        host.appendChild(b); this.bars.set(e, b);
-      }
-      const s = this.g.pr.project(_v.set(e.x, (e.gy || 0) + (e.alt || 0) + 0.95 * (e.eliteScale || 1) + (e.kind === 'knight' ? 0.5 : 0), e.z));
-      b.style.left = s.x + 'px'; b.style.top = s.y + 'px';
-      b.firstChild.style.width = Math.max(0, e.hp / e.maxHp * 100) + '%';
-    }
-    for (const [e, b] of this.bars) if (!seen.has(e)) { b.remove(); this.bars.delete(e); }
+    updateEnemyHud(this,dt);
   };
   P.clearFloats = function () { for (const f of this.floats || []) f.el.remove(); this.floats = []; if (this.bars) { for (const b of this.bars.values()) b.remove(); this.bars.clear(); } };
 

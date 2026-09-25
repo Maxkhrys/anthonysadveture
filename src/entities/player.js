@@ -210,7 +210,7 @@ export class Player extends Entity {
     this.targeting = null;
     this.invuln = 0.65;
     sfx('hurt'); g.pr.addShake(0.6); g.hitstop(0.06);
-    flashObj(this.obj, 0.12, 0xff5a5a);
+    flashObj(this.obj, 0.12*(g.settings?.hitFlash??1), 0xff5a5a);
     g.fx.burst(this.x, 0.5, this.z, 8, [0xff5a5a, 0xffffff], 2.5);
     return 'hit';
   }
@@ -803,7 +803,7 @@ export class Player extends Entity {
     }
     if (speed > 0 && mlen > 0.1 && this.state !== 'roll') {
       const wade = this.wading ? 0.85 : 1;
-      vx += mx * speed * this.speedMul * wade; vz += mz * speed * this.speedMul * wade;
+      vx += mx * speed * this.speedMul * (this.depthSlowUntil>g.time?.65:1) * wade; vz += mz * speed * this.speedMul * (this.depthSlowUntil>g.time?.65:1) * wade;
     }
     // knockback
     if (this.kx) {

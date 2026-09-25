@@ -32,7 +32,7 @@ class BossBase extends Entity {
     const g = this.g;
     const dmg = Math.max(1, Math.round(h.dmg * mult));
     this.hp -= dmg; this.hpShow = 3;
-    flashObj(this.obj, 0.06); g.addSurge(2);
+    flashObj(this.obj, 0.06*(g.settings?.hitFlash??1)); g.addSurge(2);
     g.ui.bossBar(this.name, Math.max(0, this.hp / this.maxHp));
     if (h.heavy || h.crit) g.hitstop(0.06);
     if (this.hp <= 0 && this.state !== 'dying') { this.setState('dying'); this.onDying(); }
