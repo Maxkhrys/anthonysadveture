@@ -400,3 +400,12 @@ it is. They were also too slow to judge feel at 60 fps.
 
 ## Pass 5 — identity, skill trees and content
 Skill trees (3 paths per class, 24 actives, six-slot hotbar), off-class weapons, armour sets, named weapons, reinforcement, real affix-rarity loot, element combinations, five new creatures, two elite modifiers, the Cracked Conservatory, the Seamkeeper, the Crowned Toad, Bellstone fast travel and death drops. Details, migration notes and measurements: `docs/pass5.md`. Dev tooling hooks: `docs/pass5-dev-integration.md`.
+
+## Pass 6 — the world expansion
+Lanternreach is now one seamless 320×260 overworld: about 5× the old walkable ground. The old world sits in the middle, and seven new regions surround it: the Deepwood, Lake Mirrow, Sunscald Reach, Cinderpeak, Moonfen and the Chime Highlands, with Glassmere expanded.
+- **Places:** 41 landmarks; two settlements (Mirrow Landing and Cinder Rest); 11 new Bellstones; 11 mini-dungeons, four of them holding unique accessories.
+- **Encounters:** a new world boss, the Tollcrow; seeded optional content (camps, rare elites, a travelling pedlar, falling stars, Hush incursions, a night procession); night enemy pools and NPC schedules; six new quests.
+- **Map:** fog-of-war discovery on the map, and a first world reveal after the intro fight.
+- **Seeds:** every character has a world seed and a saved manifest of optional content. Old saves migrate in place.
+
+The world streams in 24-tile chunks. Details: `docs/pass6.md`. Screenshots: `docs/screens/pass6/`. Tests: `npm run test:world` and `node tests/run.mjs world`.
