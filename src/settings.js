@@ -36,9 +36,9 @@ export const PRESETS = {
 // World effects levels (post pass, low-res so cheap): ambient occlusion, cloud shadows (the
 // atmosphere scales them by daylight), split-tone grade, tilt-shift
 export const WORLD_FX = {
-  off: { ao: 0, cloud: 0, split: 0, tilt: 0, detail: 0 },
-  balanced: { ao: 0.6, cloud: 0.16, split: 0.55, tilt: 0, detail: 0.1 },
-  full: { ao: 0.8, cloud: 0.2, split: 0.75, tilt: 0.55, detail: 0.13 },
+  off: { ao: 0, cloud: 0, split: 0, tilt: 0, detail: 0, refl: 0, beams: 0, mist: 0 },
+  balanced: { ao: 0.6, cloud: 0.16, split: 0.55, tilt: 0, detail: 0.1, refl: 0.32, beams: 0.07, mist: 0.3 },
+  full: { ao: 0.8, cloud: 0.2, split: 0.75, tilt: 0.55, detail: 0.13, refl: 0.42, beams: 0.1, mist: 0.4 },
 };
 export const DEFAULTS = { world: 'balanced', zoom: 1, difficulty: 'normal', master: 1, music: 1, sfx: 1, shake: 1, numbers: true, guide: true, pixel: 0, quality: 'high', preset: 'default', bloom: 1, fx: 1, hudScale: 1, combatText: true, abilityLabels: false, questGuide: true, reducedMotion: false };
 
@@ -56,7 +56,7 @@ export function applySettings(s, game) {
   const sz = s.quality === 'low' ? 1024 : s.quality === 'max' ? 4096 : 2048;
   pr.postMat.uniforms.bloomScale.value = s.bloom ?? 1;
   const W = WORLD_FX[s.world] || WORLD_FX.balanced, U = pr.postMat.uniforms;
-  pr.worldFx = W; U.aoAmt.value = W.ao; U.splitAmt.value = W.split; U.tilt.value = W.tilt; U.detailAmt.value = W.detail || 0;
+  pr.worldFx = W; U.aoAmt.value = W.ao; U.splitAmt.value = W.split; U.tilt.value = W.tilt; U.detailAmt.value = W.detail || 0; U.reflAmt.value = W.refl || 0;
   if (game.fx) game.fx.density = s.fx ?? 1;
   if (typeof document !== 'undefined') document.documentElement.style.setProperty('--hud', s.hudScale ?? 1);
   if (game.sun.shadow.mapSize.x !== sz) { game.sun.shadow.mapSize.set(sz, sz); if (game.sun.shadow.map) { game.sun.shadow.map.dispose(); game.sun.shadow.map = null; } }
