@@ -498,6 +498,8 @@ export class Player extends Entity {
           if (this.tryAbility()) break;
           if (inp.pressed('roll') && this.rollCd <= 0) { this.startRoll(mx, mz, mlen); break; }
           if (inp.down('shield')) { this.setState('block'); this.blockT = 0; g.guide.event('guard'); break; }
+          if(inp.pressed('toolCycle')&&inv.fireRod){inv.activeTool=inv.activeTool==='fireRod'?'bellows':'fireRod';g.hudDirty=true;g.ui.toast(inv.activeTool==='fireRod'?'Cinder Rod':'Gustbellows','L use · Y swap',1);g.save();}
+          if(inp.pressed('item')&&inv.fireRod&&inv.activeTool==='fireRod'){g.castCinderRod();break;}
           if (inp.pressed('item') && inv.bellows) { this.setState('item'); this.itemT = 0; break; }
           if (inp.pressed('interact')) g.interact();
         }

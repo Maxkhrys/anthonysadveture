@@ -1,3 +1,4 @@
+import {attachAlphaTools} from './alpha.js';
 // Persistent settings with a keyboard/mouse-driven panel.
 import { controlsHTML } from './engine/actions.js';
 import { setVolumes, sfx } from './engine/audio.js';
@@ -88,6 +89,7 @@ export class SettingsPanel {
       const o = OPTS[i];
       return `<div class="setrow ${i === this.sel ? 'on' : ''}" data-i="${i}"><label for="setting-${o.k}">${o.name}</label>${['master','music','sfx','hudScale'].includes(o.k) ? `<input id="setting-${o.k}" type="range" min="0" max="${o.vals.length-1}" step="1" value="${Math.max(0,o.vals.indexOf(this.g.settings[o.k]))}" aria-label="${o.name}"><output>${this.label(o)}</output>` : `<select id="setting-${o.k}" aria-label="${o.name}">${o.vals.map((v,j)=>`<option value="${j}" ${v === this.g.settings[o.k] ? 'selected' : ''}>${o.labels ? o.labels[j] : o.pct ? Math.round(v*100)+'%' : String(v)}</option>`).join('')}</select>`}</div>`;
     }).join('')}<p class="setnote">Changes apply immediately and are saved on this device.${this.onClose ? ' Esc to return.' : ''}</p></div></div>`;
+    if(this.category==='Interface')attachAlphaTools(this.el.querySelector('.settings-options'),this.g);
     this.el.querySelectorAll('[data-category]').forEach(b=>b.onclick=()=>{this.category=b.dataset.category;this.render();});
     this.el.querySelectorAll('.setrow').forEach(row=>{
       const i=+row.dataset.i, control=row.querySelector('input,select');

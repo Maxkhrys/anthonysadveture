@@ -338,7 +338,7 @@ export class GearDrop extends Entity {
       let spot=null;for(let r=1;r<=5&&!spot;r++)for(let a=0;a<16;a++){const xx=x+Math.cos(a*Math.PI/8)*r*.5,zz=z+Math.sin(a*Math.PI/8)*r*.5;if(clear(xx,zz)){spot=[xx,zz];break;}}
       if(spot)[this.x,this.z]=spot; else if(g.player&&clear(g.player.x,g.player.z))[this.x,this.z]=[g.player.x,g.player.z];
     }
-    const R = RARITY[item.r];
+    const R = item.prismatic ? {...RARITY[item.r],hex:0x93dfff} : RARITY[item.r];
     const col = item.slot === 'weapon' ? 0xdfe8f0 : item.slot === 'charm' ? 0xffd25e : 0xa08a6a;
     this.icon = mesh(item.slot === 'weapon' ? [B(0.06, 0.5, 0.06, 0, 0, 0, col), B(0.2, 0.05, 0.08, 0, 0.12, 0, R.hex)] : [B(0.3, 0.26, 0.2, 0, 0, 0, col), B(0.32, 0.06, 0.22, 0, 0.2, 0, R.hex)], MAT_GLOW, false);
     if (item.slot === 'weapon') { this.icon.geometry?.dispose(); this.icon = weaponMesh(item,item.cls); this.icon.scale.multiplyScalar(.65); }
@@ -359,8 +359,9 @@ export class GearDrop extends Entity {
     // loot lands only where the player can stand (not inside props, over ledges or in water),
     // then drifts to you once you're close, so a drop can never end up out of reach
     this.moveMode = 'walk'; move(g, this, this.vx * dt, this.vz * dt);
+    const pickupRange=g.pstats.uniques.has('travelantern')?2.6:1.8;
     const dp = Math.hypot(p.x - this.x, p.z - this.z);
-    if (this.t > 0.5 && dp < 1.8 && dp > 0.05 && p.state !== 'dead' && !this.warned) { const k = Math.min(1, dt * (4 + (1.8 - dp) * 6)) / dp; move(g, this, (p.x - this.x) * k * dp * 0.5, (p.z - this.z) * k * dp * 0.5); }
+    if (this.t > 0.5 && dp < pickupRange && dp > 0.05 && p.state !== 'dead' && !this.warned) { const k = Math.min(1, dt * (4 + (pickupRange - dp) * 6)) / dp; move(g, this, (p.x - this.x) * k * dp * 0.5, (p.z - this.z) * k * dp * 0.5); }
     this.icon.rotation.y += dt * 2; this.icon.position.y = this.y + Math.sin(this.t * 3) * 0.05;
     if (this.beam) this.beam.material.opacity = 0.35 + Math.sin(this.t * 4) * 0.12;
     if (this.item.r >= 2 && Math.random() < 0.15) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.4, y: 0.2, z: this.z + (Math.random() - 0.5) * 0.4, vy: 1.4, g: 0, color: RARITY[this.item.r].hex, life: 0.8, size: 0.05 });

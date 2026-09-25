@@ -1,3 +1,6 @@
+import {bagCapacity,BOONS} from './rpg/relics.js';
+import {buildEmberwell} from './world/emberwell.js';
+import {installEmberwell} from './emberwell.js';
 import * as THREE from 'three';
 import { buildOverworld, buildDungeon, buildGrotto, buildRift } from './world/maps.js';
 import { windUniform, clipUniform, waterU, windowMat, lampMat, bendUniform, groundY } from './world/build.js';
@@ -59,7 +62,7 @@ const REGION_MOOD = {
 };
 // what the overworld streams in and out around the player (everything else lives all the time)
 const STREAMED = new Set(['tuft', 'bush', 'enemy', 'lootchest', 'sign', 'leafpile', 'drift', 'clue', 'vista', 'boulder', 'camp6', 'rare6', 'pocket6', 'pedlar6', 'cavemouth', 'tangle']);
-const BUILDERS = { overworld: buildOverworld, dungeon: buildDungeon, grotto: buildGrotto, devroom: buildDevRoom, conservatory: buildConservatory, ...Object.fromEntries(MINI_IDS.map(id => [id, () => buildMini(id)])) };
+const BUILDERS = { emberwell: buildEmberwell, overworld: buildOverworld, dungeon: buildDungeon, grotto: buildGrotto, devroom: buildDevRoom, conservatory: buildConservatory, ...Object.fromEntries(MINI_IDS.map(id => [id, () => buildMini(id)])) };
 
 export const defaultInv = defaultInventory;
 
@@ -507,9 +510,10 @@ export class Game {
       this.save();
     }
   }
+  bagCapacity() {return bagCapacity(this.inv);}
   pickupItem(it) {
     const inv = this.inv;
-    if (inv.bag.length >= BAG_SIZE) return false;
+    if (inv.bag.length >= this.bagCapacity()) return false;
     identifyItem(it, this.profile?.id);
     if ([...inv.bag, ...Object.values(inv.equip).filter(Boolean)].some(held => held.itemInstanceId === it.itemInstanceId)) return false;
     inv.bag.push(it);
@@ -535,6 +539,7 @@ export class Game {
     if (!this.canEquip(it)) { sfx('error'); return; }
     const slot = slotOverride || this.equipSlotFor(it);
     const old = inv.equip[slot];
+    if(old?.unique==='wayfarersatchel'&&it.unique!=='wayfarersatchel'&&inv.bag.length>30){this.ui.toast('Make room first','Satchel needs two free spaces before replacing it.');return;}
     inv.equip[slot] = it;
     this.lastEquip = { slot, t: performance.now() };
     inv.bag.splice(i, 1);
@@ -675,6 +680,7 @@ export class Game {
     // player
     const sp = typeof spawn === 'object' ? spawn : area.spawns[spawn] || Object.values(area.spawns)[0];
     this.player = new Player(this, sp.x, sp.z);
+    this.inv.areaBoon=this.flags['boon:'+id]||null; this.recalc();
     this.player.facing = area.dungeon ? Math.PI : 0;
     this.spawn(this.player);
     // entities: small areas spawn everything; the overworld streams its scenery-level defs
@@ -823,6 +829,7 @@ export class Game {
     return this.player.lastSafe;
   }
   onPlayerDeath() {
+    if(this.pstats.uniques.has('phoenixfeather')&&!this.flags.phoenixSpent){this.flags.phoenixSpent=true;this.inv.hp=Math.ceil(this.inv.maxHp*.4);this.player.setState('move');this.player.invuln=2;this.ui.toast('The feather burns','40% health restored. Recharges after a normal death.');this.save();return;}
     sfx('hurt');
     this.ui.bossBar(null);
     this.stats.deaths = (this.stats.deaths || 0) + 1;
@@ -843,7 +850,7 @@ export class Game {
     setTimeout(() => { this.dead = true; this.ui.show('gameover', true); }, 1300);
   }
   revive() {
-    this.dead = false; this.ui.show('gameover', false);
+    this.flags.phoenixSpent=false; this.dead = false; this.ui.show('gameover', false);
     this.inv.hp = this.inv.maxHp;
     this.inv.potions = this.inv.maxPotions;
     this.surge = 0;
@@ -1239,7 +1246,7 @@ export class Game {
         switch (c.kind) {
           case 'key': inv.keys++; break;
           case 'bigkey': inv.bigkey = true; break;
-          case 'item': inv[c.item] = true; if (c.item === 'bellows') this.ui.toast('Gustbellows: L (hold for a gale)', 'Try it on the pinwheel!', 4); break;
+          case 'item': inv[c.item] = true; if(c.item==='fireRod') inv.activeTool='fireRod'; if (c.item === 'bellows') this.ui.toast('Gustbellows: L (hold for a gale)', 'Try it on the pinwheel!', 4); break;
           case 'heart': this.gainHeartContainer(true); break;
           case 'pips': this.addCoins(n); break;
           case 'potion': inv.potions = Math.min(inv.maxPotions, inv.potions + 1); break;
@@ -1403,6 +1410,7 @@ export class Game {
     if (this.player) B[0].set(this.player.x, this.player.z, 0.8, this.player.state === 'roll' ? 0.5 : 0.3);
     for (let i = 1; i < 4; i++) B[i].w = Math.max(0, B[i].w - dt * 0.9);
     this.liquidTime.value = this.time;
+    if(this.pstats?.uniques.has('worldseed')&&!this.dead&&this.player.state!=='dead'&&!this.locked()&&!this.ui.invOpen&&this.area.id!=='devroom'){const key='boon:'+this.area.id;if(this.flags[key]){if(this.inv.areaBoon!==this.flags[key]){this.inv.areaBoon=this.flags[key];this.recalc();}}else{this.ui.ask('Worldseed','Choose a boon for '+this.area.name+'. This choice stays with this adventure.',Object.entries(BOONS).map(([id,b])=>({label:b.name+' · '+b.text,cb:()=>{this.flags[key]=id;this.inv.areaBoon=id;this.recalc();this.save();}})));}}
     const input = this.input;
     if (this.revealing && (input.pressed('interact') || input.pressed('attack'))) this.endReveal();
     this.ui.update(dt);
@@ -1533,3 +1541,5 @@ class RiftPortal extends Entity {
 
 installWorld6(Game);
 installStory6(Story);
+
+installEmberwell(Game,Story);

@@ -1,3 +1,4 @@
+import {renderCreative} from './dev/creative.js';
 // Shared journal presentation. Uses existing inventory, quest, map and service systems.
 import { glyph, controlsHTML } from './engine/actions.js';
 import { abilityIcon } from './ui_icons.js';
@@ -28,7 +29,7 @@ export function installJournalUI(UI) {
     renderInventory.call(this);
     bindNav(this, document.querySelector('.inv-panel'), this.invTab === 'skills' ? 'skills' : 'bag');
     document.querySelector('#inventory .tabs').classList.add('hidden');
-    if (this.invTab === 'skills') return;
+    if (this.invTab === 'skills') { renderCreative(this); return; }
     const inv = this.g.inv, slots = this.dollSlots();
     $('paperdoll').querySelectorAll('[data-eq]').forEach(el => {
       const it = inv.equip[slots[+el.dataset.eq].key];
@@ -42,7 +43,7 @@ export function installJournalUI(UI) {
       $('baggrid').before(head);
       head.querySelector('input').addEventListener('input', e => { this.bagSearch = e.target.value; this.renderInventory(); });
     }
-    head.querySelector('.bag-capacity').textContent = `${inv.bag.length} / 30 spaces · ${inv.coins} pips`;
+    head.querySelector('.bag-capacity').textContent = `${inv.bag.length} / ${this.g.bagCapacity()} spaces · ${inv.coins} pips`;
     let actions = document.querySelector('.item-actions');
     if (!actions) { actions = document.createElement('div'); actions.className = 'item-actions'; $('tooltip').after(actions); }
     const it = this.invSel >= 0 ? inv.bag[this.invSel] : inv.equip[slots[-1-this.invSel]?.key];
@@ -55,7 +56,7 @@ export function installJournalUI(UI) {
       if (b.dataset.act === 'favourite') this.g.toggleLock(it);
       if (b.dataset.act === 'salvage') { this.g.salvageItem(this.invSel); this.g.save(); }
       if (b.dataset.act === 'unequip') {
-        if (inv.bag.length >= 30) { this.toast('Your bag is full.', 'Make room before removing equipment.'); return; }
+        if (inv.bag.length + 1 > (it.unique==='wayfarersatchel'?30:this.g.bagCapacity())) { this.toast('Your bag is full.', 'Make room before removing equipment.'); return; }
         inv.bag.push(it); inv.equip[slots[-1-this.invSel].key] = null; this.g.recalc(); this.g.save();
       }
       this.renderInventory();
@@ -68,6 +69,7 @@ export function installJournalUI(UI) {
     if (!it) $('tooltip').innerHTML = '<div class="empty-inventory"><span>◇</span><h3>Your next discovery awaits.</h3><p>Pick up equipment from foes and treasure chests.<br>Select any equipped slot to inspect it.</p></div>';
     document.querySelector('.inv-keys').textContent = 'Arrows select · F equip · V protect · X salvage · T sort · G filter';
     buttonize($('inventory'));
+    renderCreative(this);
   };
   const skills = P.renderSkills;
   P.renderSkills = function () {
@@ -100,6 +102,7 @@ export function installJournalUI(UI) {
     }
     const inv = this.g.inv, C = CLASSES[inv.cls], plaque = $('hero-plaque');
     if (plaque.dataset.cls !== inv.cls) { plaque.dataset.cls = inv.cls; plaque.querySelector('.hero-seal').innerHTML = abilityIcon({samurai:'iaido',archer:'multishot',witch:'familiar'}[inv.cls]); }
+    if(inv.fireRod){const tool=$('slot-item');tool.title=(inv.activeTool==='fireRod'?'Cinder Rod':'Gustbellows')+' · L use · Y swap';tool.querySelector('.cap').textContent=inv.activeTool==='fireRod'?'FIRE':'WIND';tool.querySelector('.icon').style.filter=inv.activeTool==='fireRod'?'hue-rotate(160deg) saturate(2)':'';}
     $('xpbar').title = `Experience ${inv.xp} / ${xpNeed(inv.level)}`;
     $('xpbar').setAttribute('aria-label', $('xpbar').title);
     plaque.querySelector('b').textContent = C.name;
@@ -154,7 +157,7 @@ export function installJournalUI(UI) {
     const sections = ['Equipment','Relics','Discoveries']; this.codexPage ||= 'Equipment';
     let content = '';
     if (this.codexPage === 'Equipment') content = `<div class="codex-items">${Object.values(inv.equip).filter(Boolean).map(it => this.itemHtml(it)).join('')}</div>`;
-    if (this.codexPage === 'Relics') content = `<h3>Chimes recovered</h3><p>${inv.chimes.length ? inv.chimes.map(esc).join(' · ') : 'No Chimes recovered yet.'}</p><h3>Dungeon tools</h3><p>${inv.bellows ? 'Gustbellows'+(inv.galeValve ? ' · Gale Valve fitted' : '') : 'Explore Rootwell Hollow to discover your first tool.'}</p>${inv.chimes.includes('verdant') ? '<p>Your gust repeats after 1.5 seconds. The Bellwrights called this an Echo.</p>' : ''}`;
+    if (this.codexPage === 'Relics') content = `<h3>Chimes recovered</h3><p>${inv.chimes.length ? inv.chimes.map(esc).join(' · ') : 'No Chimes recovered yet.'}</p><h3>Dungeon tools</h3>${inv.fireRod?'<p>Cinder Rod · L use · Y swap tools</p>':''}<p>${inv.bellows ? 'Gustbellows'+(inv.galeValve ? ' · Gale Valve fitted' : '') : 'Explore Rootwell Hollow to discover your first tool.'}</p>${inv.chimes.includes('verdant') ? '<p>Your gust repeats after 1.5 seconds. The Bellwrights called this an Echo.</p>' : ''}`;
     if (this.codexPage === 'Discoveries') content = `<h3>Awakened Bellstones</h3>${this.g.unlockedBellstones().map(b=>`<p>◇ ${esc(this.g.bellstoneName(b.id))}<small> ${esc(b.area)}</small></p>`).join('') || '<p>Rest at a Bellstone to record it here.</p>'}`;
     $('tab-gear').innerHTML = `<div class="page-heading"><span class="page-kicker">An adventurer’s record</span><h2>Field codex</h2></div><div class="codex-nav">${sections.map(s=>`<button class="${s===this.codexPage?'on':''}" data-codex="${s}">${s}</button>`).join('')}</div><div class="codex-content">${content}</div>`;
     $('tab-gear').querySelectorAll('[data-codex]').forEach(b=>b.onclick=()=>{this.codexPage=b.dataset.codex;this.renderCodex();});

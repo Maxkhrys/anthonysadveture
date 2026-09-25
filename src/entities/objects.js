@@ -8,12 +8,13 @@ import { angleLerp } from '../engine/util.js';
 
 // ------------------------------------------------ Chest
 export const ITEM_INFO = {
+  fireRod: {name:'Cinder Rod',desc:'Aim with mouse and press L to ignite furnaces and expose the Kiln Regent. Y swaps between Cinder Rod and Gustbellows.',color:0xff9f35},
   key: { name: 'Small Key', desc: 'Opens one locked door in this dungeon.', color: 0xc0c0d0 },
   bigkey: { name: 'Thornwood Key', desc: 'A great key of living wood. It opens the Root Gate.', color: 0xffd25e },
   bellows: { name: 'Gustbellows', desc: 'Squeeze with L. Hold to build a gale!\nWind pushes crates, snuffs flames, spins pinwheels, clears dust — and flips beetles on their backs.', color: 0x7ad8ff },
   heart: { name: 'Heart Vessel', desc: 'Your maximum hearts increased by one!', color: 0xff4a5a },
   pips: { name: 'Pips', desc: '', color: 0xffd25e },
-  potion: { name: 'Red Tonic', desc: 'Drink with Q to restore three hearts.', color: 0xe8424f },
+  potion: { name: 'Red Tonic', desc: 'Drink with H to restore health.', color: 0xe8424f },
   echo: { name: 'Hollow Echo', desc: 'A sound that forgot to stop. Posy could work it into something.', color: 0x9ad8ff },
   score: { name: "Bellwright's Score", desc: 'A toll written down a hundred years ago. Elder Tamsin should see this.', color: 0xe0b860 },
   recipe: { name: 'Recipe', desc: '', color: 0x9ad8ff }, named: { name: 'Treasure', desc: '', color: 0xff9a2a }, mat: { name: 'Material', desc: '', color: 0xe8e0d0 },

@@ -1,3 +1,5 @@
+import { HEART } from './world/layout.js';
+import {BUILD,chooseImport} from './alpha.js';
 import { PixelRenderer } from './engine/pixel.js';
 import { Input } from './engine/input.js';
 import { initAudio, playMusic, toggleMusic, sfx } from './engine/audio.js';
@@ -20,7 +22,7 @@ const TIPS = [
   'Tap <b>Q</b> just before an enemy strikes to <b>parry</b> — the next blow is a guaranteed critical.',
   'An <b style="color:#ffa02a">orange !</b> means a heavy blow: a held guard will break. Parry it or roll.',
   'Elite monsters glow with a coloured aura. Light hits won\'t stop their attacks — but they always drop gear.',
-  'Bellstones refill your life and tonics, and you wake at the last one if you fall. Nothing is lost.',
+  'Bellstones refill your life and tonics, and you wake at the last one if you fall. Gear stays safe; half your carried pips drop where you fall.',
   'Salvage gear for <b>Hush Shards</b>, then take a rare essence to Posy\'s workbench.',
   'Hold <b>2</b> (Snare) or <b>3</b> (Rain) to see where it will land. Release to cast.',
   'Gear with a <b style="color:#6fdc5a">▲</b> in your bag is an upgrade over what you are wearing.',
@@ -64,16 +66,18 @@ async function buildMenu() {
     menu.push({ label: 'Save unavailable — export recovery data', act: exportRecovery });
   }
   if (game.saveProvider.exportRecovery) menu.push({ label: 'Export Save / Recovery Copy', act: exportRecovery });
+  menu.push({label:'Import adventures…',act:()=>chooseImport(game,async()=>{await buildMenu();sel=0;renderMenu();})});
   menu.push({ label: 'Settings', act: () => openTitleSettings() });
   menu.push({ label: 'How to Play', act: () => { sfx('select'); game.ui.say(null, 'MOVE: WASD · AIM: mouse · ATTACK: click or C (hold to charge) · GUARD: Q / right click (tap to parry) · ROLL: Space\nABILITIES: 1–6 · TOOL: L · INTERACT: F · BAG: E · TONIC: H · SKILLS: K · JOURNAL: J · MAP: M · SURGE: R · MENU: Esc\n\nWatch for the *!* over an enemy: it is about to strike. Rest at Bellstones to refill tonics. Bring essences to Posy\'s workbench.'); } });
 }
 function renderMenu() {
+  $('title').dataset.build=BUILD;
   $('title-menu').replaceChildren();
   menu.forEach((m, i) => {
     const d = document.createElement('div');
     d.className = i === sel ? 'on' : ''; d.dataset.i = i; d.textContent = m.label;
     d.onclick = () => { sel = i; initAudio(); m.act(); };
-    d.onmouseenter = () => { if (sel !== i) { sel = i; renderMenu(); } };
+    d.onmouseenter = () => { if (sel !== i) { sel = i; $('title-menu').querySelectorAll('[data-i]').forEach(n => n.classList.toggle('on', +n.dataset.i === sel)); } };
     $('title-menu').append(d);
   });
 }
@@ -200,7 +204,7 @@ function frame(now) {
     game.time += dt;
     // a slow drift over Thimblewick at golden hour, lanterns just coming on
     game.flags.dayOffset = (0.665 - 0.32) * 420 - game.time;
-    game.camFocus = { x: 55 + Math.sin(titleT * 0.05) * 9, z: 60 + Math.cos(titleT * 0.04) * 5 };
+    game.camFocus = { x: HEART.x + 55 + Math.sin(titleT * 0.05) * 9, z: HEART.z + 60 + Math.cos(titleT * 0.04) * 5 };
     game.fx.update(dt, game.cam);
     game.liquidTime.value = game.time;
     game.render(dt);
@@ -209,14 +213,14 @@ function frame(now) {
   if (mode === 'titlesettings') {
     titleSettings.update(input);
     game.time += dt; titleT += dt;
-    game.camFocus = { x: 40 + Math.sin(titleT * 0.05) * 18, z: 55 + Math.cos(titleT * 0.04) * 8 };
+    game.camFocus = { x: HEART.x + 40 + Math.sin(titleT * 0.05) * 18, z: HEART.z + 55 + Math.cos(titleT * 0.04) * 8 };
     game.render(dt);
     return;
   }
   if (mode === 'classsel') {
     game.ui.updateClassSelect(input);
     game.time += dt; titleT += dt;
-    game.camFocus = { x: 40 + Math.sin(titleT * 0.05) * 18, z: 55 + Math.cos(titleT * 0.04) * 8 };
+    game.camFocus = { x: HEART.x + 40 + Math.sin(titleT * 0.05) * 18, z: HEART.z + 55 + Math.cos(titleT * 0.04) * 8 };
     game.render(dt);
     return;
   }

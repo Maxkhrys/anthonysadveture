@@ -163,7 +163,7 @@ export class UI {
   renderChoices() {
     const c = $('dialog').querySelector('.choices');
     c.innerHTML = this.choice.opts.map((o, i) => `<span class="${i === this.choice.i ? 'on' : ''}" data-i="${i}">${o.label}</span>`).join('');
-    c.querySelectorAll('span').forEach(s => { s.onclick = () => this.pick(+s.dataset.i); s.onmouseenter = () => { if (this.choice) { this.choice.i = +s.dataset.i; this.renderChoices(); } }; });
+    c.querySelectorAll('span').forEach(s => { s.onclick = () => this.pick(+s.dataset.i); s.onmouseenter = () => { if (this.choice) { this.choice.i = +s.dataset.i; c.querySelectorAll("span").forEach(n => n.classList.toggle("on", n === s)); } }; });
   }
   ask(who, text, opts) { this.lines([[who, text, opts]]); }
 

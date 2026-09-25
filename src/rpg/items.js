@@ -1,3 +1,4 @@
+import {RELICS} from './relics.js';
 import { HEIRLOOMS, HEIRLOOM_BY_ID } from './heirlooms.js';
 import { identifyItem, reinforcementMultiplier } from '../persistence/model.js';
 import { NEW_ARMORS, NAMED_WEAPONS, ACCESSORIES, SETS } from './gear.js';
@@ -151,6 +152,7 @@ export function genItem({ level = 1, rarity = null, slot = null, cls = null, mf 
     if (pool.length) return makeNamed(pick(pool).id, level);
   }
   const ilvl = Math.max(1, Math.round(level + rnd(-1, 1)));
+  if((!slot||slot==='charm')&&Math.random()<.12){const pool=RELICS.filter(a=>a.r===r&&a.lvl<=level&&(!a.prismatic||Math.random()<.04));if(pool.length)return makeNamed(pick(pool).id,level);}
   // Legendary: pick a hand-made unique that fits (named weapons carry their own weights)
   if (r === 4) {
     const slotOf = b => b.kind ? 'weapon' : b.slot;
@@ -159,7 +161,7 @@ export function genItem({ level = 1, rarity = null, slot = null, cls = null, mf 
   }
   // Epic and better: sometimes a build accessory or an armour-set piece
   if (r >= 3 && (!slot || slot === 'ring' || slot === 'charm') && Math.random() < 0.2) {
-    const cands = ACCESSORIES.filter(a => a.lvl <= ilvl + 2 && (!slot || baseById(a.base).slot === slot));
+    const cands = ACCESSORIES.filter(a => !RELICS.includes(a) && a.lvl <= ilvl + 2 && (!slot || baseById(a.base).slot === slot));
     if (cands.length) { const A = pick(cands); return makeItem(baseById(A.base), Math.max(r, A.r), ilvl, { name: A.name, u: A.id, text: A.text }); }
   }
   if (r >= 3 && slot !== 'weapon' && Math.random() < 0.25) {
@@ -253,7 +255,7 @@ export function makeNamed(id, ilvl = 6, r = null) {
   const L = LEGENDARIES.find(l => l.id === id);
   if (L) return makeItem(baseById(L.base), 4, ilvl, L);
   const A = ACCESSORIES.find(a => a.id === id);
-  if (A) return makeItem(baseById(A.base), r ?? A.r, ilvl, { name: A.name, u: A.id, text: A.text });
+  if (A) {const it=makeItem(baseById(A.base),r??A.r,ilvl,{name:A.name,u:A.id,text:A.text});if(A.prismatic)it.prismatic=true;return it;}
   const b = baseById(id);
   if (b) return makeItem(b, r ?? (b.set ? 3 : 1), ilvl);
   return null;

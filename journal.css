@@ -41,3 +41,21 @@ body{font-size:14px}button,input,select{font:inherit}button{cursor:pointer}butto
 @media(max-width:600px){#baggrid{grid-template-columns:repeat(6,minmax(0,1fr))}}
 #statsheet b{overflow-wrap:anywhere;text-align:right}#tooltip>.tt,#tooltip>.cmp{scrollbar-width:thin;scrollbar-color:#ae8a4f #30271c}.journal-nav{position:sticky;top:-22px;z-index:5}.hero-seal .ability-mark{width:33px;height:33px}#surge{left:50%;right:auto;top:-36px;transform:translateX(-50%)}#buffs{bottom:calc(100% + 43px)}#objective{top:calc(30px + 122px * var(--hud,1))}#guide{top:calc(148px + 122px * var(--hud,1))!important}
 @media(max-width:1300px){.journal-nav{top:-18px}}@media(max-width:600px){.journal-nav{top:-13px}#objective{top:143px}}
+/* Alpha tools stay under Interface, away from combat. */
+.alpha-tools{margin-top:24px;border-top:1px solid #826135;padding-top:14px}.alpha-tools label{display:block;margin:12px 0}.alpha-tools textarea{display:block;width:100%;min-height:90px;padding:10px;background:#f4e3bb;color:#30261c;border:1px solid #957143;resize:vertical}.alpha-tools button{margin:4px 8px 4px 0}.alpha-tools p{font-size:12px;line-height:1.5}#title:after{content:attr(data-build);position:absolute;bottom:9px;right:15px;font-size:11px;color:#decba3}
+
+/* Devroom creative catalogue, sharing the journal's parchment and ink. */
+#creative-inventory {margin:0 0 12px; border:1px solid #9d8058; background:#ead9b7; color:#33281c; padding:10px; border-radius:4px}
+.creative-header {display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.creative-header small,.creative-item small {display:block;font-size:11px;opacity:.75;margin-top:3px}
+.creative-tools {display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.creative-tools input {flex:1;min-width:120px}
+.creative-tools input,.creative-tools select {background:#fff5df;color:#33281c;border:1px solid #9d8058;padding:7px;border-radius:3px}
+.creative-results {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;max-height:280px;overflow:auto;padding:2px}
+.creative-item {text-align:left;min-height:56px;padding:8px;background:#f7eaca;color:#33281c;border:1px solid #b79a6d;border-radius:3px;cursor:pointer}
+.creative-item:hover,.creative-item:focus-visible {background:#fff6dc;outline:2px solid #805832;outline-offset:-2px}
+.creative-item small {overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:100%}
+.creative-status {font-size:11px;margin-top:8px;min-height:14px}
+/* Title-screen imports and help use the same modal dialogue as the adventure. */
+#dialog {z-index:20}
+#ui:has(#dialog:not(.hidden)) #title {pointer-events:none}
