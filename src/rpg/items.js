@@ -1,3 +1,5 @@
+import {RELICS} from './relics.js';
+import { HEIRLOOMS, HEIRLOOM_BY_ID } from './heirlooms.js';
 import { identifyItem, reinforcementMultiplier } from '../persistence/model.js';
 import { NEW_ARMORS, NAMED_WEAPONS, ACCESSORIES, SETS } from './gear.js';
 import { AFFIX_DEFINITIONS, rollAffixTier, rollAffixInstance } from './affixes.js';
@@ -69,6 +71,7 @@ export const ARMORS = [
   { id: 'tidepearl', name: 'Tide Pearl', slot: 'charm', lvl: 9, armor: 3, hp: 15 },
 ];
 
+for (const w of HEIRLOOMS) WEAPONS.push({ ...w, named: true });
 for (const w of NAMED_WEAPONS) WEAPONS.push({ ...w, named: true });
 for (const a of NEW_ARMORS) ARMORS.push(a);
 export { SETS };
@@ -78,6 +81,7 @@ export const AFFIX_SLOT = s => ({ arms: 'armor', legs: 'armor', boots: 'armor', 
 // ---------------------------------------------------------------- affixes
 // v: value per item level (scaled) ; fmt: display
 export const AFFIXES = {
+  projSpeed: { name: 'Projectile Speed', pre: ['Swift'], base: 10, per: 0, pct: true, devOnly: true },
   dmgPct: { name: 'Damage', pre: ['Keen', 'Brutal', 'Savage'], base: 6, per: 0.6, pct: true, slots: ['weapon', 'charm'] },
   crit: { name: 'Crit Chance', pre: ['Sharp', 'Precise', 'Deadly'], base: 3, per: 0.2, pct: true },
   critDmg: { name: 'Crit Damage', pre: ['Cruel', 'Vicious', 'Merciless'], base: 12, per: 1.2, pct: true, slots: ['weapon', 'helm', 'charm'] },
@@ -143,7 +147,12 @@ export function rollRarity(mf = 0, floor = 0, bonus = 0) {
 
 export function genItem({ level = 1, rarity = null, slot = null, cls = null, mf = 0, floor = 0, bonus = 0 } = {}) {
   const r = rarity ?? rollRarity(mf, floor, bonus);
+  if ((!slot || slot === 'weapon') && Math.random() < 0.12) {
+    const pool = HEIRLOOMS.filter(w => w.r === r && w.lvl <= level && (!cls || w.cls === cls) && (!w.prismatic || Math.random() < 0.04));
+    if (pool.length) return makeNamed(pick(pool).id, level);
+  }
   const ilvl = Math.max(1, Math.round(level + rnd(-1, 1)));
+  if((!slot||slot==='charm')&&Math.random()<.12){const pool=RELICS.filter(a=>a.r===r&&a.lvl<=level&&(!a.prismatic||Math.random()<.04));if(pool.length)return makeNamed(pick(pool).id,level);}
   // Legendary: pick a hand-made unique that fits (named weapons carry their own weights)
   if (r === 4) {
     const slotOf = b => b.kind ? 'weapon' : b.slot;
@@ -152,7 +161,7 @@ export function genItem({ level = 1, rarity = null, slot = null, cls = null, mf 
   }
   // Epic and better: sometimes a build accessory or an armour-set piece
   if (r >= 3 && (!slot || slot === 'ring' || slot === 'charm') && Math.random() < 0.2) {
-    const cands = ACCESSORIES.filter(a => a.lvl <= ilvl + 2 && (!slot || baseById(a.base).slot === slot));
+    const cands = ACCESSORIES.filter(a => !RELICS.includes(a) && a.lvl <= ilvl + 2 && (!slot || baseById(a.base).slot === slot));
     if (cands.length) { const A = pick(cands); return makeItem(baseById(A.base), Math.max(r, A.r), ilvl, { name: A.name, u: A.id, text: A.text }); }
   }
   if (r >= 3 && slot !== 'weapon' && Math.random() < 0.25) {
@@ -241,10 +250,12 @@ function makeItem(base, r, ilvl, legend = null) {
 }
 // Named item by id (weapons, accessories, set pieces) for rewards, recipes and dev tools.
 export function makeNamed(id, ilvl = 6, r = null) {
+  const H = HEIRLOOM_BY_ID[id];
+  if (H) { const it = makeItem(baseById(id), H.r, ilvl, {name:H.name,u:H.id,text:H.text}); for(const [k,v] of Object.entries(H.fixed)) it.stats[k]=(it.stats[k]||0)+v; it.prismatic=H.prismatic; it.sourceHint=H.src; it.rolledStats.stats=structuredClone(it.stats); return it; }
   const L = LEGENDARIES.find(l => l.id === id);
   if (L) return makeItem(baseById(L.base), 4, ilvl, L);
   const A = ACCESSORIES.find(a => a.id === id);
-  if (A) return makeItem(baseById(A.base), r ?? A.r, ilvl, { name: A.name, u: A.id, text: A.text });
+  if (A) {const it=makeItem(baseById(A.base),r??A.r,ilvl,{name:A.name,u:A.id,text:A.text});if(A.prismatic)it.prismatic=true;return it;}
   const b = baseById(id);
   if (b) return makeItem(b, r ?? (b.set ? 3 : 1), ilvl);
   return null;

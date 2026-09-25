@@ -8,6 +8,7 @@ export const ACTIONS = {
   attack: { keys: ['KeyC'], label: 'Attack / hold to charge', glyph: 'LMB / C' },
   shield: { keys: ['KeyQ'], label: 'Guard / timed parry', glyph: 'RMB / Q' },
   roll: { keys: ['Space', 'ShiftLeft', 'ShiftRight'], label: 'Dodge / backstep', glyph: 'Space / Shift' },
+  toolCycle: { keys: ['KeyY'], label:'Swap dungeon tool', glyph:'Y' },
   item: { keys: ['KeyL'], label: 'Dungeon tool', glyph: 'L' },
   interact: { keys: ['KeyF', 'Enter'], label: 'Interact / confirm', glyph: 'F / Enter' },
   potion: { keys: ['KeyH'], label: 'Drink tonic', glyph: 'H' },

@@ -11,6 +11,7 @@
 import { sfx } from './engine/audio.js';
 import { gainMat, learn, MATS } from './rpg/crafting.js';
 import { genItem, makeNamed, RARITY, itemIcon } from './rpg/items.js';
+import {GearDrop} from './rpg/combat.js';
 import { dropPips } from './entities/common.js';
 import { Boulder } from './entities/objects.js';
 import { REGIONS } from './world/layout.js';
@@ -67,7 +68,7 @@ export function installStory6(Story) {
           'The cellar under my house — rats. Not ordinary rats. They wear a *crown*. Well, one of them does. Made it out of a thimble.',
           'The door\'s round the side of the farmhouse. Clear them out and there\'s a jar of pips and a new tonic bottle in it for you.',
         ], () => accept(g, 'q_cellar'));
-        if (f.q_cellar === 1 && f['md:rootcellar']) return L(['Quiet as a Sunday! You did it. Here — pips, and my gran\'s tonic bottle. Mind it, it\'s older than me.'], () => { dropPips(g, g.player.x, g.player.z + 0.6, 80); g.inv.maxPotions++; g.inv.potions = g.inv.maxPotions; g.gainXp(150); finish(g, 'q_cellar', '+80 pips · +1 tonic bottle · +150 XP'); });
+        if (f.q_cellar === 1 && f['md:rootcellar']) return L(['Quiet as a Sunday! You did it. Here — pips, and my gran\'s tonic bottle. Mind it, it\'s older than me.'], () => { dropPips(g, g.player.x, g.player.z + 0.6, 80); g.inv.maxPotions++; g.inv.potions = g.inv.maxPotions; g.gainXp(150); const gift=makeNamed({samurai:'azureedge',archer:'moonfeather',witch:'sagesrod'}[inv.cls],3); if(!g.pickupItem(gift))g.spawn(new GearDrop(g,npc.x,npc.z+1,gift)); finish(g, 'q_cellar', '+80 pips · +1 tonic bottle · class weapon · +150 XP'); });
         if (f.q_cellar === 1) return L(['Round the side of the house. Mind the crates, and don\'t push them into the potato holes. Actually — do. That\'s how you get across.']);
         return this.converse(npc, g.isNight ? 'Can\'t sleep either? The fields are loud at night now.' : 'Morning, Moss. The crops are finally listening to the rain again.', [
           { id: 'can', label: 'The giant watering can', lines: ['My great-grandad found it. Bigger than the house. We think a big-folk gardener dropped it, back when there were big folk.', 'It still fills when it rains. We water the whole field from its spout.'] },
@@ -126,7 +127,7 @@ export function installStory6(Story) {
         return this.converse(npc, 'Hammer\'s warm. What do you need?', [
           { id: 'shop', label: 'Trade', act: () => this.shop6('brakka') },
           { id: 'bench', label: 'Use the workbench', act: () => g.ui.openCraft() },
-          { id: 'ember', label: 'The Emberwell Gate', lines: ['That door up on the volcano\'s shoulder? Bellwright work. Three locks, one for each Voice. Nobody\'s opened it in my lifetime.', 'Whatever burns behind it keeps my forge warm for free, so I\'m not complaining.', '(The Emberwell opens in a later chapter.)'], then: () => g.markLandmarks(['emberwell']) },
+          { id: 'ember', label: 'The Emberwell Gate', lines: ['That door up on the volcano\'s shoulder? Bellwright work. One green lock remembers the Verdant Voice. Nobody\'s opened it in my lifetime.', 'Whatever burns behind it keeps my forge warm for free, so I\'m not complaining.', 'Bring the Verdant Chime and Gustbellows. Inside, recover the Cinder Rod; heat wakes the kiln, wind cools the metal. The Regent vents its mouth before attacking.'], then: () => g.markLandmarks(['emberwell']) },
         ]);
       }
       case 'pell': return this.converse(npc, g.isNight ? 'Night shift\'s over. Mine\'s the hut with the lamp.' : 'Watch your step. Half this mountain is still warm.', [
@@ -174,7 +175,7 @@ export function installStory6(Story) {
     const key = who + ':' + inv.level + ':' + g.worldDay();
     this.stock6 = this.stock6 || {};
     if (!this.stock6[key]) this.stock6[key] = [0, 1, 2].map(i => genItem({ level: inv.level + 1, cls: i === 0 ? inv.cls : null, slot: i === 0 ? 'weapon' : null, floor: 2, bonus: 0.5 }));
-    const gear = this.stock6[key].map(it => ({ name: `<span style="color:${RARITY[it.r].color}">${itemIcon(it)} ${it.name}</span>`, price: it.value * 3, desc: `${RARITY[it.r].name} ${it.slot}`, state: g => it.sold ? 'Sold.' : g.inv.bag.length >= 30 ? 'Your bag is full.' : 'ok', buy: g => { it.sold = true; g.pickupItem(it); } }));
+    const gear = this.stock6[key].map(it => ({ name: `<span style="color:${RARITY[it.r].color}">${itemIcon(it)} ${it.name}</span>`, price: it.value * 3, desc: `${RARITY[it.r].name} ${it.slot}`, state: g => it.sold ? 'Sold.' : g.inv.bag.length >= g.bagCapacity() ? 'Your bag is full.' : 'ok', buy: g => { it.sold = true; g.pickupItem(it); } }));
     const lists = {
       tobi: [tonic, mat('wax', 40), mat('echo', 90), ...gear.slice(1)],
       brakka: [tonic, mat('ember', 60), mat('filament', 80), mat('shard', 30, 3), ...gear],

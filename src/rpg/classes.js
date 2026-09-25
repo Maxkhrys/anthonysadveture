@@ -1,3 +1,4 @@
+import {BOONS} from './relics.js';
 import { reinforcementMultiplier } from '../persistence/model.js';
 import { XP_PROGRESSION } from './progression.js';
 // Classes, derived stats, experience.
@@ -63,6 +64,7 @@ export function computeStats(inv) {
     if (it.set) s.sets[it.set] = (s.sets[it.set] || 0) + 1;
     if (it.rolledAffixes) for (const a of it.rolledAffixes) if (a.qualitative) s.qual.add(a.qualitative.id);
   }
+  if(s.uniques.has('worldseed')){for(const [k,v] of Object.entries(BOONS[inv.areaBoon]?.stats||{}))s[k]=(s[k]||0)+v;}
   // skill tree passives
   const T = treeStats(inv);
   for (const k in T) s[k] = (s[k] || 0) + T[k];

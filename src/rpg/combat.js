@@ -1,9 +1,10 @@
 // Friendly projectiles, ability effects, loot drops and loot chests.
 import * as THREE from 'three';
-import { Entity, move } from '../entities/entity.js';
+import { Entity, move, tileBlocks } from '../entities/entity.js';
 import { mesh, B, MAT_GLOW, MAT } from '../models.js';
 import { sfx } from '../engine/audio.js';
 import { RARITY, genItem } from './items.js';
+import { weaponMesh } from '../hero.js';
 import { hasEngraving } from './crafting.js';
 
 import { angDiff } from '../engine/util.js';
@@ -20,6 +21,7 @@ export class Projectile extends Entity {
   constructor(g, o) {
     super(g, o.x, o.z);
     Object.assign(this, { dir: o.dir, speed: o.speed ?? 14, range: o.range ?? 9, mult: o.mult ?? 1, kind: o.kind, pierce: o.pierce ?? 0, homing: o.homing ?? 0, seek: o.seek || null, dir0: o.dir, aoe: o.aoe ?? 0, ability: !!o.ability, kb: o.kb ?? 3, color: o.color ?? 0xffffff, noSplit: o.noSplit, noCraft: !!o.noCraft, root: o.root || 0, echo: !!o.echo, element: o.element || null, bounce: o.bounce || 0, onExplode: o.onExplode || null, onHitFx: o.onHitFx || null, basic: !!o.basic, charged: !!o.charged, critBonus: o.critBonus || 0 });
+    this.speed *= 1 + (g.pstats.projSpeed || 0) / 100;
     // Projectile Size affix: bigger hitbox and model (basic shots and abilities alike)
     const ps = 1 + (g.pstats.projSize || 0) / 100;
     this.r = (o.r ?? 0.18) * ps; this.moveMode = 'fly'; this.y = 0.45; this.hit = new Set(); this.dist = 0;
@@ -330,9 +332,16 @@ export class GearDrop extends Entity {
   constructor(g, x, z, item) {
     super(g, x, z);
     this.item = item; this.t = 0; this.r = 0.25;
-    const R = RARITY[item.r];
+    this.moveMode='walk';
+    const clear=(x,z)=>{const probe={x,z,r:.25,moveMode:'walk'};return !tileBlocks(g,Math.floor(x),Math.floor(z),probe)&&!g.solids.some(s=>s.solid&&!s.dead&&Math.abs(s.x-x)<s.hw+.3&&Math.abs(s.z-z)<s.hd+.3);};
+    if(!clear(this.x,this.z)){
+      let spot=null;for(let r=1;r<=5&&!spot;r++)for(let a=0;a<16;a++){const xx=x+Math.cos(a*Math.PI/8)*r*.5,zz=z+Math.sin(a*Math.PI/8)*r*.5;if(clear(xx,zz)){spot=[xx,zz];break;}}
+      if(spot)[this.x,this.z]=spot; else if(g.player&&clear(g.player.x,g.player.z))[this.x,this.z]=[g.player.x,g.player.z];
+    }
+    const R = item.prismatic ? {...RARITY[item.r],hex:0x93dfff} : RARITY[item.r];
     const col = item.slot === 'weapon' ? 0xdfe8f0 : item.slot === 'charm' ? 0xffd25e : 0xa08a6a;
     this.icon = mesh(item.slot === 'weapon' ? [B(0.06, 0.5, 0.06, 0, 0, 0, col), B(0.2, 0.05, 0.08, 0, 0.12, 0, R.hex)] : [B(0.3, 0.26, 0.2, 0, 0, 0, col), B(0.32, 0.06, 0.22, 0, 0.2, 0, R.hex)], MAT_GLOW, false);
+    if (item.slot === 'weapon') { this.icon.geometry?.dispose(); this.icon = weaponMesh(item,item.cls); this.icon.scale.multiplyScalar(.65); }
     this.icon.rotation.z = 0.6; this.obj.add(this.icon);
     if (item.r >= 1) {
       const h = [0, 1.2, 2.2, 3.5, 6][item.r];
@@ -349,15 +358,16 @@ export class GearDrop extends Entity {
     if (this.y <= 0.2) { this.vx *= 0.8; this.vz *= 0.8; this.vy = 0; }
     // loot lands only where the player can stand (not inside props, over ledges or in water),
     // then drifts to you once you're close, so a drop can never end up out of reach
-    this.moveMode = 'player'; move(g, this, this.vx * dt, this.vz * dt);
+    this.moveMode = 'walk'; move(g, this, this.vx * dt, this.vz * dt);
+    const pickupRange=g.pstats.uniques.has('travelantern')?2.6:1.8;
     const dp = Math.hypot(p.x - this.x, p.z - this.z);
-    if (this.t > 0.5 && dp < 1.8 && dp > 0.05 && p.state !== 'dead' && !this.warned) { const k = Math.min(1, dt * (4 + (1.8 - dp) * 6)) / dp; this.x += (p.x - this.x) * k * dp * 0.5; this.z += (p.z - this.z) * k * dp * 0.5; }
+    if (this.t > 0.5 && dp < pickupRange && dp > 0.05 && p.state !== 'dead' && !this.warned) { const k = Math.min(1, dt * (4 + (pickupRange - dp) * 6)) / dp; move(g, this, (p.x - this.x) * k * dp * 0.5, (p.z - this.z) * k * dp * 0.5); }
     this.icon.rotation.y += dt * 2; this.icon.position.y = this.y + Math.sin(this.t * 3) * 0.05;
     if (this.beam) this.beam.material.opacity = 0.35 + Math.sin(this.t * 4) * 0.12;
     if (this.item.r >= 2 && Math.random() < 0.15) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.4, y: 0.2, z: this.z + (Math.random() - 0.5) * 0.4, vy: 1.4, g: 0, color: RARITY[this.item.r].hex, life: 0.8, size: 0.05 });
     if (this.t > 0.5 && Math.hypot(p.x - this.x, p.z - this.z) < 0.8 && p.state !== 'dead') {
       if (g.pickupItem(this.item)) this.remove();
-      else if (!this.warned) { this.warned = true; g.ui.toast('Your bag is full!', 'Press I and salvage something.', 2); }
+      else if (!this.warned) { this.warned = true; g.ui.toast('Your bag is full!', 'Press E and salvage something.', 2); }
     } else if (Math.hypot(p.x - this.x, p.z - this.z) > 2.2) this.warned = false;
     this.obj.position.set(this.x, g.groundAt ? g.groundAt(this.x, this.z) : 0, this.z);
   }

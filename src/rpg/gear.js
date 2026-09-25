@@ -1,3 +1,4 @@
+import {RELICS} from './relics.js';
 // Pass 5 gear registry: new armour slots, three armour sets, build accessories and named
 // weapons. Pure data (no imports) so items.js, the hero models, the UI and dev tools can all
 // discover it. Stats here are BASE values; items.js scales them by item level and rarity.
@@ -81,6 +82,7 @@ export const SET_PIECES = s => NEW_ARMORS.filter(a => a.set === s).map(a => a.id
 // ------------------------------------------------------------------ build accessories
 // Named items with a mechanical effect ('unique' ids read by gameplay code).
 export const ACCESSORIES = [
+  ...RELICS,
   { id: 'stillwater', base: 'copperring', name: 'Stillwater Ring', lvl: 3, r: 3, text: 'After a perfect dodge, your next charged attack within 3 s charges instantly and deals +40% damage.' },
   { id: 'shellbreaker', base: 'porcelainpendant', name: 'Cracked Porcelain Pendant', lvl: 4, r: 3, text: 'Breaking armour (shells, beetles, guards) restores 30 of your class resource.' },
   { id: 'briarbond', base: 'threadring', name: 'Briarbond Loop', lvl: 4, r: 3, text: 'Tethered foes share 20% more damage. Rooted foes take 15% more damage.' },

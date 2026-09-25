@@ -27,7 +27,7 @@ export class Story {
     }
     switch (this.stage) {
       case 0: return 'Drive the Hushlings out of Thimblewick!';
-      case 1: return 'Head west through Whisperwood to Rootwell Hollow.';
+      case 1: return !f.q_cellar ? 'First steps: visit Hobb’s Farm south-east for a short adventure, or take the west road to Rootwell Hollow.' : f.q_cellar===1 ? (f['md:rootcellar']?'Return to Hobb for your tonic bottle.':'Clear Hobb’s Root Cellar. Crates fill pits; F pushes them.') : 'Ready for Rootwell Hollow. Rest at a Bellstone, equip loot with E, spend points with K, then follow the west road.';
       case 2: return 'Return the Verdant Chime to the Dawnbell in Thimblewick.';
       case 3: return 'Chapter I complete. Explore Lanternreach — secrets, bounties and upgrades await.';
     }
@@ -355,7 +355,7 @@ export class Story {
     const gear = this.stock.map(it => ({
       name: `<span style="color:${RARITY[it.r].color}">${itemIcon(it)} ${it.name}</span>`, price: it.value * 3,
       desc: it.slot === 'weapon' ? `${it.min}–${it.max} dmg · ${RARITY[it.r].name}${it.utext ? ' · ' + it.utext : ''}` : `${RARITY[it.r].name} ${it.slot} · ${Object.keys(it.stats).length} stats`,
-      state: g => it.sold ? 'Sold.' : g.inv.bag.length >= 30 ? 'Your bag is full.' : 'ok',
+      state: g => it.sold ? 'Sold.' : g.inv.bag.length >= g.bagCapacity() ? 'Your bag is full.' : 'ok',
       buy: g => { it.sold = true; g.pickupItem(it); },
     }));
     g.ui.openShop([
@@ -484,7 +484,7 @@ export class Story {
           const st = g.stats;
           g.ui.banner('CHAPTER I COMPLETE', 'The Verdant Voice', 4);
           setTimeout(() => g.ui.lines([[null, `*Thank you for playing Chapter I of Mossling: The Silent Bell.*\n\nHushlings defeated: ${st.kills || 0}   ·   Perfect parries: ${st.parries || 0}   ·   Time: ${Math.floor(g.playTime / 60)}m`],
-            [null, 'Cinderpeak and Lake Mirrow are still sealed in this build. The overworld stays open: the Hush camp bounty, the Still Mill, Ada\'s pier, the Hollow Grotto, the Sunken Courtyard and hidden leaf piles are all waiting.']]), 1500);
+            [null, 'Cinderpeak and Lake Mirrow are open for exploration. The Tide Shrine and Chime Spire await later chapters. Follow the roads to new settlements, or revisit: the Hush camp bounty, the Still Mill, Ada\'s pier, the Hollow Grotto, the Sunken Courtyard and hidden leaf piles are all waiting.']]), 1500);
         });
       }, 2200);
     });

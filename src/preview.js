@@ -32,7 +32,7 @@ export class DollPreview {
     this.cam.position.set(0, 1.1, 4); this.cam.lookAt(0, 0.5, 0);
     const plinth = new THREE.Mesh(geo([B(1.1, 0.1, 1.1, 0, -0.1, 0, 0x5a4a6a), B(1.0, 0.04, 1.0, 0, 0, 0, 0x4f8a3a), B(0.2, 0.05, 0.2, 0.3, 0.03, 0.25, 0x6fb04a), B(0.14, 0.04, 0.14, -0.32, 0.02, -0.2, 0x6fb04a)]), MAT);
     this.scene.add(plinth);
-    this.rotY = 0.5; this.spin = 0.35; this.cls = null; this.t = 0; this.zoom = 1;
+    this.rotY = 0.35; this.spin = 0; this.cls = null; this.t = 0; this.zoom = 1;
   }
   setZoom(z) { this.zoom = Math.max(0.55, Math.min(1.25, z)); const k = this.zoom; this.cam.left = -0.8 * k; this.cam.right = 0.8 * k; this.cam.top = 0.5 + 0.7 * k; this.cam.bottom = 0.5 - 1.45 * k; this.cam.updateProjectionMatrix(); }
   mount(el) {
@@ -95,7 +95,8 @@ export function itemIconURL(item, cls = 'samurai') {
     obj = weaponMesh(item, item.cls || cls);
     obj.rotation.set(0, 0, item.kind === 'bow' ? 0 : -0.75);
     if (item.kind === 'bow') obj.rotation.y = Math.PI / 2;
-    const k = item.kind === 'bow' ? 0.9 : 1.05; size = 0.5 * k * (obj.scale.x || 1); cy = item.kind === 'bow' ? 0 : 0.28;
+    const bb = new THREE.Box3().setFromObject(obj), c = bb.getCenter(new THREE.Vector3()), sz = bb.getSize(new THREE.Vector3());
+    obj.position.sub(c); size = Math.max(sz.x, sz.y, sz.z) * 0.62 + 0.02; cy = 0;
   } else {
     const ring = [0, 1, 2, 3, 4, 5, 6, 7].map(i => { const a = i / 8 * Math.PI * 2; return B(0.07, 0.07, 0.05, Math.cos(a) * 0.14, Math.sin(a) * 0.14, 0, item.unique ? 0xd8b060 : 0xb8b8c8); });
     if (item.slot === 'ring') ring.push(B(0.1, 0.1, 0.07, 0, 0.16, 0.02, { 0: 0xd8d0c0, 1: 0x6fdc5a, 2: 0x4aa8ff, 3: 0xc46bff, 4: 0xff9a2a }[item.r] || 0xffffff));

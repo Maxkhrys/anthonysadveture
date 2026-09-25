@@ -235,8 +235,8 @@ const PAL = {
   bronze: { floor: [0x9a7a4a, 0x927244, 0xa28252], wall: [0x6a4a2a, 0x624426], side: 0xb88a3a, side2: 0x9a6e2a, sky: 0x0e0a06, fog: 0x2a1e10, sun: 0xffe0a0, amb: 0x7a6a4a },
 };
 
-export function buildMini(id) {
-  const D = MINI[id];
+export function buildMini(id, definition = null) {
+  const D = definition || MINI[id];
   const cells = Object.values(D.rooms).map(r => r.cell);
   const GW = Math.max(...cells.map(c => c[0])) + 1, GH = Math.max(...cells.map(c => c[1])) + 1;
   const W = RW * GW, H = RH * GH;

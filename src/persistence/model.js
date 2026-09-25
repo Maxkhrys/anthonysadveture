@@ -63,6 +63,8 @@ export function identifyItem(it, ownerCharacterId = null, source = 'loot') {
 }
 
 export const BELLSTONES = [
+  {id:'emberwell:entrance',area:'emberwell',spawn:'entrance'},
+  {id:'emberwell:anvil',area:'emberwell',spawn:'anvil'},
   { id: 'overworld:village', area: 'overworld', spawn: 'village' },
   { id: 'dungeon:entrance', area: 'dungeon', spawn: 'entrance' },
   { id: 'dungeon:pre', area: 'dungeon', spawn: 'pre' },
@@ -82,7 +84,7 @@ export const BELLSTONES = [
   { id: 'overworld:windstair', area: 'overworld', spawn: 'windstair' },
   { id: 'overworld:belfry', area: 'overworld', spawn: 'belfry' },
 ];
-export const BELLSTONE_NAMES = { 'overworld:village': 'Thimblewick', 'dungeon:entrance': 'Hollow Mouth', 'dungeon:pre': 'Root Gate', 'conservatory:atrium': 'Glass Atrium', 'conservatory:canopy': 'Bellfruit Canopy',
+export const BELLSTONE_NAMES = { 'emberwell:entrance':'Ash Vestibule', 'emberwell:anvil':'Bellwright’s Anvil', 'overworld:village': 'Thimblewick', 'dungeon:entrance': 'Hollow Mouth', 'dungeon:pre': 'Root Gate', 'conservatory:atrium': 'Glass Atrium', 'conservatory:canopy': 'Bellfruit Canopy',
   'overworld:glassmere': 'Conservatory Steps', 'overworld:pier': 'Saltwhistle Pier', 'overworld:deepwood': 'Deepwood Shrine', 'overworld:fernhollow': 'Fernhollow', 'overworld:moonfen': 'Moonfen Lantern',
   'overworld:heronisle': 'Heron Isle', 'overworld:landing': 'Mirrow Landing', 'overworld:wells': 'Sunscald Wells', 'overworld:cinderrest': 'Cinder Rest', 'overworld:windstair': 'Windstair Top', 'overworld:belfry': 'Belfry Cradle' };
 

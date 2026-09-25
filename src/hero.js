@@ -1,3 +1,4 @@
+import { HEIRLOOM_BY_ID } from './rpg/heirlooms.js';
 // Moss, the hero: a layered voxel figure whose equipment is drawn on the body.
 // Visual slots: head, neck, chest, arms, legs, boots, weapon. Each slot reads the equipped
 // item for that slot if one exists (inv.equip.head/helm, .neck/charm, .chest/armor, .arms,
@@ -380,7 +381,8 @@ function oversized(base, it) {
 export function weaponModel(item, cls = 'samurai') {
   const kind = item ? item.kind : { archer: 'bow', witch: 'staff' }[cls] || 'katana';
   const base = item ? item.base : { archer: 'huntbow', witch: 'acornstaff' }[cls] || 'rustkatana';
-  let W = named(base, item) || (kind === 'oversized' ? oversized(base, item) : kind === 'katana' ? katana(base, item) : kind === 'bow' ? bow(base, item) : staff(base, item));
+  const H = HEIRLOOM_BY_ID[base];
+  let W = (H ? heirloomModel(H) : null) || named(base, item) || (kind === 'oversized' ? oversized(base, item) : kind === 'katana' ? katana(base, item) : kind === 'bow' ? bow(base, item) : staff(base, item));
   if (item && item.unique) W = legendary(item.unique, W);
   if (item && item.craft) (W.glow || (W.glow = [])).push(B(0.03, 0.03, 0.03, 0.05, kind === 'bow' ? 0 : 0.12, 0.05, 0x9ad8ff));
   W.scale = (W.scale || 1) * (item && item.visualScale ? item.visualScale : 1);
@@ -464,4 +466,27 @@ export function makeHero(cls = 'samurai') {
   const hero = { root, body, head, eyes, helm, neck, legL, legR, armL, armR, sword, shield, torso, tail1, tail2, offhand, setWeapon, setGear, cls };
   setGear({});
   return hero;
+}
+
+function heirloomModel(H) {
+ const c=H.col, gold=0xc69b48, P=[], G=[];
+ if(H.kind==='katana'){
+  P.push(B(.065,.23,.07,0,0,0,0x3b2d29),B(.26,.045,.1,0,.23,0,gold));
+  for(let i=0;i<7;i++) P.push(B(.07,.085,.035,i*i*.0013,.29+i*.077,0,c));
+  if(H.r>=2) for(let i=0;i<6;i++)G.push(B(.022,.065,.045,i*i*.0013-.026,.3+i*.077,0,c));
+ } else if(H.kind==='bow'){
+  P.push(B(.07,.16,.07,0,-.08,0,gold));
+  for(const side of [-1,1])for(let i=0;i<5;i++)P.push(B(.05,.085,.06,0,side*(.09+i*.07),.05+Math.sin(i/4*Math.PI)*.12,c));
+  P.push(B(.012,.77,.012,0,-.385,.04,0xe5dbc1));
+  if(H.id==='starfallcrossbow')P.push(B(.08,.65,.1,0,-.32,.13,0x705537),B(.36,.065,.08,0,.03,.13,gold));
+  if(H.r>=3)for(const y of [-.27,.27])G.push(B(.12,.07,.08,0,y,.13,c));
+ } else if(H.id.includes('tome')||H.id==='orbitinggrimoire'){
+  P.push(B(.31,.06,.38,0,.27,0,0x3a2155),B(.27,.085,.33,0,.31,0,0xe8d7ae),B(.31,.025,.38,0,.39,0,c));
+  G.push(B(.095,.055,.12,0,.415,0,c));
+ } else {
+  P.push(B(.05,.69,.05,0,0,0,0x795637),B(.15,.045,.15,0,.63,0,gold));
+  G.push(B(.18,.18,.18,0,.68,0,c),B(.075,.075,.075,0,.79,0,0xffffff));
+ }
+ if(H.prismatic)for(let i=0;i<5;i++)G.push(B(.028,.08,.03,.13*Math.cos(i*1.26),.35+i*.055,.1*Math.sin(i*1.26),[0x75e9ff,0xb992ff,0xff79d9,0xffd763,0x66eeb6][i]));
+ return {parts:P,glow:G};
 }

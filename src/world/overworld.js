@@ -453,7 +453,9 @@ export function buildOverworld() {
   terraceRect(214, 60, 230, 68, 1.2, T.STONE);
   stairs(221, 59, 0, -1, 3, 1.2, 0, 3);
   landmark('emberwell', 'The Emberwell Gate', 'emberwellgate', 222.5, 69.4, 7, 1, { y: 1.2, region: 'cinderpeak' });
-  sign(218.5, 63.5, 'THE EMBERWELL GATE\nBehind it the Ember Chime burns. The gate is bound with the same three-voiced lock as the Chime Gate.\n(This dungeon opens in a later chapter.)');
+  sign(218.5,63.5,'THE EMBERWELL · LEVEL 12\nBring the Verdant Chime and Gustbellows. Fire wakes the kiln; wind cools it.');
+  g.def({type:'emberentry',x:222.5,z:63.5});
+  g.def({type:'sign',x:226.5,z:63.5,text:'The Regent guards the Ember Voice.'});
   // the Great Anvil on its rise
   terrace(252, 26, 6, 4, 0.6, 0.1, 155);
   blob(252, 26, 6, 4, (x, y) => { const t = g.get(x, y); if (t === T.ROCK || t === T.EMBER || t === T.TREE) g.set(x, y, T.ASH); }, 0.1, 155);
@@ -607,6 +609,7 @@ export function buildOverworld() {
   // =============================================================== SPAWNS
   const hs = Object.fromEntries(Object.entries(heart.spawns).map(([k, s]) => [k, { x: s.x + HEART.x, z: s.z + HEART.z }]));
   const spawns = {
+    emberwell: {x:222.5,z:61.5},
     ...hs,
     deepwood: { x: 57.5, z: 133 }, fernhollow: { x: 18.5, z: 132 }, moonfen: { x: 75.5, z: 188.2 }, heronisle: { x: 161.5, z: 209.2 },
     landing: { x: 288.5, z: 201.2 }, wells: { x: 268.5, z: 153.2 }, cinderrest: { x: 272.5, z: 61.3 }, windstair: { x: 131.5, z: 62 },
