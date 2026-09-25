@@ -9,9 +9,9 @@ export default async function (page, R) {
     const e = g.spawnEnemy('brigand', p.x, p.z + 3, { noRoom: true, eliteChance: 0 }); e.spawnT = 0; e.elite = null; e.hp = e.maxHp = 400;
     e.think = () => [0, 0]; e.facing = Math.PI; // shield up, facing the witch
     const hp0 = e.hp;
-    // hold attack to charge, release: the fireball
+    // the fire staff's secondary: hold right click (X) to charge, release: the fireball
     g.noRender = true;
-    for (let i = 0; i < 70; i++) window.__sim(1, i < 30 ? ['KeyC'] : []);
+    for (let i = 0; i < 70; i++) window.__sim(1, i < 30 ? ['KeyX'] : []);
     g.noRender = false;
     const burning = !!(e.status && e.status.burn > 0);
     // a light bolt from the front still clangs off the shield (checked last: a clang staggers the witch)

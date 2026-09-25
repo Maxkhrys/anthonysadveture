@@ -24,6 +24,9 @@ export class Projectile extends Entity {
     super(g, o.x, o.z);
     Object.assign(this, { dir: o.dir, speed: o.speed ?? 14, range: o.range ?? 9, mult: o.mult ?? 1, kind: o.kind, pierce: o.pierce ?? 0, homing: o.homing ?? 0, seek: o.seek || null, dir0: o.dir, aoe: o.aoe ?? 0, ability: !!o.ability, kb: o.kb ?? 3, color: o.color ?? 0xffffff, noSplit: o.noSplit, noCraft: !!o.noCraft, root: o.root || 0, echo: !!o.echo, element: o.element || null, bounce: o.bounce || 0, onExplode: o.onExplode || null, onHitFx: o.onHitFx || null, basic: !!o.basic, charged: !!o.charged, critBonus: o.critBonus || 0 });
     this.arpgExtra=!!o.arpgExtra;
+    // weapon-attack extras: heavy shots break guards, procCoeff scales item procs for rapid
+    // attacks, onBeforeHit returns a damage factor for the target about to be hit
+    this.heavy = !!o.heavy; this.procCoeff = o.procCoeff ?? 1; this.onBeforeHit = o.onBeforeHit || null;
     this.speed *= 1 + (g.pstats.projSpeed || 0) / 100;
     // Projectile Size affix: bigger hitbox and model (basic shots and abilities alike)
     const ps = 1 + (g.pstats.projSize || 0) / 100;
@@ -108,7 +111,7 @@ export class Projectile extends Entity {
     for (const [, e] of hits) {
       this.hit.add(e);
       if (this.aoe) { this.x = e.x; this.z = e.z; return this.explode(); }
-      this.hitResult = g.playerHit(e, { mult: this.mult, kind: this.kind, element: this.element, kb: this.kb, dir: this.dir, ability: this.ability, echo: this.echo, basic: this.basic, critBonus: this.critBonus + (this.manualGun&&this.gunOwner?.marked===e&&this.gunOwner.markUntil>g.time?20:0), arpgDepth: this.arpgDepth, arpgProc: this.arpgProc, noProc: this.arpgProc, arpgStatus: this.arpgStatus, arpgProjectile: this });
+      this.hitResult = g.playerHit(e, { mult: this.mult * (this.onBeforeHit ? this.onBeforeHit(this, e) : 1), heavy: this.heavy || undefined, procCoeff: this.procCoeff, kind: this.kind, element: this.element, kb: this.kb, dir: this.dir, ability: this.ability, echo: this.echo, basic: this.basic, critBonus: this.critBonus + (this.manualGun&&this.gunOwner?.marked===e&&this.gunOwner.markUntil>g.time?20:0), arpgDepth: this.arpgDepth, arpgProc: this.arpgProc, noProc: this.arpgProc, arpgStatus: this.arpgStatus, arpgProjectile: this });
       this.onImpact(e);
       if (this.onHitFx) this.onHitFx(this, e);
       // Skipping Shot / Endless Quiver: turn toward the next foe instead of stopping

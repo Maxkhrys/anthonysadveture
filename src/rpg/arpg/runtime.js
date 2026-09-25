@@ -26,10 +26,10 @@ export class ItemCombat {
   hit(target,o,dmg,crit) {
     const depth=o.arpgDepth||0,el=o.element||this.build.element;
     if(this.clock>=this.combatUntil)this.emit('enterCombat',{target,depth});this.combatUntil=this.clock+5;
-    const ctx={target,damage:dmg,crit,element:el,depth};
+    const coeff=o.procCoeff??1,ctx={target,damage:dmg,crit,element:el,depth,procCoeff:coeff};
     // Proc damage may cause bounded death chains, never full on-hit/crit feedback loops.
     if(!o.arpgProc&&!o.noProc) { this.emit('hit',ctx);if(crit)this.emit('crit',ctx);if(target.isBoss)this.emit('bossHit',ctx); }
-    if(!o.arpgProc && !o.noProc && this.g.inv.equip.weapon?.itemizationVersion && this.g.inv.equip.weapon.r > 0 && this.random() < .2 + (this.build.stats.statusChance||0)/100) this.applyStatus(target,ELEMENT_DEFS[el]?.status,1,depth);
+    if(!o.arpgProc && !o.noProc && this.g.inv.equip.weapon?.itemizationVersion && this.g.inv.equip.weapon.r > 0 && this.random() < (.2 + (this.build.stats.statusChance||0)/100)*coeff) this.applyStatus(target,ELEMENT_DEFS[el]?.status,1,depth);
     if(o.arpgStatus)this.applyStatus(target,o.arpgStatus,1,depth);
     if(o.arpgProjectile)o.arpgProjectile.lastCrit=crit;
   }
@@ -37,7 +37,7 @@ export class ItemCombat {
     const b=this.build,s=b.stats,raw=o.element||b.element,el=({steel:'physical',heavy:'physical',resonance:'physical',echo:'spirit',hex:'spirit',arcane:'spirit',thorn:'poison',glass:'frost'}[raw]||raw);
     let n=1+(s[el+'Damage']||0)/100;
     if(el!=='physical')n*=1+(s.elementalDamage||0)/100;
-    if(['bolt','fireball','comet','shard'].includes(o.kind))n*=1+(s.spellDamage||0)/100;
+    if(['bolt','fireball','comet','shard','ember','hex'].includes(o.kind))n*=1+(s.spellDamage||0)/100;
     const statuses=this.statuses.get(target);
     if(statuses)for(const [id,v] of statuses)n*=1+(STATUS_DEFS[id].vulnerable||0)*v.stacks;
     if(o.arpgProjectile){const p=o.arpgProjectile;if(p.dist<3)n*=1+(b.mods.close||0);if(p.dist>6)n*=1+(b.mods.distant||0);}
@@ -79,7 +79,7 @@ export class ItemCombat {
       if((this.cooldowns.get(key)||0)>this.clock)continue;
       if(d.every){const n=(this.counters.get(key)||0)+1;this.counters.set(key,n);if(n%d.every)continue;}
       const chance=clamp((instance.chance??d.chance)+(d.kind==='status'?(this.build.stats.statusChance||0)/100:0),0,1);
-      if(this.random()>chance)continue;
+      if(this.random()>chance*(e.procCoeff??1))continue;
       this.cooldowns.set(key,this.clock+d.cooldown);
       if(this.budget--<=0)break;
       this.execute(d,{...e,depth:(e.depth||0)+1});

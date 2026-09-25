@@ -70,7 +70,7 @@ async function buildMenu() {
   if (game.saveProvider.exportRecovery) menu.push({ label: 'Export Save / Recovery Copy', act: exportRecovery });
   menu.push({label:'Import adventures…',act:()=>chooseImport(game,async()=>{await buildMenu();sel=0;renderMenu();})});
   menu.push({ label: 'Settings', act: () => openTitleSettings() });
-  menu.push({ label: 'How to Play', act: () => { sfx('select'); game.ui.say(null, 'MOVE: WASD · AIM: mouse · ATTACK: click or C (hold to charge) · GUARD: Q / right click (tap to parry) · ROLL: Space\nABILITIES: 1–6 · TOOL: L · INTERACT: F · BAG: E · TONIC: H · SKILLS: K · JOURNAL: J · MAP: M · SURGE: R · MENU: Esc\n\nWatch for the *!* over an enemy: it is about to strike. Rest at Bellstones to refill tonics. Bring essences to Posy\'s workbench.'); } });
+  menu.push({ label: 'How to Play', act: () => { sfx('select'); game.ui.say(null, 'MOVE: WASD · AIM: mouse · ATTACK: click or C · WEAPON SECONDARY: right click or X (changes with your weapon) · GUARD: Q (tap to parry) · ROLL: Space\nABILITIES: 1–6 · TOOL: L · INTERACT: F · BAG: E · TONIC: H · SKILLS: K · JOURNAL: J · MAP: M · SURGE: R · MENU: Esc\n\nWatch for the *!* over an enemy: it is about to strike. Rest at Bellstones to refill tonics. Bring essences to Posy\'s workbench.'); } });
 }
 function renderMenu() {
   $('title').dataset.build=BUILD;

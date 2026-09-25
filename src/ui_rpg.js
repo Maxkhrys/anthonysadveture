@@ -1,3 +1,4 @@
+import { describeKit } from './rpg/weapon_attacks.js';
 import {updateEnemyHud} from './enemy_hud.js';
 import {textAllowed} from './rpg/combat_readability.js';
 import { gameplayLines } from './rpg/arpg/items.js';
@@ -136,6 +137,7 @@ export function installRpgUI(UI) {
       const m = 1 + (it.upgradeLevel || 0) * 0.05;
       h += `<div class="dmg">${Math.round(it.min * m)}–${Math.round(it.max * m)} damage · ${it.spd.toFixed(2)} speed</div>`;
       const fam = weaponFamily(it), own = !it.cls || it.cls === g.inv.cls;
+      const kd = describeKit(it, g.inv.cls); if (kd.secondary) h += `<div class="sub kit"><b>Left click:</b> ${kd.primary} · <b>Right click:</b> ${kd.secondary}</div><div class="sub kit-desc">${kd.secondaryDesc}</div>`;
       h += `<div class="sub fam">${FAMILY[fam].name}${own ? (it.cls ? ' · your class: full scaling and specialist perks' : ' · universal: full scaling for everyone') : ` · off-class: ${Math.round(OFFCLASS_SCALING * 100)}% scaling, no ${CLASSES[g.inv.cls].name} specialist perk`}</div>`;
     }
     h += `</div></div>`;

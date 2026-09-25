@@ -1,7 +1,7 @@
 // Guided first-session tutorial: a live checklist that reacts to what you do.
 import { sfx } from './engine/audio.js';
 
-const CHARGE = { gunslinger:'Reload your firearm between volleys using the Reload key (Z by default)', samurai: 'Hold <kbd>C</kbd>, release to spin-slash', archer: 'Hold <kbd>C</kbd> to charge a piercing shot', witch: 'Hold <kbd>C</kbd> to hurl a fireball', soulbound: 'Hold <kbd>C</kbd> to wind the chain, release to whirl it round you' };
+const CHARGE = { gunslinger:'Reload your firearm between volleys using the Reload key (Z by default)', samurai: 'Hold <kbd>C</kbd>, release to spin-slash', archer: 'Hold <kbd>C</kbd> to charge a piercing shot', witch: 'Right-click (or <kbd>X</kbd>) casts your staff’s secondary spell — hold it with a fire staff to hurl a charged fireball', soulbound: 'Hold <kbd>C</kbd> to wind the chain, release to whirl it round you' };
 // The same opening for everyone, taught the way each class actually fights.
 const CLS = {
  gunslinger:{attack:'Aim with the mouse; hold left click or C to fire. Your magazine reloads when empty.',guard:'Parry with Q or dodge with Space. Dodging cancels a reload.',ability:'Quickdraw spends Grit and one round. Spending Grit primes your next gun attack.'},

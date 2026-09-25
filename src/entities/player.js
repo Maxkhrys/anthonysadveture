@@ -19,6 +19,8 @@ import { AIM_H } from '../aim.js';
 import { blocksObject, isLiquid } from '../world/tiles.js';
 import { SoulKit, startLash, soulState, soulAnimate, beginSoulAbility, whirlPull, onEchoSpent } from '../rpg/soulbound.js';
 import { tickWeaponFx } from '../weaponFx.js';
+import { startSecondary, secondaryFrame, counterHit, castPrimarySpell, weaponKit } from '../rpg/weapon_attacks.js';
+import { combatEvents } from '../rpg/combat_events.js';
 
 // Soulbound-only states handled by the dedicated combat module.
 const SOUL_STATES = new Set(['lash', 'hook', 'hookzip', 'coil', 'veil', 'rend', 'rift']);
@@ -59,6 +61,7 @@ export class Player extends Entity {
     // three separate directions: where we move (input), where we aim, where we dodge
     this.aimDir = 0; this.aimPt = { x, z }; this.aimSrc = 'keys'; this.aimLock = null; this.dodgeDir = 0;
     this.targeting = null; this.chargeTime = 0.6; this.rollIframes = 0.28;
+    combatEvents(g); // the presentation hook bus exists from the first frame
   }
   // cooldowns belong to abilities; `cds` is the hotbar view of them (slot order)
   get cds() { const L = this.inv.loadout || []; return Array.from({ length: LOADOUT_SIZE }, (_, i) => (L[i] && this.cdMap[L[i]]) || 0); }
@@ -161,7 +164,13 @@ export class Player extends Entity {
   // Deadeye Draw shortens the charge; off-class bows draw slower; Stillwater makes it instant
   get chargeTimeNow() { let t = this.chargeTime * (1 - 0.15 * this.g.talent('deadeye')); if (this.family === 'bow' && !this.specialist) t *= 1.3; if (this.stillT > 0) t = 0.05; return t; }
 
-  setState(s) { this.state = s; this.st = 0; }
+  setState(s) {
+    if (this.state === 'weapon2' && s !== 'weapon2' && this.w2) { if (!this.w2.fired) { combatEvents(this.g).emit('attack.cancel', { attack: this.w2.def, reason: 'interrupted' }); this.secCd = Math.max(this.secCd || 0, 0.15); } this.w2 = null; this.lashVis = null; }
+    this.state = s; this.st = 0;
+  }
+  // the equipped weapon's right-click attack (see rpg/weapon_attacks.js)
+  get wkit() { return weaponKit(this); }
+  trySecondary() { if (this.g.locked() || this.state === 'weapon2') return false; return startSecondary(this); }
 
   hurt(h) {
     const g = this.g;
@@ -170,6 +179,7 @@ export class Player extends Entity {
     // Warden Spirits: one of them takes the blow and answers it.
     if (this.wards) { this.wards = this.wards.filter(w => !w.dead); const w = this.wards.shift(); if (w) { w.answer(h.src); this.invuln = Math.max(this.invuln, 0.35); return 'block'; } }
     const fromAng = Math.atan2(h.x - this.x, h.z - this.z);
+    if (this.state === 'weapon2' && counterHit(this, h, fromAng)) return 'parry';
     if (this.state === 'block' && !h.unblockable && Math.abs(angDiff(this.facing, fromAng)) < 1.4) {
       const window = 0.2 + 0.06 * g.talent('perfectguard') + (this.family === 'oversized' && this.inv.equip.weapon && this.inv.equip.weapon.unique === 'parasol' ? 0.05 : 0);
       if (this.blockT < window) {
@@ -346,6 +356,7 @@ export class Player extends Entity {
       }
       else { g.spawn(new Projectile(g, { x: ox, z: oz, dir: f, speed: 19, range: SHOT_RANGE.arrow, mult: g.talent('endlessquiver') ? 0.8 : 1, kind: 'arrow', pierce: U === 'starfallcrossbow' ? 2 : 0, color: quiver ? 0xfff3b0 : 0xf0e0c0, bounce: g.talent('endlessquiver') ? 1 : 0, element: quiver ? 'lightning' : null, basic: true, onHitFx: onHit })); sfx(quiver ? 'zap' : 'swing'); }
     } else {
+      if (!power && castPrimarySpell(this)) return;
       const orb = (w && ({ crookstaff: 0x7fd36a, candlestaff: 0xffb347, hexwand: 0x8b5cf6, frostrod: 0xdff4ff, shroomwand: 0xe05a48, mothlight: 0xfff3b0, porcelainrod: 0x9ad8ff, candelabra: 0xffb347 }[w.base])) || 0xc89aff;
       const boltHit = (pr, e) => {
         if (U === 'mothlight') { const t = g.nearestEnemy(e.x, e.z, 6, 0, Math.PI); if (t && t !== e) { const m = new Projectile(g, { x: e.x, z: e.z, dir: Math.atan2(t.x - e.x, t.z - e.z), speed: 8, range: 6, mult: pr.mult * 0.5, kind: 'bolt', element: 'hex', homing: 3, color: 0xf0ecd8, ability: false }); m.hit.add(e); g.spawn(m); } }
@@ -471,6 +482,7 @@ export class Player extends Entity {
     // a Bell Leech's resonance zone stops cooldowns ticking while you stand in it
     this.disruptT = Math.max(0, (this.disruptT || 0) - dt);
     if (!(this.disruptT > 0)) for (const k in this.cdMap) if (this.cdMap[k] > 0) this.cdMap[k] = Math.max(0, this.cdMap[k] - dt);
+    this.secCd = Math.max(0, (this.secCd || 0) - dt);
     this.counterT = Math.max(0, (this.counterT || 0) - dt); this.stillT = Math.max(0, (this.stillT || 0) - dt); this.porcelainT = Math.max(0, (this.porcelainT || 0) - dt);
     if (this.porcelainT > 0 && Math.random() < 0.25) g.fx.add({ x: this.x + (Math.random() - 0.5) * 0.5, y: 0.3 + Math.random() * 0.5, z: this.z + (Math.random() - 0.5) * 0.5, g: 0, color: 0xe8e0d0, life: 0.3, size: 0.04 });
     if (mlen > 0.1 && this.state !== 'aim') this.stillSince = g.time;
@@ -501,7 +513,7 @@ export class Player extends Entity {
     // held ground-target preview: release (or click) to place it, roll/guard to cancel
     if (this.targeting) {
       const tg = this.targeting;
-      if (locked || s === 'dead' || s === 'hurt' || s === 'fall' || inp.pressed('roll') || inp.pressed('shield')) this.targeting = null;
+      if (locked || s === 'dead' || s === 'hurt' || s === 'fall' || inp.pressed('roll') || inp.pressed('shield') || inp.pressed('secondary')) { this.targeting = null; inp.consume('secondary'); }
       else if (!inp.down(tg.key) || inp.pressed('attack')) {
         if (inp.pressed('attack')) inp.consume('attack');
         this.targeting = null;
@@ -531,7 +543,7 @@ export class Player extends Entity {
       if (inp.pressed('surge') && g.surge >= 100 && s !== 'surge') { this.setState('surge'); this.invuln = 0.9; sfx('roll'); }
     }
 
-    const soul = SOUL_STATES.has(s) ? soulState(this, s, dt, { inp, locked, mx, mz, mlen, aspd }) : null;
+    const soul = s === 'weapon2' ? secondaryFrame(this, dt, { inp, locked, mx, mz, mlen, aspd }) : SOUL_STATES.has(s) ? soulState(this, s, dt, { inp, locked, mx, mz, mlen, aspd }) : null;
     if (soul) { vx = soul[0]; vz = soul[1]; speed = soul[2]; }
     else switch (s) {
       case 'move': {
@@ -539,6 +551,7 @@ export class Player extends Entity {
         if (mlen > 0.1) this.facing = angleLerp(this.facing, Math.atan2(mx, mz), Math.min(1, dt * 18));
         if (!locked) {
           if ((inp.pressed('attack') || isFirearm(inv.equip.weapon)&&inp.down('attack')&&!inp.pressed('roll')) && !this.targeting && !(isFirearm(inv.equip.weapon)&&(this.gunCd>0||this.reload||this.barrage))) { this.basicAttack(); break; }
+          if (inp.pressed('secondary') && !this.targeting && this.trySecondary()) break;
           if (this.tryAbility()) break;
           if (inp.pressed('roll') && this.rollCd <= 0) { this.startRoll(mx, mz, mlen); break; }
           if (inp.down('shield')) { this.setState('block'); this.blockT = 0; g.guide.event('guard'); break; }
@@ -578,6 +591,7 @@ export class Player extends Entity {
         this.buffer -= dt;
         if (this.st > 0.14 && this.buffer > 0 && this.combo < 3) { this.arcDone = false; this.sig3 = false; if (mlen > 0.1 && !this.aiming) this.facing = Math.atan2(mx, mz); this.startAttack(); break; }
         if (this.st > 0.12 && !locked && this.tryAbility()) { this.arcDone = false; break; }
+        if (this.st > 0.14 && !locked && inp.pressed('secondary') && this.trySecondary()) { this.arcDone = false; this.cres = false; this.sig3 = false; break; }
         if (this.st > 0.12 && !locked && inp.pressed('roll')) { this.arcDone = false; this.startRoll(mx, mz, mlen); break; }
         if (this.st >= dur) {
           this.arcDone = false; this.cres = false; this.sig3 = false;
@@ -591,6 +605,9 @@ export class Player extends Entity {
         // keep holding to start charging. Movement stays free in every direction.
         speed = 2.6;
         this.faceAim();
+        // spell weapons: a short lift of the staff/wand, then the primary spell (no charge on
+        // left click: charged magic is the weapon's right-click secondary)
+        if (this.wkit.spell) { if (this.st * aspd >= 0.06 || !inp.down('attack') || locked) { this.fireBasic(false); this.setState('cast'); this.castDur = this.wkit.spell.interval / aspd; } break; }
         if (!inp.down('attack') || locked) { this.fireBasic(false); this.setState('cast'); this.castDur = 0.2 / aspd; break; }
         if (this.st * aspd >= 0.16) { this.setState('aim'); this.aimT = 0; }
         break;
@@ -621,10 +638,12 @@ export class Player extends Entity {
         if (!locked && this.st > 0.08) {
           if (inp.pressed('roll')) { this.startRoll(mx, mz, mlen); break; }
           if (this.tryAbility()) break;
+          if (inp.pressed('secondary') && this.trySecondary()) break;
         }
         if (this.st > (this.castDur || 0.2)) {
           this.castDur = 0;
-          if (this.buffer > 0 && this.ranged && !locked) { this.basicAttack(); break; }
+          // spells keep casting while the button is held (the cast interval is the rate of fire)
+          if ((this.buffer > 0 || (this.wkit.spell && inp.down('attack'))) && this.ranged && !locked) { this.basicAttack(); break; }
           this.setState('move');
         }
         break;
@@ -762,6 +781,7 @@ export class Player extends Entity {
         if (!inp.down('shield') || locked) this.setState('move');
         else if (inp.pressed('roll')) this.startRoll(mx, mz, mlen);
         else if (inp.pressed('attack')) this.basicAttack(); // each class attacks its own way out of a guard
+        else if (inp.pressed('secondary')) this.trySecondary();
         break;
       }
       case 'item': {
@@ -940,6 +960,39 @@ export class Player extends Entity {
         m.armL.rotation.z = 0.3 + pump; m.armR.rotation.z = -0.3 - pump;
         m.body.scale.set(1, s === 'itemrecover' ? 0.9 : 1 + Math.sin(this.itemT * 10) * 0.03, 1);
         if (s === 'itemrecover') m.body.position.z = -0.08;
+        break;
+      }
+      case 'weapon2': { // weapon secondaries: readable anticipation -> release -> recovery
+        const a = this.w2; if (!a) break;
+        const d = a.def, ph = a.phase, w = ph === 'windup' ? Math.min(1, a.t / Math.max(0.01, d.windup)) : 1;
+        const rel = ph === 'active' || ph === 'recover', rk = ph === 'recover' ? Math.min(1, a.t / Math.max(0.01, d.recover)) : 0;
+        const ck = ph === 'charge' ? Math.min(1, a.charge / d.charge.full) : 0, shake = ck >= 1 ? Math.sin(t * 60) * 0.01 : 0;
+        switch (d.anim) {
+          case 'drawCut': // hand on the hilt, a low crouch; then the cut and the follow-through
+            if (!rel) { m.armR.rotation.x = -0.5 * w; m.armR.rotation.z = 0.8 * w; m.sword.rotation.x = 1.5; m.body.rotation.y = 0.6 * w; m.body.position.y = -0.06 * w; m.legL.rotation.x = 0.5 * w; m.legR.rotation.x = -0.4 * w; }
+            else { m.armR.rotation.x = -1.5; m.armR.rotation.z = -0.9 + rk * 0.5; m.sword.rotation.x = 1.5; m.body.rotation.y = -0.7 * (1 - rk * 0.6); m.legL.rotation.x = 0.6; m.legR.rotation.x = -0.5; m.body.rotation.x = 0.2 * (1 - rk); }
+            break;
+          case 'flurry': { const n = a.n || 0, side = n % 2 ? 1 : -1; m.body.rotation.y = rel && ph === 'active' ? side * 0.8 : 0.3 * w; m.armR.rotation.x = -1.45; m.armR.rotation.z = side * 0.5; m.sword.rotation.x = 1.5; m.legL.rotation.x = 0.5; m.legR.rotation.x = -0.4; m.body.rotation.x = 0.15; break; }
+          case 'overhead': // raised high over the head, leaning back; then the fall and a low follow-through
+            if (!rel) { m.armR.rotation.x = -3.0 * w; m.armL.rotation.x = -3.0 * w; m.armL.rotation.z = -0.3; m.sword.rotation.x = 0.6; m.body.rotation.x = -0.28 * w; m.body.position.y = 0.06 * w; m.legL.rotation.x = 0.3; m.legR.rotation.x = -0.5; }
+            else { m.armR.rotation.x = -0.5 + rk * 0.3; m.armL.rotation.x = -0.5 + rk * 0.3; m.sword.rotation.x = 1.6; m.body.rotation.x = 0.55 * (1 - rk * 0.7); m.body.position.y = -0.05 * (1 - rk); m.legL.rotation.x = 0.7; m.legR.rotation.x = -0.6; }
+            break;
+          case 'slash': m.body.rotation.y = rel ? -0.9 + rk * 0.5 : 0.9 * w; m.armR.rotation.x = -1.4; m.armR.rotation.z = rel ? -0.4 : 0.5; m.sword.rotation.x = 1.5; m.legL.rotation.x = 0.5; m.legR.rotation.x = -0.4; break;
+          case 'bowDraw': case 'bowQuick': { const draw = ph === 'charge' ? 0.4 + ck * 0.6 : ph === 'windup' ? w * 0.4 : Math.max(0, 0.2 - rk); m.armL.rotation.x = -1.55; m.armR.rotation.x = -1.4; m.armR.rotation.z = -0.4 - draw * 0.7; m.body.rotation.y = 0.35 + draw * 0.15; m.body.position.x = shake; if (d.anim === 'bowDraw' && ph === 'charge') m.body.rotation.x = -0.05; break; }
+          case 'crossbow': m.armL.rotation.x = -1.5; m.armR.rotation.x = -1.5; m.armL.rotation.z = 0.2; m.armR.rotation.z = -0.2; m.body.rotation.x = rel ? -0.2 * (1 - rk) : 0.05 + Math.sin(a.t * 30) * 0.02 * w; m.body.position.z = rel ? -0.06 * (1 - rk) : 0; break;
+          case 'staffRaise': m.armR.rotation.x = rel ? -1.6 + rk * 0.2 : -2.4 - 0.4 * (ph === 'charge' ? ck : w); m.armL.rotation.x = rel ? -0.6 : -1.3; m.armL.rotation.z = rel ? 0 : 0.5; m.body.rotation.x = rel ? 0.18 * (1 - rk) : -0.1; m.head.rotation.x = rel ? 0 : -0.15; m.body.position.x = shake; break;
+          case 'staffThrust': m.armR.rotation.x = rel ? -1.7 : -1.2 + 0.3 * w; m.armL.rotation.x = -1.3; m.body.rotation.y = rel ? -0.3 : 0.5 * w; m.body.rotation.x = rel ? 0.22 * (1 - rk) : -0.06; m.legL.rotation.x = 0.5; m.legR.rotation.x = -0.4; break;
+          case 'staffPoint': m.armR.rotation.x = -1.7; m.armL.rotation.x = -1.5; m.armL.rotation.z = 0.3; m.armR.rotation.z = Math.sin(t * 40) * 0.04 * (rel ? 0 : 1); m.body.rotation.x = rel ? 0.12 : -0.05; break;
+          case 'wandFlick': m.armR.rotation.x = rel ? -1.5 - Math.max(0, 1 - rk * 4) * 0.8 : -2.1 * w; m.armR.rotation.z = 0.2; m.armL.rotation.x = -0.3; m.armL.rotation.z = 0.4; m.body.rotation.y = -0.2; break;
+          case 'channel': m.armR.rotation.x = -1.6; m.armL.rotation.x = -1.5; m.armL.rotation.z = 0.35; m.armR.rotation.z = -0.1 + Math.sin(t * 50) * 0.04; m.body.rotation.x = 0.12; m.body.position.x = ph === 'active' ? Math.sin(t * 70) * 0.008 : 0; break;
+          case 'chainThrow': case 'chainThrust': // arm cocked back, then flung forward along the line
+            if (!rel) { m.armR.rotation.x = -0.4 - 1.6 * w; m.armR.rotation.z = 0.3; m.body.rotation.y = 0.6 * w; m.body.rotation.x = -0.1 * w; }
+            else { m.armR.rotation.x = -1.9 + rk * 0.8; m.armR.rotation.z = 0.05; m.body.rotation.y = -0.3; m.body.rotation.x = 0.25 * (1 - rk); m.legL.rotation.x = 0.7; m.legR.rotation.x = -0.5; m.armL.rotation.x = -0.4; }
+            break;
+          case 'chainSweep': m.body.rotation.y = rel ? (a.echoed ? 0.8 : -0.8) : 0.6 * w; m.armR.rotation.x = -1.6; m.armR.rotation.z = rel ? -0.6 : 0.6; m.armL.rotation.z = -0.4; m.legL.rotation.x = 0.45; m.legR.rotation.x = -0.35; break;
+          case 'fan': m.armL.rotation.x = -1.2; m.armL.rotation.z = -0.4 + (ph === 'active' ? Math.abs(Math.sin(a.t * 60)) * 0.5 : 0); break;
+          case 'burst': m.armL.rotation.x = -1.05; m.armL.rotation.z = -0.55; m.body.rotation.x = -0.05; m.body.position.z = ph === 'active' ? -Math.abs(Math.sin(a.t * 80)) * 0.03 : 0; break;
+        }
         break;
       }
       case 'shoot': case 'aim': case 'cast': {

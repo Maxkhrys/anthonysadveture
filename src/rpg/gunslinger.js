@@ -4,6 +4,7 @@ import { mesh,B,MAT } from '../models.js';
 import { Projectile,segT } from './combat.js';
 import { FIREARMS,isFirearm,magazine,spendRounds,completeReload } from './firearms.js';
 import { sfx } from '../engine/audio.js';
+import { combatEvents } from './combat_events.js';
 export { isFirearm,magazine } from './firearms.js';
 const foes=g=>g.entities.filter(e=>e.isEnemy&&!e.dead&&!(e.spawnT>0));
 const sentries=p=>p.g.entities.filter(e=>e.isSentry&&!e.dead&&e.owner===p);
@@ -13,7 +14,7 @@ export function gunCost(p,id,cost){return id==='satchelcharge'&&p.satchel&&!p.sa
 export function gunReady(p,id) {return !['quickdraw','barrage'].includes(id)||(isFirearm(p.inv.equip.weapon)&&magazine(p.inv.equip.weapon).rounds>0&&!p.reload&&!p.barrage);}
 export function startReload(p){
  const w=p.inv.equip.weapon,m=magazine(w);if(!m||m.rounds===FIREARMS[w.kind].capacity||p.reload||p.barrage)return false;
- p.reload={weapon:w,left:FIREARMS[w.kind].reload};p.g.hudDirty=true;sfx('gunreload');return true;
+ p.reload={weapon:w,left:FIREARMS[w.kind].reload};p.g.hudDirty=true;sfx('gunreload');combatEvents(p.g).emit('weapon.reload',{weapon:w,p});return true;
 }
 export function gunDodge(p){
  p.reload=null;const w=p.inv.equip.weapon,m=magazine(w);
@@ -51,7 +52,7 @@ function muzzle(p){
  if(!p.g.shotClear(p.x,p.z,v.x,v.z))v.set(p.x,.45,p.z);
  return v;
 }
-export function fireGun(p,{ability=false,mult=1,bonus=null,bypass=false,consumePrime=true,pierce=0}={}){
+export function fireGun(p,{ability=false,mult=1,bonus=null,bypass=false,consumePrime=true,pierce=0,dirOffset=0,onHit=null}={}){
  const g=p.g,w=p.inv.equip.weapon,f=FIREARMS[w?.kind],m=magazine(w);
  if(!f||p.reload||(!bypass&&p.gunCd>0))return false;
  if(!m.rounds){startReload(p);return false;}
@@ -64,11 +65,12 @@ export function fireGun(p,{ability=false,mult=1,bonus=null,bypass=false,consumeP
  const copies=1+Math.min(3,(g.pstats.arpg?.stats.projectileCount||0)+(g.pstats.arpg?.mods.projectileCount||0));
  const extra=(bonus??(primed?.6*1.35/f.power:0))/copies;
  const openingPower=(opening+(spectral?2:0))*1.35/f.power;
- const dir=p.facing+(w.kind==='rifle'?(Math.random()-.5)*(p.gunSpread||0):0);
+ const dir=p.facing+dirOffset+(w.kind==='rifle'?(Math.random()-.5)*(p.gunSpread||0):0);
  let awarded=false;
  const shot=new Projectile(g,{x:origin.x,z:origin.z,dir,speed:32,range:11,mult:mult*power+extra+openingPower,kind:'bullet',r:.07,pierce:pierce+(spectral||opening>=1?1:0),kb:primed||final&&talent(p,'lastround')?5:1.5,basic:!ability,ability,color:spectral?0xbdf8ff:0xffd38b,
   onHitFx:(pr,e)=>{
    if(pr.hitResult!=='hit'||pr.arpgExtra||pr.arpgProc)return;
+   if(onHit)onHit(pr,e);
    if(final)m.finalHit=true;
    if(!awarded&&p.cls==='gunslinger'){awarded=true;g.res=Math.min(100,g.res+(w.kind==='rifle'?1.3:4));}
    if(primed||final&&talent(p,'lastround'))e.stagger=Math.max(e.stagger||0,.3);

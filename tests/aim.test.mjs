@@ -126,6 +126,8 @@ export default async function (page, R) {
   // ---------------------------------------------------------------- Witch
   await page.mouse.move(5, 5);
   await fresh(page, 'witch');
+  // the seeking bolt is the arcane staff's Magic Missile (each staff now has its own primary spell)
+  await page.evaluate(() => { const g = window.__game; g.inv.equip.weapon = window.__items.makeNamed('crookstaff', 3); g.recalc(); });
   const w = await range(page);
   // a foe 60 degrees off the aimed line must NOT pull the bolt off course
   const off = await page.evaluate(`(${DUMMY})(${w.x + 2}, ${w.z + 3.4})`);
@@ -144,10 +146,11 @@ export default async function (page, R) {
   R.ok(await hpOf(page, near) > 0, 'bolt bends gently onto a foe near the aimed line');
   // guard then attack uses the witch's own attack, not a sword swing
   await sim(page, 10);
-  await page.mouse.down({ button: 'right' }); await sim(page, 3);
+  await sim(page, 3, ['KeyQ']); // guard is Q (right click is the weapon secondary)
+  await page.keyboard.down('q'); await sim(page, 2);
   await page.mouse.down(); await page.mouse.up(); await sim(page, 1);
   const g1 = await page.evaluate(() => window.__game.player.state);
-  await page.mouse.up({ button: 'right' }); await sim(page, 10);
+  await page.keyboard.up('q'); await sim(page, 10);
   R.ok(g1 === 'shoot' || g1 === 'cast', 'attacking out of a guard uses the ranged attack', g1);
   // chain lightning picks the enemy under the cursor, not the closest one
   await page.evaluate(() => { const g = window.__game; for (const e of g.entities) if (e.isEnemy) e.remove(); g.inv.level = 3; g.inv.skills = [1, 1, 0]; g.recalc(); g.res = 100; });

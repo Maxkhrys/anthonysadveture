@@ -1,6 +1,6 @@
 // Unified keyboard / mouse / gamepad input with edge detection.
 import { KEYMAP } from './actions.js';
-const PAD = { attack: 2, roll: 0, interact: 1, item: 3, shield: [4], surge: [5, 7], pause: 9, potion: 8 };
+const PAD = { attack: 2, roll: 0, interact: 1, item: 3, shield: [4], secondary: [7], surge: [5], pause: 9, potion: 8 };
 // Holding LT (button 6) switches the face and shoulder buttons to the six ability slots:
 // X/Y/B/A = slots 1-4, LB/RB = slots 5-6. Release LT for normal controls.
 const PAD_LAYER = { ab1: 2, ab2: 3, ab3: 1, ab4: 0, ab5: 4, ab6: 5 };
@@ -64,7 +64,8 @@ export class Input {
     const s = {};
     for (const k in KEYMAP) s[k] = KEYMAP[k].some(c => this.keys.has(c) || this.taps.has(c));
     if (this.mouse.has(0) || this.mtaps.has(0)) s.attack = true;
-    if (this.mouse.has(2) || this.mtaps.has(2)) s.shield = true;
+    // right click is the weapon's secondary attack (guard/parry lives on Q / LB)
+    if (this.mouse.has(2) || this.mtaps.has(2)) s.secondary = true;
     // a tap that was already released counts as pressed this frame, released the next
     this.taps.clear(); this.mtaps.clear();
     let mx = (s.right ? 1 : 0) - (s.left ? 1 : 0), mz = (s.down ? 1 : 0) - (s.up ? 1 : 0);

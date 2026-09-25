@@ -6,7 +6,8 @@ export const ACTIONS = {
   left: { keys: ['KeyA', 'ArrowLeft'], label: 'Move left', glyph: 'A / ←' },
   right: { keys: ['KeyD', 'ArrowRight'], label: 'Move right', glyph: 'D / →' },
   attack: { keys: ['KeyC'], label: 'Attack / hold to charge (guns: hold to fire)', glyph: 'LMB / C' },
-  shield: { keys: ['KeyQ'], label: 'Guard / timed parry', glyph: 'RMB / Q' },
+  secondary: { keys: ['KeyX'], label: 'Weapon secondary attack (depends on the weapon)', glyph: 'RMB / X' },
+  shield: { keys: ['KeyQ'], label: 'Guard / timed parry', glyph: 'Q' },
   roll: { keys: ['Space', 'ShiftLeft', 'ShiftRight'], label: 'Dodge / backstep', glyph: 'Space / Shift' },
   toolCycle: { keys: ['KeyY'], label:'Swap dungeon tool', glyph:'Y' },
   item: { keys: ['KeyL'], label: 'Dungeon tool', glyph: 'L' },
@@ -29,7 +30,7 @@ export const ACTIONS = {
 export const KEYMAP = Object.fromEntries(Object.entries(ACTIONS).map(([id,a]) => [id,a.keys]));
 export const glyph = id => ACTIONS[id]?.glyph || id;
 export const prompt = id => `<kbd>${glyph(id)}</kbd>`;
-export const controlsHTML = () => `<div class="controls-grid">${Object.entries(ACTIONS).filter(([id]) => !['down','left','right','ab2','ab3','ab4','ab5','ab6'].includes(id)).map(([id,a]) => `<div class="control-row"><span>${id === 'up' ? 'Move' : id === 'ab1' ? 'Six equipped abilities' : a.label}${a.context ? '<small>In inventory</small>' : ''}</span><kbd>${id === 'up' ? 'WASD / Arrows' : id === 'ab1' ? '1–6' : a.glyph}</kbd></div>`).join('')}</div><p class="setnote">Mouse aims. C attacks in your facing direction. Gamepad: left stick move, right stick aim; hold LT + X / Y / B / A / LB / RB for abilities 1–6. Reload binding: <select aria-label="Reload key" data-reload-key>${['KeyZ','KeyN','KeyU'].map(k=>`<option value="${k}" ${KEYMAP.reload[0]===k?'selected':''}>${k.slice(3)}</option>`).join('')}</select>.</p>`;
+export const controlsHTML = () => `<div class="controls-grid">${Object.entries(ACTIONS).filter(([id]) => !['down','left','right','ab2','ab3','ab4','ab5','ab6'].includes(id)).map(([id,a]) => `<div class="control-row"><span>${id === 'up' ? 'Move' : id === 'ab1' ? 'Six equipped abilities' : a.label}${a.context ? '<small>In inventory</small>' : ''}</span><kbd>${id === 'up' ? 'WASD / Arrows' : id === 'ab1' ? '1–6' : a.glyph}</kbd></div>`).join('')}</div><p class="setnote">Mouse aims. C attacks in your facing direction. Gamepad: left stick move, right stick aim, RT weapon secondary, LB guard; hold LT + X / Y / B / A / LB / RB for abilities 1–6. Reload binding: <select aria-label="Reload key" data-reload-key>${['KeyZ','KeyN','KeyU'].map(k=>`<option value="${k}" ${KEYMAP.reload[0]===k?'selected':''}>${k.slice(3)}</option>`).join('')}</select>.</p>`;
 
 export function setReloadKey(code){
  if(!['KeyZ','KeyN','KeyU'].includes(code))return false;

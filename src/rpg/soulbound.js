@@ -163,6 +163,7 @@ export class SoulKit {
       case 'coil': case 'spin': { const a = p.st * (s === 'coil' ? 17 : 14) - p.facing; this.rig.draw(h, tipAt(a + p.facing, s === 'coil' ? 2.9 : R * 0.95, 0.38), -0.6, 0.05, 0.3, 2.0); break; }
       case 'charge': { const a = t * 14; this.rig.draw(h, { x: Math.sin(a) * 0.75, y: 1.15, z: Math.cos(a) * 0.75 }, -0.25, 0.2, p.chargeT >= 0.7 ? 0.2 : 0.55, 1.8); break; }
       case 'rend': { const L = p.lashVis; if (L) this.rig.draw(h, tipAt(L.ang, L.len), L.bend, 0.06, 0.35, 2.0); break; }
+      case 'weapon2': { const L = p.lashVis; if (L) { this.rig.draw(h, tipAt(L.ang, L.len, L.y ?? 0.42), L.bend ?? 0, L.lift ?? 0.06, L.sf ?? 0.4, 2.0); break; } const mv = 0.2; this.rig.draw(h, { x: h.x + 0.04, y: Math.max(0.06, h.y - 0.3), z: h.z - 0.12 - mv * 0.3 }, 0.1, -0.05, 0.8, 1.2); break; }
       default: {
         // idle: the chain hangs from the hand and sways; while moving it trails behind
         const mv = Math.min(1, (p.moveSpeed || 0) / 5), sway = Math.sin(t * 2.1) * 0.05;
@@ -232,6 +233,7 @@ export function lashFrame(p, dt, aspd, ctx) {
   p.buffer -= dt;
   if (st > L.wind + L.win * 0.7 && p.buffer > 0 && p.combo < 4) { if (mlen > 0.1 && !p.aiming) p.facing = Math.atan2(mx, mz); startLash(p); return [vx, vz]; }
   if (st > L.wind + L.win * 0.6 && !locked && p.tryAbility()) return [vx, vz];
+  if (st > L.wind + L.win * 0.6 && !locked && inp.pressed('secondary') && p.trySecondary()) return [vx, vz];
   if (st > L.wind && !locked && inp.pressed('roll')) { p.startRoll(mx, mz, mlen); return [vx, vz]; }
   if (st >= L.dur) {
     if (inp.down('attack') && p.combo === 1 && !locked) { p.setState('charge'); p.chargeT = 0; }
