@@ -178,7 +178,7 @@ export class Story {
           ], short: ['They draw breath before they strike. Wait for it, then answer.'] },
           { id: 'heir', label: 'About my ' + cw.tool, lines: [
             `That's ${cw.heir}. It was too big for its first owner too, once.`,
-            inv.cls === 'samurai' ? 'Your grandfather didn\'t win fights by swinging hardest. He won them by *not* being where the other fellow swung.' : inv.cls === 'archer' ? 'Your mother could split a falling leaf from the bell tower. She said the trick was to aim where it would be, not where it was.' : inv.cls === 'soulbound' ? 'The old ferryman carried it across the lake and back for sixty years. He said the spirits hold the other end, and they only pull when you ask kindly.' : 'Old Nettle used to say a hex is only a promise the world hasn\'t noticed yet. Then she\'d set her hat on fire.',
+            inv.cls === 'samurai' ? 'Your grandfather didn\'t win fights by swinging hardest. He won them by *not* being where the other fellow swung.' : inv.cls === 'archer' ? 'Your mother could split a falling leaf from the bell tower. She said the trick was to aim where it would be, not where it was.' : inv.cls === 'gunslinger' ? 'A gunsmith! Welcome to the Bramble & Bolt. Wood stocks, brass fittings, and no firing indoors, please.' : inv.cls === 'soulbound' ? 'The old ferryman carried it across the lake and back for sixty years. He said the spirits hold the other end, and they only pull when you ask kindly.' : 'Old Nettle used to say a hex is only a promise the world hasn\'t noticed yet. Then she\'d set her hat on fire.',
           ], short: [`${cw.heir[0].toUpperCase() + cw.heir.slice(1)}. Look after it and it will look after you.`] },
           { id: 'rest', label: 'Bellstones', lines: [
             'Every Bellstone was cast from the Dawnbell\'s own bronze. Touch one and it mends you, refills your tonics — and remembers you.',
@@ -209,7 +209,7 @@ export class Story {
       }
       case 'posy': {
         const greet = () => {
-          if (!f.metPosy) { f.metPosy = true; return inv.cls === 'samurai' ? 'A samurai! Welcome to the Bramble & Bolt. My whetstones are trembling with excitement.' : inv.cls === 'archer' ? 'An archer! Welcome to the Bramble & Bolt. Fletching\'s on the left, please don\'t test it on the pigeons.' : inv.cls === 'soulbound' ? 'Oh! A Soulbound. My nan said to leave a saucer of milk out for your friends. Do they… want a saucer of milk?' : 'A witch! Welcome to the Bramble & Bolt. Nothing on the shelves is cursed. Probably.'; }
+          if (!f.metPosy) { f.metPosy = true; return inv.cls === 'samurai' ? 'A samurai! Welcome to the Bramble & Bolt. My whetstones are trembling with excitement.' : inv.cls === 'archer' ? 'An archer! Welcome to the Bramble & Bolt. Fletching\'s on the left, please don\'t test it on the pigeons.' : inv.cls === 'gunslinger' ? 'A gunsmith! Welcome to the Bramble & Bolt. Wood stocks, brass fittings, and no firing indoors, please.' : inv.cls === 'soulbound' ? 'Oh! A Soulbound. My nan said to leave a saucer of milk out for your friends. Do they… want a saucer of milk?' : 'A witch! Welcome to the Bramble & Bolt. Nothing on the shelves is cursed. Probably.'; }
           if (crafted && !f['said:posy:' + crafted]) { f['said:posy:' + crafted] = true; return 'Is that my engraving? Oh, look at it *sing*. Don\'t tell Oswin, but that\'s my best work.'; }
           if (inv.mats && (inv.mats.thornheart || inv.mats.echo || inv.mats.ember || inv.mats.sailcloth)) return 'I can *smell* essence on you. Bring it to the bench and we\'ll make something loud.';
           return 'Back again! Tonics, gear, or a little work at the bench?';
@@ -339,7 +339,7 @@ export class Story {
     const key = inv.level + ':' + Math.floor(g.playTime / 300);
     if (!this.stock || this.stockKey !== key) {
       this.stockKey = key;
-      this.stock = [0, 1, 2, 3, 4].map(i => genItem({ level: inv.level + (i === 4 ? 1 : 0), cls: i < 3 ? inv.cls : null, slot: i < 2 ? 'weapon' : null, floor: i >= 3 ? 2 : 1, bonus: 0.3 }));
+      this.stock = [0, 1, 2, 3, 4].map(i => genItem({ level: inv.level + (i === 4 ? 1 : 0), cls: inv.cls, slot: i < 2 ? 'weapon' : null, floor: i >= 3 ? 2 : 1, bonus: 0.3 }));
     }
     const gear = this.stock.map(it => ({
       name: `<span style="color:${RARITY[it.r].color}">${itemIconHTML(it, it.cls) || itemIcon(it)} ${it.name}</span>`, price: it.value * 3,

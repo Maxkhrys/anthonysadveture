@@ -13,6 +13,7 @@ export const LOADOUT_SIZE = 6;
 export const MAX_ACTIVE_RANK = 5;
 
 export const PATHS = {
+ gunslinger:[{id:'outlaw',name:'Outlaw',color:'#dfac68',blurb:'Precision, cylinders and rolling gunfire.'},{id:'demolitionist',name:'Demolitionist',color:'#ed8151',blurb:'Explosives, fuses and covering smoke.'},{id:'machinist',name:'Machinist',color:'#78bbb2',blurb:'Mechanical allies and coordinated fire.'}],
   samurai: [
     { id: 'duelist', name: 'Duelist', color: '#ff6a5a', blurb: 'Precision, parries, crits and counters.' },
     { id: 'galeronin', name: 'Gale Ronin', color: '#9ad8ff', blurb: 'Mobility, wind blades and repeating Echo cuts.' },
@@ -39,6 +40,15 @@ export const PATHS = {
 // power: base damage multiplier per hit (x weapon damage) shown in tooltips; the cast code
 // multiplies it by the rank multiplier. target: self | dir | ground | unit.
 export const SKILLS = {
+  quickdraw:{cls:'gunslinger',path:0,name:'Quickdraw',icon:'⚙',cost:20,cd:4,target:'dir',range:8,radius:2,def:3,power:2.4,element:'physical',desc:'One loaded round: piercing gunfire.'},
+  barrage:{cls:'gunslinger',path:0,name:'Barrage',icon:'⚙',cost:30,cd:8,target:'dir',range:8,radius:2,def:3,power:1,element:'physical',desc:'Fire up to six loaded rounds in a rapid burst; one shared priming bonus.'},
+  deadeyemark:{cls:'gunslinger',path:0,name:'Deadeye Mark',icon:'⚙',cost:15,cd:8,target:'unit',range:8,radius:2,def:3,power:0,element:'physical',desc:'Mark for 8 seconds: +20% direct gunfire critical chance; sentries prioritise it.'},
+  powdergrenade:{cls:'gunslinger',path:1,name:'Powder Grenade',icon:'⚙',cost:25,cd:7,target:'ground',range:8,radius:2,def:3,power:3,element:'physical',desc:'Throw a grenade; explodes after a 1.2 second fuse, damaging and staggering foes.'},
+  smokebomb:{cls:'gunslinger',path:1,name:'Smoke Bomb',icon:'⚙',cost:20,cd:12,target:'self',range:8,radius:2,def:3,power:0,element:'physical',desc:'Four seconds of smoke: ordinary foes lose sight beyond 1.3 units, are slowed nearby, and deal 35% less damage while you remain inside. Bosses are unaffected.'},
+  satchelcharge:{cls:'gunslinger',path:1,name:'Satchel Charge',icon:'⚙',cost:35,cd:10,target:'ground',range:8,radius:2,def:3,power:5,element:'physical',desc:'Place one satchel; press again to detonate at no additional cost.'},
+  sentryturret:{cls:'gunslinger',path:2,name:'Sentry Turret',icon:'⚙',cost:35,cd:12,target:'ground',range:8,radius:2,def:3,power:0.45,element:'physical',desc:'Deploy a sentry for 12 seconds with 30 health and 8 range. Nearby enemy attacks can destroy it.'},
+  overclock:{cls:'gunslinger',path:2,name:'Overclock',icon:'⚙',cost:25,cd:16,target:'self',range:8,radius:2,def:3,power:0,element:'physical',desc:'Six seconds: gunfire, reload and sentry firing speed +30%.'},
+
   // ---------------- Samurai
   iaido: { cls: 'samurai', path: 0, name: 'Iaido Dash', icon: '💨', cost: 25, cd: 4, target: 'dir', power: 2.2, element: 'steel', desc: 'Dash through enemies, cutting everything in your path.', hits: 'one cut per foe on the path' },
   ghostdraw: { cls: 'samurai', path: 0, name: 'Ghostdraw', icon: '👻', cost: 30, cd: 7, target: 'dir', power: 1.6, element: 'echo', desc: 'A lightning draw-cut. An Echo swordsman steps out of you and repeats the cut 0.7 s later. Drawn within 0.5 s of a perfect parry, both cuts are guaranteed crits.', hits: 'draw-cut + Echo repeat (×0.9)' },
@@ -85,6 +95,30 @@ for (const [id, s] of Object.entries(SKILLS)) s.id = id;
 // pathMin: points that must already be spent in this path.
 const N = (o) => ({ max: 1, req: [], lvl: 1, pathMin: 0, stats: null, ...o });
 export const TREES = {
+ gunslinger:[N({id:'quickdraw',path:0,x:1,y:0,type:'active',skill:'quickdraw',max:5,free:true,lvl:1}),
+N({id:'rollingreload',path:0,x:0,y:1,type:'mod',name:'Rolling Reload',desc:()=>'Dodging restores 1 revolver round or 3 rifle rounds, once every 5 seconds.',req:['quickdraw']}),
+N({id:'cleanchamber',path:0,x:2,y:1,type:'mod',name:'Clean Chamber',desc:()=>'The first shot after a completed reload deals 25% more damage.',req:['quickdraw']}),
+N({id:'barrage',path:0,x:1,y:2,type:'active',skill:'barrage',max:5,lvl:4,req:['quickdraw']}),
+N({id:'steadyhands',path:0,x:0,y:2,type:'mod',name:'Steady Hands',desc:()=>'Rifle spread recovers twice as fast and firing movement improves.',req:['quickdraw']}),
+N({id:'deadeyemark',path:0,x:2,y:3,type:'active',skill:'deadeyemark',max:5,lvl:7,req:['quickdraw']}),
+N({id:'lastround',path:0,x:1,y:3,type:'mod',name:'Last Round',desc:()=>'The final loaded round adds 0.3 seconds of stagger.',req:['quickdraw']}),
+N({id:'highnoon',path:0,x:1,y:4,type:'key',name:'High Noon',desc:()=>'Reloading an empty magazine primes an opening shot with +100% shared weapon power and piercing.',req:['quickdraw'],pathMin:7,lvl:12}),
+N({id:'powdergrenade',path:1,x:1,y:0,type:'active',skill:'powdergrenade',max:5,free:true,lvl:3}),
+N({id:'stickyfuses',path:1,x:0,y:1,type:'mod',name:'Sticky Fuses',desc:()=>'Grenades attach to the first enemy crossed during flight.',req:['powdergrenade']}),
+N({id:'smokebomb',path:1,x:2,y:1,type:'active',skill:'smokebomb',max:5,lvl:4,req:['powdergrenade']}),
+N({id:'shapedcharge',path:1,x:1,y:2,type:'mod',name:'Shaped Charge',desc:()=>'Satchels deal 40% more damage in a 25% smaller radius.',req:['powdergrenade']}),
+N({id:'satchelcharge',path:1,x:0,y:2,type:'active',skill:'satchelcharge',max:5,lvl:7,req:['powdergrenade']}),
+N({id:'elementalpayload',path:1,x:2,y:3,type:'mod',name:'Elemental Payload',desc:()=>'Grenades use your saved payload choice: fire, frost or lightning. Choose in the Skills panel.',req:['powdergrenade']}),
+N({id:'coveringsmoke',path:1,x:1,y:3,type:'mod',name:'Covering Smoke',desc:()=>'Reload 25% faster while inside your smoke.',req:['powdergrenade']}),
+N({id:'chainreaction',path:1,x:1,y:4,type:'key',name:'Chain Reaction',desc:()=>'Primary explosions trigger up to 3 secondary blasts at 25% power; these cannot chain.',req:['powdergrenade'],pathMin:7,lvl:12}),
+N({id:'sentryturret',path:2,x:1,y:0,type:'active',skill:'sentryturret',max:5,free:true,lvl:6}),
+N({id:'reinforcedhousing',path:2,x:0,y:1,type:'mod',name:'Reinforced Housing',desc:()=>'Sentry health doubles.',req:['sentryturret']}),
+N({id:'prioritytarget',path:2,x:2,y:1,type:'mod',name:'Priority Target',desc:()=>'Sentries deal 25% more damage against your marked enemy.',req:['sentryturret']}),
+N({id:'overclock',path:2,x:1,y:2,type:'active',skill:'overclock',max:5,lvl:4,req:['sentryturret']}),
+N({id:'linkedfire',path:2,x:0,y:2,type:'mod',name:'Linked Fire',desc:()=>'Successful gunfire boosts sentry damage against that enemy by 20% for 2 seconds.',req:['sentryturret']}),
+N({id:'fieldservice',path:2,x:2,y:3,type:'mod',name:'Field Service',desc:()=>'A successful shot near a sentry repairs 3 health, once every 2 seconds.',req:['sentryturret']}),
+N({id:'efficientgears',path:2,x:1,y:3,type:'mod',name:'Efficient Gears',desc:()=>'Gadget Grit costs reduced by 15%.',req:['sentryturret']}),
+N({id:'twinsentries',path:2,x:1,y:4,type:'key',name:'Twin Sentries',desc:()=>'Deploy two sentries; each deals 65% normal damage.',req:['sentryturret'],pathMin:7,lvl:12})],
   samurai: [
     N({ id: 'iaido', type: 'active', path: 0, x: 1, y: 0, skill: 'iaido', free: true, lvl: 1, max: 5 }),
     N({ id: 'keeneye', type: 'passive', path: 0, x: 0, y: 1, name: 'Keen Eye', max: 3, stats: { crit: 3 }, req: ['iaido'], desc: r => `+${3 * r}% critical chance.` }),
@@ -192,7 +226,7 @@ for (const [cls, nodes] of Object.entries(TREES)) for (const n of nodes) {
 export const nodeById = id => NODE_INDEX[id];
 export const treeOf = cls => TREES[cls] || [];
 // the original three abilities keep their slot order for the legacy `skills` mirror
-const LEGACY = { samurai: ['iaido', 'tempest', 'oni'], archer: ['multishot', 'snare', 'rain'], witch: ['nova', 'chain', 'familiar'], soulbound: ['soulhook', 'veilshift', 'kindred'] };
+const LEGACY = { gunslinger:['quickdraw','powdergrenade','sentryturret'], samurai: ['iaido', 'tempest', 'oni'], archer: ['multishot', 'snare', 'rain'], witch: ['nova', 'chain', 'familiar'], soulbound: ['soulhook', 'veilshift', 'kindred'] };
 export const legacyAbilities = cls => LEGACY[cls] || [];
 
 // ------------------------------------------------------------------ state helpers (pure)
@@ -209,6 +243,7 @@ export function spentPoints(inv) {
 }
 // Why a node can or cannot take another rank ('' = it can)
 export function lockReason(inv, node) {
+  if(inv.cls==='gunslinger' && node.type==='key' && treeOf(inv.cls).some(n=>n.type==='key'&&n.id!==node.id&&rankOf(inv,n.id))) return 'Only one Gunslinger capstone may be active';
   const r = rankOf(inv, node.id);
   if (r >= node.max) return 'Maxed';
   if (node.free && !r) return `Unlocks free at level ${node.lvl}`;
@@ -263,6 +298,7 @@ export function ensureTree(inv) {
   (inv.skills || []).forEach((r, i) => { const id = legacy[i]; if (id && Number.isFinite(r) && r > rankOf(inv, id)) inv.tree[id] = Math.min(MAX_ACTIVE_RANK, Math.floor(r)); });
   for (const [id, r] of Object.entries(freeRanks(inv.cls, inv.level))) if (!inv.tree[id]) inv.tree[id] = r;
   for (const id of Object.keys(inv.tree)) { const n = nodeById(id); if (!n || n.cls !== inv.cls) delete inv.tree[id]; else inv.tree[id] = Math.max(0, Math.min(n.max, Math.floor(inv.tree[id]) || 0)); }
+  if(inv.cls==='gunslinger'){let kept=false;for(const n of treeOf(inv.cls).filter(n=>n.type==='key'))if(inv.tree[n.id]){if(kept){inv.sp=(inv.sp||0)+inv.tree[n.id];delete inv.tree[n.id];}else kept=true;}}
   const have = unlockedSkills(inv);
   if (!Array.isArray(inv.loadout)) {
     const order = [...legacy, ...have.filter(s => !legacy.includes(s))].filter(s => have.includes(s));

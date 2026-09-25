@@ -8,10 +8,10 @@ export default async function(page,R){
  R.ok(await page.evaluate(()=>window.__game.inv.loadout[5]==='nova'),'assign through sixth socket');
  await page.keyboard.press('Tab');
  R.ok(await page.evaluate(()=>!!document.activeElement.closest('#inventory')),'keyboard focus stays inside menu');
- await page.evaluate(()=>{const g=window.__game;g.ui.navigate('bag');const it=window.__items.genItem({level:5,slot:'helm',rarity:2});g.inv.equip.helm=it;g.recalc();g.ui.invSel=-1;g.ui.renderInventory();});
+ await page.evaluate(()=>{const g=window.__game;g.ui.navigate('bag');const it=window.__items.genItem({ developer:true,level:5,slot:'helm',rarity:2});g.inv.equip.helm=it;g.recalc();g.ui.invSel=-1;g.ui.renderInventory();});
  await page.locator('[data-act="unequip"]').click();
  R.ok(await page.evaluate(()=>window.__game.inv.equip.helm===null&&window.__game.inv.bag.some(it=>it.slot==='helm')),'unequip moves same item to bag');
- await page.evaluate(()=>{const g=window.__game;g.inv.bag.push(window.__items.genItem({level:5,slot:'ring',rarity:2}));g.ui.invSel=g.inv.bag.length-1;g.ui.renderInventory();});
+ await page.evaluate(()=>{const g=window.__game;g.inv.bag.push(window.__items.genItem({ developer:true,level:5,slot:'ring',rarity:2}));g.ui.invSel=g.inv.bag.length-1;g.ui.renderInventory();});
  await page.getByLabel('Ring slot').selectOption('ring2');await page.locator('[data-act="equip"]').click();
  R.ok(await page.evaluate(()=>!!window.__game.inv.equip.ring2&&!window.__game.inv.equip.ring1),'ring comparison target matches equip target');
  await page.evaluate(()=>window.__game.ui.navigate('resume'));await page.keyboard.press('j');await page.waitForFunction(()=>window.__game.ui.curTab==='quests');

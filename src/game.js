@@ -27,7 +27,7 @@ import { Entity } from './entities/entity.js';
 import { MONSTER_NAMES } from './entities/monsters2.js';
 import { ENEMY_MATS } from './entities/monsters3.js';
 import { CLASSES, computeStats, xpNeed, MAX_LEVEL } from './rpg/classes.js';
-import { genItem, starterWeapon, RARITY, itemPower, makeNamed, LEGENDARIES } from './rpg/items.js';
+import { genItem, starterWeapon, RARITY, itemPower, makeNamed, makeReward, LEGENDARIES } from './rpg/items.js';
 import { Meteor, GearDrop, LootChest, thornBurst, blast, chainLightning, bolt, Projectile } from './rpg/combat.js';
 import { ensureTree, respecTree, rankOf, SKILLS, nodeById, treeOf } from './rpg/skills.js';
 import { react, isHeavy, elementOf, soak, fanFlames } from './rpg/elements.js';
@@ -594,7 +594,7 @@ export class Game {
     this.ui.toast('Salvaged ' + it.name, '+' + v + ' pips' + (sh ? ` · +${sh} Hush Shard${sh > 1 ? 's' : ''}` : ''), 1.2);
   }
   dropGear(x, z, o = {}) {
-    const it = genItem({ level: o.level || this.inv.level, cls: Math.random() < 0.75 ? this.inv.cls : null, mf: this.pstats.mf, floor: o.floor || 0, bonus: o.bonus || 0 });
+    const it = genItem({ level: o.level || this.inv.level, cls: this.inv.cls, mf: this.pstats.mf, floor: o.floor || 0, bonus: o.bonus || 0 });
     this.spawn(new GearDrop(this, x, z, it));
   }
 
@@ -994,7 +994,7 @@ export class Game {
       this.ui.banner('VICTORY', 'The Seamkeeper comes undone', 2.5); sfx('fanfare');
       this.gainXp(500);
       gainMat(this, 'seamthread', 2, b.x, b.z);
-      if (first) { this.spawn(new GearDrop(this, b.x, b.z + 1.5, makeNamed('seamripper', Math.max(8, this.inv.level)))); learn(this, 'seamstitch'); }
+      if (first) { this.spawn(new GearDrop(this, b.x, b.z + 1.5, makeReward('seamripper', this.inv.cls, Math.max(8, this.inv.level)))); learn(this, 'seamstitch'); }
       this.dropGear(b.x - 1, b.z + 1, { level: 8, floor: 3, bonus: 1 }); this.dropGear(b.x + 1, b.z + 1, { level: 8, floor: 2, bonus: 0.6 });
       this.ui.toast('The reliquary door has opened.', 'East of the Bellfruit Canopy.', 3);
       this.save();
@@ -1013,9 +1013,9 @@ export class Game {
       this.ui.banner('VICTORY', 'The Crowned Toad is dethroned', 2.5); sfx('fanfare');
       this.gainXp(800);
       gainMat(this, 'crownpearl', 1, t.x, t.z);
-      if (first) { this.spawn(new GearDrop(this, t.x - 1, t.z + 1.5, makeNamed('toadsignet', Math.max(9, this.inv.level)))); this.spawn(new GearDrop(this, t.x + 1, t.z + 1.5, makeNamed('lilypad', Math.max(9, this.inv.level)))); learn(this, 'crowntongue'); }
+      if (first) { this.spawn(new GearDrop(this, t.x - 1, t.z + 1.5, makeReward('toadsignet', this.inv.cls, Math.max(9, this.inv.level)))); this.spawn(new GearDrop(this, t.x + 1, t.z + 1.5, makeReward('lilypad', this.inv.cls, Math.max(9, this.inv.level)))); learn(this, 'crowntongue'); }
       // the one thing it truly hoards: rarely, a very large spoon
-      if (Math.random() < 0.06) { this.spawn(new GearDrop(this, t.x, t.z + 2, makeNamed('teaspoon', Math.max(9, this.inv.level)))); this.ui.toast('…is that a spoon?', 'The Royal Teaspoon!', 3); }
+      if (Math.random() < 0.06) { this.spawn(new GearDrop(this, t.x, t.z + 2, makeReward('teaspoon', this.inv.cls, Math.max(9, this.inv.level)))); this.ui.toast('…is that a spoon?', 'The Royal Teaspoon!', 3); }
       this.dropGear(t.x, t.z + 1, { level: 10, floor: 3, bonus: 1.5 });
       this.save();
     }, 1200);
@@ -1077,8 +1077,8 @@ export class Game {
     // Pass 5 creatures leave their own materials (elites always do); the first one teaches its engraving
     const EM = ENEMY_MATS[e.kind];
     if (EM && (e.elite || Math.random() < EM[1])) { gainMat(this, EM[0], 1, e.x, e.z); const teach = { wax: 'waxseal', moth: 'mothwing' }[EM[0]]; if (teach) learn(this, teach); }
-    if (e.elite && e.kind === 'moth' && Math.random() < 0.08) this.spawn(new GearDrop(this, e.x, e.z, makeNamed('mothlight', e.level || this.inv.level)));
-    if (e.elite && e.kind === 'slug' && Math.random() < 0.08) this.spawn(new GearDrop(this, e.x, e.z, makeNamed('candelabra', e.level || this.inv.level)));
+    if (e.elite && e.kind === 'moth' && Math.random() < 0.08) this.spawn(new GearDrop(this, e.x, e.z, makeReward('mothlight', this.inv.cls, e.level || this.inv.level)));
+    if (e.elite && e.kind === 'slug' && Math.random() < 0.08) this.spawn(new GearDrop(this, e.x, e.z, makeReward('candelabra', this.inv.cls, e.level || this.inv.level)));
     const lvl = e.level || this.inv.level;
     if (e.elite) { this.dropGear(e.x, e.z, { level: lvl, floor: 2, bonus: 0.6 }); if (Math.random() < 0.4) this.dropGear(e.x, e.z, { level: lvl, floor: 1 }); }
     else if (Math.random() < ({ knight: 0.6, beetle: 0.14, puffer: 0.12 }[e.kind] ?? 0.08) * (1 + ps.mf / 200)) this.dropGear(e.x, e.z, { level: lvl, floor: e.kind === 'knight' ? 1 : 0 });
@@ -1091,7 +1091,7 @@ export class Game {
       ...(this.flags.onboarding ? [] : [[['blot', -3, 0], ['blot', 3, 0], ['blot', -1, 3], ['blot', 1, 3]]]),
       // the lesson at the end: a shell that shrugs off taps. Charge, or strike after a parry.
       ...(this.flags.onboarding ? [] : [[['porcelain', 0, 3], ['blot', -3, 2], ['blot', 3, 2]]]),
-    ], { ...(this.flags.onboarding ? {eliteChance: 0} : {}), title: 'HUSHLINGS!', victory: 'Thimblewick is safe… for now.', onWave: w => { if (w === 2) setTimeout(() => this.ui.toast('A Porcelain Guard!', { samurai: 'Its glaze turns light cuts. Hold C / left click for a spin — or parry (Q) and strike.', archer: 'Its glaze turns light arrows. Hold C / left click for a charged shot to crack it.', witch: 'Its glaze turns bolts. Hold C / left click for a fireball to crack it.', soulbound: 'Its glaze turns light lashes. Finish your combo, or hold C / left click to whirl the chain and crack it.' }[this.inv.cls], 4.5), 400); }, onClear: () => { this.story.introWon(); this.revealWorld(); const p = this.player; this.spawn(new GearDrop(this, p.x, p.z + 1.2, genItem({ level: 2, cls: this.inv.cls, slot: 'weapon', rarity: 1 }))); this.spawn(new GearDrop(this, p.x + 1, p.z + 1, genItem({ level: 2, slot: 'armor', rarity: 1 }))); } });
+    ], { ...(this.flags.onboarding ? {eliteChance: 0} : {}), title: 'HUSHLINGS!', victory: 'Thimblewick is safe… for now.', onWave: w => { if (w === 2) setTimeout(() => this.ui.toast('A Porcelain Guard!', { samurai: 'Its glaze turns light cuts. Hold C / left click for a spin — or parry (Q) and strike.', archer: 'Its glaze turns light arrows. Hold C / left click for a charged shot to crack it.', witch: 'Its glaze turns bolts. Hold C / left click for a fireball to crack it.', gunslinger: 'Bullets cannot crack that guard. Parry and shoot, or use Powder Grenade when unlocked.', soulbound: 'Its glaze turns light lashes. Finish your combo, or hold C / left click to whirl the chain and crack it.' }[this.inv.cls], 4.5), 400); }, onClear: () => { this.story.introWon(); this.revealWorld(); const p = this.player; this.spawn(new GearDrop(this, p.x, p.z + 1.2, genItem({ level: 2, cls: this.inv.cls, slot: 'weapon', rarity: 1 }))); this.spawn(new GearDrop(this, p.x + 1, p.z + 1, genItem({ level: 2, cls:this.inv.cls, slot: 'armor', rarity: 1 }))); } });
     a.alwaysUpdate = true;
     this.spawn(a);
   }
@@ -1286,7 +1286,7 @@ export class Game {
           case 'pips': this.addCoins(n); break;
           case 'potion': inv.potions = Math.min(inv.maxPotions, inv.potions + 1); break;
           case 'echo': gainMat(this, 'echo', 1); learn(this, { samurai: 'returningcut', archer: 'echosnare', witch: 'rimebloom' }[inv.cls]); break;
-          case 'named': { const it = makeNamed(c.id, Math.max(c.level || 7, inv.level)); if (!this.pickupItem(it)) this.spawn(new GearDrop(this, this.player.x, this.player.z + 0.8, it)); break; }
+          case 'named': { const it = makeReward(c.id, this.inv.cls, Math.max(c.level || 7, inv.level)); if (!this.pickupItem(it)) this.spawn(new GearDrop(this, this.player.x, this.player.z + 0.8, it)); break; }
           case 'recipe': learn(this, c.id); break;
           case 'mat': gainMat(this, c.mat, c.n || 1); break;
           case 'quest': this.flags[c.flag] = true; this.ui.toast(c.name, 'A quest item.', 2.4); break;

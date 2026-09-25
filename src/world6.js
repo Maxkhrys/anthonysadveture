@@ -15,7 +15,7 @@ import { REGIONS, BIOMES, FOG, FOG_W, FOG_H, hx, hz } from './world/layout.js';
 import { T } from './world/tiles.js';
 import { sfx, playMusic } from './engine/audio.js';
 import { GearDrop } from './rpg/combat.js';
-import { makeNamed } from './rpg/items.js';
+import { makeNamed, makeReward } from './rpg/items.js';
 import { gainMat } from './rpg/crafting.js';
 
 const OPEN = new Set([T.GRASS, T.FLOWERS, T.FOREST, T.PATH, T.SAND, T.MOSS, T.MUD, T.CLAY, T.STONE, T.ASH]);
@@ -108,7 +108,7 @@ export function installWorld6(Game) {
       this.gainXp(first ? 1400 : 700);
       gainMat(this, 'crowfeather', first ? 2 : 1, b.x, b.z);
       // the unique drops once; the bell's crow comes back every few days, the mantle doesn't
-      if (first) this.spawn(new GearDrop(this, b.x, b.z + 1.5, makeNamed('crowmantle', Math.max(14, this.inv.level))));
+      if (first) this.spawn(new GearDrop(this, b.x, b.z + 1.5, makeReward('crowmantle', this.inv.cls, Math.max(14, this.inv.level))));
       this.dropGear(b.x - 1, b.z + 1, { level: 15, floor: 3, bonus: 1.5 }); this.dropGear(b.x + 1, b.z + 1, { level: 14, floor: 2, bonus: 0.8 });
       this.flags.tollcrowKills = S.kills;
       this.save();

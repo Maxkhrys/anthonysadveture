@@ -41,6 +41,12 @@ function bell(f, dur = 2.5, vol = 0.25, delay = 0) {
 }
 
 const SFX = {
+ revolvershot:()=>{noise(.11,{freq:1700,vol:.32,slide:.3});tone(125,.13,{vol:.18,slide:.4});},
+ rifleshot:()=>{noise(.055,{freq:2400,vol:.18,slide:.35});tone(160,.055,{vol:.1,slide:.5});},
+ gunreload:()=>{noise(.06,{freq:3200,vol:.1});tone(700,.05,{vol:.08});},
+ gunready:()=>tone(900,.06,{type:'triangle',vol:.1,slide:.6}),
+ seventhshot:()=>{bell(660,.7,.15);noise(.09,{freq:1900,vol:.24});},
+ gunblast:()=>{noise(.35,{freq:500,vol:.28,slide:.2});tone(70,.3,{vol:.2,slide:.3});},
   swing: () => noise(0.12, { freq: 2400, slide: 0.4, vol: 0.25, q: 2 }),
   swing2: () => noise(0.14, { freq: 3000, slide: 0.35, vol: 0.28, q: 2 }),
   spin: () => { noise(0.35, { freq: 1500, slide: 3, vol: 0.3, q: 3 }); tone(300, 0.3, { slide: 2, vol: 0.08 }); },

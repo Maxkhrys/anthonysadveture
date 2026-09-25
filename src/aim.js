@@ -43,6 +43,8 @@ export class AimView {
       this.areaFill.position.set(q.x, 0.035, q.z); this.areaFill.scale.setScalar(tg.radius); this.areaFill.visible = true;
       this.areaFill.material.opacity = 0.12 + Math.sin(t * 8) * 0.05;
       this.range.position.set(p.x, 0.03, p.z); this.range.scale.setScalar(tg.range); this.range.visible = true;
+      if(tg.id==='powdergrenade')for(let i=0;i<20;i++){const k=i/19,d=this.dots[i];d.position.set(p.x+(q.x-p.x)*k,(g.groundAt?.(p.x,p.z)||0)+.15+Math.sin(k*Math.PI)*1.4,p.z+(q.z-p.z)*k);d.material.color.setHex(col);d.visible=true;}
+
     }
     if (!mouse && p.aimSrc !== 'pad') return;
     // reticle (mouse only: a pad has no cursor, it gets the path preview)

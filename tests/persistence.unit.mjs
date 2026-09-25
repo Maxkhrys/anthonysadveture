@@ -22,7 +22,7 @@ function fresh(provider, classId = 'samurai') {
 function legacy() {
   const inv = defaultInventory();
   inv.level = 9; inv.xp = 147; inv.coins = 543; inv.sp = 3; inv.skills = [3, 2, 1];
-  inv.equip = { weapon: starterWeapon('samurai'), helm: genItem({ slot: 'helm' }), armor: genItem({ slot: 'armor' }), charm: genItem({ slot: 'charm' }) };
+  inv.equip = { weapon: starterWeapon('samurai'), helm: genItem({ developer:true, slot: 'helm' }), armor: genItem({ developer:true, slot: 'armor' }), charm: genItem({ developer:true, slot: 'charm' }) };
   inv.bag = [starterWeapon('archer')];
   for (const it of [...Object.values(inv.equip), ...inv.bag]) { delete it.itemInstanceId; delete it.upgradeLevel; }
   inv.equip.weapon.craft = 'thornrebuke'; inv.mats.shard = 11; inv.recipes = ['thornrebuke']; inv.sigilsOwned = ['returningcut']; inv.sigils[0] = 'returningcut';
@@ -78,7 +78,7 @@ test('fresh characters, independent classes, locked class, deletion and no recre
 
 test('all equipment slots, named and random weapons, reinforcement and crafted mutations survive', () => {
   const { provider } = setup(); let p = fresh(provider);
-  for (const slot of EQUIPMENT_SLOTS) { const it = genItem({ slot: slot === 'weapon' ? 'weapon' : 'armor', rarity: slot === 'weapon' ? 4 : 1, level: 9 }); it.slot = slot; p.inventory.equip[slot] = it; }
+  for (const slot of EQUIPMENT_SLOTS) { const it = genItem({ developer:true, slot: slot === 'weapon' ? 'weapon' : 'armor', rarity: slot === 'weapon' ? 4 : 1, level: 9 }); it.slot = slot; p.inventory.equip[slot] = it; }
   const w = p.inventory.equip.weapon; assert.equal(reinforceWeapon(w), true); assert.equal(reinforceWeapon(w), true);
   w.craft = 'thornrebuke'; p = provider.saveCharacter(p);
   assert.equal(Object.keys(p.inventory.equip).length, 9); assert.equal(p.inventory.equip.weapon.upgradeLevel, 2);

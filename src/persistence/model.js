@@ -59,6 +59,7 @@ export function identifyItem(it, ownerCharacterId = null, source = 'loot') {
     for (const m of it.modifiers) if (!m || typeof m.id !== 'string' || !Number.isFinite(m.value) || m.value < 0 || m.value > 1000) throw new Error('Invalid modifier roll');
     for (const e of it.effects) if (!e || typeof e.id !== 'string' || !Number.isFinite(e.chance) || e.chance < 0 || e.chance > 1) throw new Error('Invalid effect roll');
   }
+  if(it.magazine){requireRecord(it.magazine,'magazine');const capacity={revolver:6,rifle:18}[it.kind];if(!capacity||!Number.isInteger(it.magazine.rounds)||it.magazine.rounds<0||it.magazine.rounds>capacity)throw new Error('Invalid magazine');}
   it.upgradeLevel ??= 0;
   nonnegative(it.upgradeLevel, 'upgrade level');
   if (!Number.isInteger(it.upgradeLevel)) throw new Error('Invalid upgrade level');
@@ -150,7 +151,7 @@ export function normalizeCharacter(input) {
   requireRecord(input, 'character');
   const p = copy(input);
   if (typeof p.id !== 'string' || !p.id || typeof p.name !== 'string' || !p.name.trim()) throw new Error('Invalid character identity');
-  if (!['samurai', 'archer', 'witch', 'soulbound'].includes(p.classId)) throw new Error('Unsupported character class; save retained.');
+  if (!['samurai', 'archer', 'witch', 'soulbound', 'gunslinger'].includes(p.classId)) throw new Error('Unsupported character class; save retained.');
   requireRecord(p.inventory, 'inventory');
   const inv = { ...defaultInventory(p.classId), ...p.inventory };
   if (inv.cls !== p.classId) throw new Error('Character class is locked.');
@@ -163,6 +164,8 @@ export function normalizeCharacter(input) {
   // Pass 5 fields: validated, never required (older saves simply lack them)
   if (inv.tree === null || inv.tree === undefined) inv.tree = {};
   requireRecord(inv.tree, 'skill tree');
+  if(p.classId==='gunslinger'&&['highnoon','chainreaction','twinsentries'].filter(id=>inv.tree[id]>0).length>1)throw new Error('Only one Gunslinger capstone may be active');
+  if(inv.gunPayload&&!['fire','frost','lightning'].includes(inv.gunPayload))throw new Error('Invalid grenade payload');
   Object.values(inv.tree).forEach(x => nonnegative(x, 'skill tree rank'));
   if (inv.loadout !== null && inv.loadout !== undefined) {
     if (!Array.isArray(inv.loadout) || inv.loadout.length > 6 || inv.loadout.some(x => x !== null && typeof x !== 'string')) throw new Error('Malformed ability loadout');

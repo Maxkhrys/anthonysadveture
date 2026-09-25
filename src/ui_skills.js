@@ -107,7 +107,8 @@ export function installSkillUI(UI) {
   const pos = n => ({ x: PADX + n.path * COLW + n.x * 62, y: TOP + (4 - n.y) * ROWH });
   P.skillPreview = function (S, rank) {
     const g = this.g, ps = g.pstats;
-    const avg = (ps.wmin + ps.wmax) / 2 * (1 + ps.dmgPct / 100) * (1 + ps.abilityDmg / 100);
+    const gunScale=S.cls==='gunslinger'?1.35/({rifle:.5,revolver:1.35}[g.inv.equip.weapon?.kind]||1.35):1;
+    const avg = gunScale * (ps.wmin + ps.wmax) / 2 * (1 + ps.dmgPct / 100) * (1 + ps.abilityDmg / 100);
     const r = Math.max(1, rank);
     return { dmg: Math.round(avg * S.power * rankMult(r)), cd: rankCd(S, r) * (1 - ps.cdr / 100) };
   };
@@ -144,11 +145,12 @@ export function installSkillUI(UI) {
     d += `<div class="td-rank">Rank <b>${r}</b> / ${sel.max}${sel.free ? ' · <span style="color:#9f9">granted free at level ' + sel.lvl + '</span>' : sel.lvl > 1 ? ' · level ' + sel.lvl : ''}</div>`;
     if (S) {
       const cur = this.skillPreview(S, r), nxt = this.skillPreview(S, r + 1);
-      d += `<p>${S.desc}</p><div class="td-stats"><div><span>Cost</span><b>${costLabel(cls, S.cost)}</b></div><div><span>Cooldown</span><b>${cur.cd.toFixed(1)} s${r && r < sel.max ? ` → ${nxt.cd.toFixed(1)}` : ''}</b></div><div><span>Damage</span><b>≈${cur.dmg}${r && r < sel.max ? ` → ${nxt.dmg}` : ''}</b></div><div><span>Hits</span><b>${S.hits}</b></div><div><span>Targeting</span><b>${{ self: 'Around you', dir: 'Aimed direction', ground: 'Placed (hold to aim)', unit: 'Aimed foe' }[S.target]}</b></div><div><span>Element</span><b>${S.element}</b></div></div>`;
+      d += `<p>${S.desc}</p><div class="td-stats"><div><span>Cost</span><b>${costLabel(cls, S.cost)}</b></div><div><span>Cooldown</span><b>${cur.cd.toFixed(1)} s${r && r < sel.max ? ` → ${nxt.cd.toFixed(1)}` : ''}</b></div><div><span>Damage</span><b>≈${cur.dmg}${r && r < sel.max ? ` → ${nxt.dmg}` : ''}</b></div><div><span>Hits</span><b>${S.hits||'See ability description'}</b></div><div><span>Targeting</span><b>${{ self: 'Around you', dir: 'Aimed direction', ground: 'Placed (hold to aim)', unit: 'Aimed foe' }[S.target]}</b></div><div><span>Element</span><b>${S.element}</b></div></div>`;
     } else {
       d += `<p>${sel.desc(Math.max(1, r))}</p>`;
       if (r && r < sel.max) d += `<p class="td-next">Next rank: ${sel.desc(r + 1)}</p>`;
     }
+    if(cls==='gunslinger'&&sel.id==='elementalpayload'&&r)d+=`<label>Grenade payload <select data-payload>${['fire','frost','lightning'].map(el=>`<option value="${el}" ${(inv.gunPayload||'fire')===el?'selected':''}>${el}</option>`).join('')}</select></label>`;
     if (sel.req.length) d += `<div class="td-req">Requires: ${sel.req.map(q => { const qn = TREES[cls].find(n => n.id === q); return `<span style="color:${rankOf(inv, q) ? '#9f9' : '#f99'}">${qn.name}</span>`; }).join(', ')}</div>`;
     if (sel.pathMin) d += `<div class="td-req">Requires ${sel.pathMin} points in ${paths[sel.path].name} (${pathPoints(inv, cls, sel.path)} spent)</div>`;
     d += why ? `<button class="tbtn" disabled>${why}</button>` : `<button class="tbtn go" data-act="learn">Learn${r ? ' rank ' + (r + 1) : ''} (1 point)</button>`;
@@ -158,9 +160,10 @@ export function installSkillUI(UI) {
     // armour sets currently active
     const sets = Object.entries(g.pstats.setBonus || {}).filter(([, t]) => t >= 2).map(([id, t]) => `<span style="color:${SETS[id].color}">${SETS[id].name} (${t === 5 ? 'full set' : '2-piece'})</span>`).join(' · ');
     $('inv-skills').innerHTML = `<div class="tree-top"><div>Skill points: <b class="spn">${inv.sp}</b> <small>· one per level · ${spentPoints(inv)} spent</small></div><div class="lorow">${lo}</div><button class="tbtn" data-act="respec">Reset tree</button></div>
-      <div class="tree-body"><div class="tree-wrap"><div class="tree" style="width:${W}px;height:${H}px">${heads}<svg width="${W}" height="${H}">${lines}</svg>${dots}<div class="tsig" style="left:${base.x}px;top:${base.y}px">${abilityIcon({samurai:'iaido',archer:'multishot',witch:'familiar'}[cls])}</div></div></div>
+      <div class="tree-body"><div class="tree-wrap"><div class="tree" style="width:${W}px;height:${H}px">${heads}<svg width="${W}" height="${H}">${lines}</svg>${dots}<div class="tsig" style="left:${base.x}px;top:${base.y}px">${abilityIcon({samurai:'iaido',archer:'multishot',witch:'familiar',soulbound:'soulhook',gunslinger:'quickdraw'}[cls])}</div></div></div>
       <div class="tree-detail">${d}${sets ? `<div class="td-sets">Set bonuses: ${sets}</div>` : ''}<div class="td-keys">Arrows / click: select · F: learn · 1-6: put on hotbar · E: inventory</div></div></div>`;
     const root = $('inv-skills');
+    const payload=root.querySelector('[data-payload]');if(payload)payload.onchange=()=>{inv.gunPayload=payload.value;g.save();this.renderSkills();};
     root.querySelectorAll('.tn').forEach(el => { el.onclick = () => { this.treeSel = el.dataset.id; sfx('select'); this.renderSkills(); }; el.ondblclick = () => { this.treeSel = el.dataset.id; this.rankUp(); }; el.title = nodes.find(n => n.id === el.dataset.id)?.name || ''; el.tabIndex = 0; el.setAttribute('role', 'button'); el.setAttribute('aria-label', el.title); el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); el.click(); } }; });
     root.querySelectorAll('[data-assign]').forEach(b => b.onclick = () => this.assignSlot(+b.dataset.assign));
     root.querySelectorAll('[data-lo]').forEach(b => b.onclick = () => { const i = +b.dataset.lo; if (this.treeSel && SKILLS[this.treeSel] && rankOf(inv, this.treeSel)) this.assignSlot(i); else { this.treeSlot = this.treeSlot === i ? null : i; this.renderSkills(); } });

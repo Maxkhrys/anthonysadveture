@@ -8,6 +8,18 @@ import { treeStats, rankOf, ensureTree } from './skills.js';
 import { SETS, weaponFamily, CLASS_FAMILIES, OFFCLASS_SCALING } from './gear.js';
 
 export const CLASSES = {
+  gunslinger: {
+    id:'gunslinger', name:'Gunslinger', role:'Wandering gunsmith · ranged',
+    blurb:'Wood, iron and a steady hand. Hold to fire, reload between volleys, and spend Grit on explosives and sentries. Loaded for Trouble: spending Grit primes your next gun attack for bonus damage and stagger.',
+    res:'Grit',resColor:'#dfac68',resRegen:3,hp:56,hpLv:10,armor:4,armorLv:.7,crit:7,speed:5.2,
+    colors:{tunic:0x765039,tunicD:0x493327,scarf:0xa64532,trim:0xd6ac64},
+    stats:{Power:4,Toughness:3,Range:4,Mobility:4},basic:'Hold to fire · Z reload · unlimited reserve',
+    abilities:[
+      {id:'quickdraw',name:'Quickdraw',key:'1',lvl:1,cost:20,cd:4,desc:'A powerful piercing round.'},
+      {id:'powdergrenade',name:'Powder Grenade',key:'2',lvl:3,cost:25,cd:7,desc:'Throw an explosive with a short fuse.'},
+      {id:'sentryturret',name:'Sentry Turret',key:'3',lvl:6,cost:35,cd:12,desc:'Deploy a destroyable mechanical sentry for 12 seconds.'},
+    ],
+  },
   samurai: {
     id: 'samurai', name: 'Samurai', role: 'Blade master · melee',
     blurb: 'A wandering Mossling duelist. Fast katana combos, a charged spin, and devastating dashes. Builds Ki by landing hits.',
@@ -62,6 +74,8 @@ export const CLASSES = {
     ],
   },
 };
+
+const gunslingerClass = CLASSES.gunslinger; delete CLASSES.gunslinger; CLASSES.gunslinger = gunslingerClass;
 
 // Soul Echoes are the class resource of the Soulbound: the usual 0-100 pool, counted in
 // Echoes of 20 each (five at most). Every other class reads the number as before.

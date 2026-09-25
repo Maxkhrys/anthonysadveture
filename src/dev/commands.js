@@ -839,7 +839,7 @@ export class DevCommands {
       const base = baseById(id);
       if (base) {
         for (let i = 0; i < count; i++) {
-          const it = genItem({ level: inv.level || 5, rarity: 1 });
+          const it = genItem({ developer:true, level: inv.level || 5, rarity: 1 });
           // Force base
           it.base = base.id;
           it.name = base.name;
@@ -855,7 +855,7 @@ export class DevCommands {
       // 4. Legendary items
       const leg = LEGENDARIES.find(l => l.id === id || l.u === id);
       if (leg) {
-        const it = genItem({ level: leg.lvl || 5, rarity: 4 });
+        const it = genItem({ developer:true, level: leg.lvl || 5, rarity: 4 });
         it.name = leg.name;
         it.unique = leg.u;
         it.utext = leg.text;
@@ -1546,7 +1546,7 @@ export class DevCommands {
       if (!base) { log(`Unknown base item "${id}".`, 'error'); return; }
 
       const isW = !!base.kind;
-      const it = genItem({ level: game.inv.level || 5, rarity: 2, slot: isW ? 'weapon' : 'charm' });
+      const it = genItem({ developer:true, level: game.inv.level || 5, rarity: 2, slot: isW ? 'weapon' : 'charm' });
       it.base = base.id;
       it.name = base.name;
       it.slot = slot;
@@ -1596,7 +1596,7 @@ export class DevCommands {
       DevCommands.gearCycleInterval = setInterval(() => {
         if (!game.player || !game.inv) return;
         const b = bases[step % bases.length];
-        const it = genItem({ level: 5, rarity: (step % 5) });
+        const it = genItem({ developer:true, level: 5, rarity: (step % 5) });
         it.base = b.id;
         it.name = b.name;
         it.slot = b.kind ? 'weapon' : b.slot;

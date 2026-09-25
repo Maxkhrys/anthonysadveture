@@ -10,7 +10,7 @@
 //  What Nests in the Bell (Highlands) Old Ferrule and the Tollcrow   -> the world boss
 import { sfx } from './engine/audio.js';
 import { gainMat, learn, MATS } from './rpg/crafting.js';
-import { genItem, makeNamed, RARITY, itemIcon } from './rpg/items.js';
+import { genItem, makeNamed, makeReward, RARITY, itemIcon } from './rpg/items.js';
 import { itemIconHTML } from './preview.js';
 import {GearDrop} from './rpg/combat.js';
 import { dropPips } from './entities/common.js';
@@ -69,7 +69,7 @@ export function installStory6(Story) {
           'The cellar under my house — rats. Not ordinary rats. They wear a *crown*. Well, one of them does. Made it out of a thimble.',
           'The door\'s round the side of the farmhouse. Clear them out and there\'s a jar of pips and a new tonic bottle in it for you.',
         ], () => accept(g, 'q_cellar'));
-        if (f.q_cellar === 1 && f['md:rootcellar']) return L(['Quiet as a Sunday! You did it. Here — pips, and my gran\'s tonic bottle. Mind it, it\'s older than me.'], () => { dropPips(g, g.player.x, g.player.z + 0.6, 80); g.inv.maxPotions++; g.inv.potions = g.inv.maxPotions; g.gainXp(150); const gift=makeNamed({samurai:'azureedge',archer:'moonfeather',witch:'sagesrod'}[inv.cls],3); if(!g.pickupItem(gift))g.spawn(new GearDrop(g,npc.x,npc.z+1,gift)); finish(g, 'q_cellar', '+80 pips · +1 tonic bottle · class weapon · +150 XP'); });
+        if (f.q_cellar === 1 && f['md:rootcellar']) return L(['Quiet as a Sunday! You did it. Here — pips, and my gran\'s tonic bottle. Mind it, it\'s older than me.'], () => { dropPips(g, g.player.x, g.player.z + 0.6, 80); g.inv.maxPotions++; g.inv.potions = g.inv.maxPotions; g.gainXp(150); const gift=makeNamed({samurai:'azureedge',archer:'moonfeather',witch:'sagesrod',soulbound:'tidewhisper',gunslinger:'copperrevolver'}[inv.cls],3); if(!g.pickupItem(gift))g.spawn(new GearDrop(g,npc.x,npc.z+1,gift)); finish(g, 'q_cellar', '+80 pips · +1 tonic bottle · class weapon · +150 XP'); });
         if (f.q_cellar === 1) return L(['Round the side of the house. Mind the crates, and don\'t push them into the potato holes. Actually — do. That\'s how you get across.']);
         return this.converse(npc, g.isNight ? 'Can\'t sleep either? The fields are loud at night now.' : 'Morning, Moss. The crops are finally listening to the rain again.', [
           { id: 'can', label: 'The giant watering can', lines: ['My great-grandad found it. Bigger than the house. We think a big-folk gardener dropped it, back when there were big folk.', 'It still fills when it rains. We water the whole field from its spout.'] },
@@ -86,7 +86,7 @@ export function installStory6(Story) {
           [npc.name, 'You found — he\'s *alive*? Hiding in the heartwood with his lamp out, the silly, brave… thank you.'],
           ['Wick', 'Sorry, sis. Something big lives in there. It doesn\'t like light. I didn\'t like it either.'],
           [npc.name, 'Here. His spare wick-ring. It remembers every fire it\'s touched. Burning things burn *worse* near it.'],
-        ], () => { g.pickupItem(makeNamed('wickring', Math.max(6, inv.level))); g.gainXp(300); g.flags.wickHome = true; finish(g, 'q_wick', "Lamplighter's Wick · +300 XP · the Deepwood's lamps are lit again"); });
+        ], () => { g.pickupItem(makeReward('wickring', inv.cls, Math.max(6, inv.level))); g.gainXp(300); g.flags.wickHome = true; finish(g, 'q_wick', "Lamplighter's Wick · +300 XP · the Deepwood's lamps are lit again"); });
         if (f.q_wick === 1) return L(['The Great Hollow Log. North, where the trail runs through it. There\'s a knot hole on its north side.']);
         return this.converse(npc, f.wickHome ? 'The lamps are lit, and Wick is sulking about it. Thank you, Moss.' : 'Mind the dark out there.', [
           { id: 'deep', label: 'The Deepwood', lines: ['The old wood. Oaks older than the village, and roots big enough to walk on — there\'s one you can climb, north-west of here. The Rootway.', 'Further west there\'s a bell caught in an oak. Nobody rings it. Nobody\'s tall enough.'], then: () => g.markLandmarks(['rootway', 'belloak']) },
@@ -175,7 +175,7 @@ export function installStory6(Story) {
     const tonic = { name: 'Red Tonic', price: 30, desc: 'Restores 45% health.', state: g => g.inv.potions >= g.inv.maxPotions ? 'Your bottles are full.' : 'ok', buy: g => { g.inv.potions++; } };
     const key = who + ':' + inv.level + ':' + g.worldDay();
     this.stock6 = this.stock6 || {};
-    if (!this.stock6[key]) this.stock6[key] = [0, 1, 2].map(i => genItem({ level: inv.level + 1, cls: i === 0 ? inv.cls : null, slot: i === 0 ? 'weapon' : null, floor: 2, bonus: 0.5 }));
+    if (!this.stock6[key]) this.stock6[key] = [0, 1, 2].map(i => genItem({ level: inv.level + 1, cls: inv.cls, slot: i === 0 ? 'weapon' : null, floor: 2, bonus: 0.5 }));
     const gear = this.stock6[key].map(it => ({ name: `<span style="color:${RARITY[it.r].color}">${itemIconHTML(it, it.cls) || itemIcon(it)} ${it.name}</span>`, price: it.value * 3, desc: `${RARITY[it.r].name} ${it.slot}`, state: g => it.sold ? 'Sold.' : g.inv.bag.length >= g.bagCapacity() ? 'Your bag is full.' : 'ok', buy: g => { it.sold = true; g.pickupItem(it); } }));
     const lists = {
       tobi: [tonic, mat('wax', 40), mat('echo', 90), ...gear.slice(1)],

@@ -11,8 +11,8 @@ import { recipeById, MATS } from './rpg/crafting.js';
 import { DollPreview, itemIconURL, itemIconHTML } from './preview.js';
 
 const $ = id => document.getElementById(id);
-const AB_ICON = { iaido: '💨', tempest: '🌀', oni: '👹', multishot: '🎯', snare: '🪤', rain: '🌧️', nova: '❄️', chain: '⚡', familiar: '🐈‍⬛', soulhook: '🪝', veilshift: '🌫️', kindred: '🏮' };
-const CLASS_ICON = { samurai: abilityIcon('iaido'), archer: abilityIcon('multishot'), witch: abilityIcon('familiar'), soulbound: abilityIcon('soulhook') };
+const AB_ICON = { quickdraw:abilityIcon('quickdraw'),powdergrenade:abilityIcon('powdergrenade'),sentryturret:abilityIcon('sentryturret'), iaido: '💨', tempest: '🌀', oni: '👹', multishot: '🎯', snare: '🪤', rain: '🌧️', nova: '❄️', chain: '⚡', familiar: '🐈‍⬛', soulhook: '🪝', veilshift: '🌫️', kindred: '🏮' };
+const CLASS_ICON = { samurai: abilityIcon('iaido'), archer: abilityIcon('multishot'), witch: abilityIcon('familiar'), soulbound: abilityIcon('soulhook'),gunslinger:abilityIcon('quickdraw') };
 const _v = new THREE.Vector3();
 
 export function installRpgUI(UI) {
@@ -143,7 +143,7 @@ export function installRpgUI(UI) {
   P.itemHtml = function (it, cmp) {
     if (!it) return '<div class="tt"><div class="sub">Empty slot</div></div>';
     const g = this.g, R = it.prismatic ? {...RARITY[it.r],color:'#9edfff'} : RARITY[it.r];
-    const typeName = it.slot === 'weapon' ? { katana: it.big ? 'Greatblade' : 'Katana', bow: 'Bow', staff: 'Staff', wand: 'Wand', oversized: 'Oversized', chain: 'SoulChain' }[it.kind] : { helm: 'Head', armor: 'Chest', charm: 'Necklace', arms: 'Arms', legs: 'Legs', boots: 'Boots', ring: 'Ring' }[it.slot] || it.slot;
+    const typeName = it.slot === 'weapon' ? { revolver:'Revolver',rifle:'Automatic rifle',katana: it.big ? 'Greatblade' : 'Katana', bow: 'Bow', staff: 'Staff', wand: 'Wand', oversized: 'Oversized', chain: 'SoulChain' }[it.kind] : { helm: 'Head', armor: 'Chest', charm: 'Necklace', arms: 'Arms', legs: 'Legs', boots: 'Boots', ring: 'Ring' }[it.slot] || it.slot;
     const clsTxt = it.cls ? ` · <span style="color:${it.cls === g.inv.cls ? '#9f9' : '#fc8'}">${CLASSES[it.cls].name}</span>` : it.slot === 'weapon' ? ' · <span style="color:#9df">any class</span>' : '';
     const up = it.upgradeLevel ? ` <span class="uplvl">+${it.upgradeLevel}</span>` : '';
     const locked = g.isLocked(it) ? ' <span title="Locked: cannot be salvaged">🔒</span>' : '';
@@ -320,7 +320,7 @@ export function installRpgUI(UI) {
 
   // ---------------- class select
   P.classSelect = function (input, onPick) {
-    const ids = ['samurai', 'archer', 'witch', 'soulbound'];
+    const ids = ['samurai', 'archer', 'witch', 'soulbound', 'gunslinger'];
     this.csSel = this.csSel ?? 0;
     const render = () => {
       $('classcards').innerHTML = ids.map((id, i) => {

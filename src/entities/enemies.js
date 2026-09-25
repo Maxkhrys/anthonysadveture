@@ -35,7 +35,16 @@ export class Enemy extends Entity {
     this.obj.scale.setScalar(0.01);
     this.walkT = Math.random() * 10;
   }
-  get p() { return this.g.player; }
+  get p() {
+    const player=this.g.player;
+    if(this.isBoss||player?.cls!=='gunslinger')return player;
+    if(this.g.time>=(this.gunTargetAt||0)||this.gunTarget?.dead){
+      this.gunTargetAt=this.g.time+.25;
+      const max=Math.min(6,this.dist(player));
+      this.gunTarget=this.g.entities.filter(e=>e.isSentry&&!e.dead&&this.dist(e)<max&&this.g.shotClear(this.x,this.z,e.x,e.z)).sort((a,b)=>this.dist(a)-this.dist(b))[0]||null;
+    }
+    return this.gunTarget||player;
+  }
   remove() { if (this.warnMk && this.warnMk.parent) this.warnMk.parent.remove(this.warnMk); this.warnMk = null; super.remove(); }
   setState(s) { this.state = s; this.st = 0; }
   takeToken() {
@@ -46,7 +55,7 @@ export class Enemy extends Entity {
     this.g.tokens++; this.token = true; return true;
   }
   dropToken() { if (this.token) { this.token = false; this.g.tokens = Math.max(0, this.g.tokens - 1); } }
-  playerVisible() { const p = this.p; return p.state !== 'dead' && this.dist(p) < this.aggro && !this.g.cutscene; }
+  playerVisible() { const p = this.p; if(!this.isBoss&&p.isPlayer&&p.smokeUntil>this.g.time&&this.dist(p)>1.3)return false; return p.state !== 'dead' && this.dist(p) < this.aggro && !this.g.cutscene; }
 
   // ----- damage
   onHit(h) {

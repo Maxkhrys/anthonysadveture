@@ -1,7 +1,8 @@
 import { ITEMIZATION_VERSION, AFFIX_DEFS, ELEMENT_DEFS, PROC_DEFS, SKILL_MOD_DEFS, LEGENDARY_DEFS, PRISMATIC_DEFS } from './definitions.js';
+import { modifierEligible } from '../eligibility.js';
 const pick = (a,rng) => a[Math.min(a.length-1,Math.floor(rng()*a.length))];
 const sample = (a,n,rng) => { const pool=[...a],out=[]; while(out.length<n&&pool.length) { const x=pick(pool,rng); out.push(x); pool.splice(pool.indexOf(x),1); } return out; };
-export function rollGameplay(it, rng=Math.random) {
+export function rollGameplay(it, rng=Math.random, recipient=it.cls) {
   if(it.itemizationVersion) return it;
   it.itemizationVersion=ITEMIZATION_VERSION;
   if(it.r===5)it.prismatic=true;
@@ -9,8 +10,8 @@ export function rollGameplay(it, rng=Math.random) {
   it.element=it.r ? pick(Object.keys(ELEMENT_DEFS),rng) : 'physical';
   it.effects=[];it.skillMods=[];it.modifiers=[];it.prefixes=[];it.suffixes=[];
   if(!it.r) return it;
-  const ranged=it.kind==='bow'||it.kind==='staff'||it.kind==='wand';
-  const statPool=Object.values(AFFIX_DEFS).filter(d => (!d.element||d.element===it.element) && (ranged||!['projectileSpeed','projectileCount','pierce','bounce','spellDamage'].includes(d.id)));
+  const ranged=['bow','staff','wand','revolver','rifle'].includes(it.kind);
+  const statPool=Object.values(AFFIX_DEFS).filter(d => modifierEligible(d.id,recipient) && (!d.element||d.element===it.element) && (ranged||!['projectileSpeed','projectileCount','pierce','bounce','spellDamage'].includes(d.id)));
   for(const d of sample(statPool,[0,1,2,3,3,4][it.r],rng)) {
     const value=d.range[0]+rng()*(d.range[1]-d.range[0]);
     it.modifiers.push({id:d.id,value:d.integer?Math.round(value):Math.round(value*10)/10,min:d.range[0],max:d.range[1]});

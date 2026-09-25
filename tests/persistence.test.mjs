@@ -21,7 +21,7 @@ export default async function (page, R) {
   const first = await page.evaluate(async () => {
     const g = window.__game;
     const { genItem } = await import('/src/rpg/items.js');
-    const item = genItem({ slot: 'helm', rarity: 2, level: 4 });
+    const item = genItem({ developer:true, slot: 'helm', rarity: 2, level: 4 });
     g.pickupItem(item); g.equipItem(g.inv.bag.length - 1);
     g.rest(g.entities.find(e => e.constructor.name === 'Bellstone'));
     g.time = 250; g.inv.hp = 0; g.onPlayerDeath(); await g.save();

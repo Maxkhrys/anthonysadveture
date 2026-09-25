@@ -6,6 +6,7 @@ import {RELICS} from './relics.js';
 // ------------------------------------------------------------------ weapon families
 // How a weapon behaves in your hands is decided by what it is, never by your class.
 export const FAMILY = {
+  revolver: {name:'Revolver',melee:false}, rifle:{name:'Automatic rifle',melee:false},
   blade: { name: 'Fast blade', melee: true },
   heavy: { name: 'Heavy blade', melee: true },
   bow: { name: 'Bow', melee: false },
@@ -21,7 +22,7 @@ export function weaponFamily(w) {
   return w.kind; // bow | staff | wand
 }
 export const HEAVY_BASES = new Set(['nodachi', 'onicleaver', 'bellclapper']);
-export const CLASS_FAMILIES = { samurai: ['blade', 'heavy'], archer: ['bow'], witch: ['staff', 'wand'], soulbound: ['chain'] };
+export const CLASS_FAMILIES = { samurai: ['blade', 'heavy'], archer: ['bow'], witch: ['staff', 'wand'], soulbound: ['chain'], gunslinger:['revolver','rifle'] };
 // Off-class weapons work fully, at reduced scaling and without the class specialist perks.
 export const OFFCLASS_SCALING = 0.8;
 
@@ -106,6 +107,10 @@ export const ACCESSORIES = [
 // Each is its own base with its own model (hero.js) and a signature behaviour ('unique').
 // src: where it comes from. weight: relative chance when a Legendary weapon is rolled.
 export const NAMED_WEAPONS = [
+{id:'sundownsix',name:'Sundown Six',cls:'gunslinger',kind:'revolver',lvl:4,dmg:1.35,spd:1,col:0xb78a50,weight:1,text:'Landing the final round empowers the opening shot after a completed reload by 75% weapon power.'},
+{id:'kilnrunner',name:'Kilnrunner',cls:'gunslinger',kind:'rifle',lvl:6,dmg:0.5,spd:1,col:0xb78a50,weight:1,text:'Grenades can attach to enemies. Manual shots on that enemy add 10% detonation damage, capped at 50%.'},
+{id:'bellfoundryrepeater',name:'Bellfoundry Repeater',cls:'gunslinger',kind:'rifle',lvl:8,dmg:0.5,spd:1,col:0xb78a50,weight:1,text:'A primed manual hit commands one sentry burst at the same visible target. 3 second cooldown.'},
+{id:'seventhchime',name:'The Seventh Chime',cls:'gunslinger',kind:'revolver',lvl:12,dmg:1.35,spd:1,col:0xb78a50,weight:1,r:5,text:'Fire a full cylinder and complete its reload to prepare a spectral piercing seventh round at +200% weapon power.'},
   { id: 'seamripper', name: 'Seam Ripper', cls: 'samurai', kind: 'katana', lvl: 6, dmg: 1.25, spd: 1.2, reach: 1.3, col: 0xd8e0e8, src: 'The Seamkeeper', weight: 0, text: 'Cuts thread barriers. Attacks against rooted or tethered foes are guaranteed crits.' },
   { id: 'wickblade', name: 'Wickblade', cls: 'samurai', kind: 'katana', lvl: 4, dmg: 1.1, spd: 1.1, reach: 1.25, col: 0xf0e0c0, src: 'Legendary drop', weight: 1, text: 'Every hit burns. The third combo strike looses a flame arc.' },
   { id: 'bellclapper', name: 'The Clapper', cls: 'samurai', kind: 'katana', lvl: 7, dmg: 1.7, spd: 0.7, reach: 1.6, col: 0xc89a3a, big: true, src: 'Legendary drop', weight: 1, text: 'Charged spin slashes toll a bell: a shockwave that staggers everything nearby.' },
