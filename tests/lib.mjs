@@ -23,12 +23,12 @@ export async function walkTo(page, x, z, max = 300, tol = 0.15) {
   }
   return false;
 }
-export async function pressE(page, n = 1) { for (let i = 0; i < n; i++) { await sim(page, 1, ['KeyE']); await sim(page, 3); await page.waitForTimeout(40); } }
+export async function pressE(page, n = 1) { for (let i = 0; i < n; i++) { await sim(page, 1, ['KeyF']); await sim(page, 3); await page.waitForTimeout(40); } }
 export async function talkThrough(page, n = 40) {
   for (let i = 0; i < n; i++) {
     const busy = await page.evaluate(() => window.__game.ui.talking);
     if (!busy) return;
-    await sim(page, 4); await sim(page, 1, ['KeyE']); await page.waitForTimeout(60);
+    await sim(page, 4); await sim(page, 1, ['KeyF']); await page.waitForTimeout(60);
   }
 }
 // Put the real OS mouse over a world point (projected through the game's own camera).

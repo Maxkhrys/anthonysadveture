@@ -113,12 +113,12 @@ export default async function (page, R) {
     const out = { equipped: inv.equip.weapon === kat, fam: p.family, aff: g.pstats.affinity, model: p.m.sword.children[0] && p.m.sword.children[0].userData.kind };
     const nProj = () => g.entities.filter(e => e.constructor.name === 'Projectile').length;
     const n0 = nProj(); p.setState('move');
-    g.noRender = true; window.__sim(1, ['KeyJ']); window.__sim(3); g.noRender = false;
+    g.noRender = true; window.__sim(1, ['KeyC']); window.__sim(3); g.noRender = false;
     out.melee = p.state === 'attack' || p.combo > 0; out.shots = nProj() - n0;
     const bow = I.genItem({ level: 5, cls: 'archer', slot: 'weapon', rarity: 1 });
     inv.bag.push(bow); g.equipItem(inv.bag.length - 1); p.setState('move');
     const a0 = g.entities.filter(e => e.kind === 'arrow').length;
-    g.noRender = true; window.__sim(1, ['KeyJ']); window.__sim(4); g.noRender = false;
+    g.noRender = true; window.__sim(1, ['KeyC']); window.__sim(4); g.noRender = false;
     out.arrows = g.entities.filter(e => e.kind === 'arrow').length - a0; out.bowModel = p.m.offhand.children[0] && p.m.offhand.children[0].userData.kind;
     return out;
   });

@@ -1,3 +1,4 @@
+import { abilityIcon } from './ui_icons.js';
 // RPG-layer UI: vitals, ability bar, floating numbers, enemy bars, loot feed, inventory, skills, class select.
 import * as THREE from 'three';
 import { sfx } from './engine/audio.js';
@@ -10,7 +11,7 @@ import { DollPreview, itemIconURL } from './preview.js';
 
 const $ = id => document.getElementById(id);
 const AB_ICON = { iaido: '💨', tempest: '🌀', oni: '👹', multishot: '🎯', snare: '🪤', rain: '🌧️', nova: '❄️', chain: '⚡', familiar: '🐈‍⬛' };
-const CLASS_ICON = { samurai: '⚔️', archer: '🏹', witch: '🧙' };
+const CLASS_ICON = { samurai: abilityIcon('iaido'), archer: abilityIcon('multishot'), witch: abilityIcon('familiar') };
 const _v = new THREE.Vector3();
 
 export function installRpgUI(UI) {
@@ -186,6 +187,8 @@ export function installRpgUI(UI) {
     $('inv-skills').classList.toggle('hidden', this.invTab !== 'skills');
     if (this.invTab === 'skills') return this.renderSkills();
     const slots = this.dollSlots();
+    const shown = this.bagView();
+    if (this.invSel >= 0 && !shown.includes(this.invSel)) this.invSel = shown[0] ?? 30;
     this.invSel = Math.max(-slots.length, this.invSel);
     const slotHtml = (d, i) => { const it = inv.equip[d.key]; return `<div class="slotbox ${this.invSel === -1 - i ? 'sel' : ''} ${it ? 'rar' + it.r : 'empty'}" data-eq="${i}" title="${d.label}">${it ? this.icon(it) : `<span class="ghost">${{ Head: '⛑', Neck: '◌', Chest: '▣', Arms: '✋', Weapon: '⚔', Legs: '‖', Boots: '▙', Ring: '○' }[d.label] || '·'}</span>`}<small>${d.label}</small></div>`; };
     const Ls = slots.map((d, i) => d.side === 'L' ? slotHtml(d, i) : '').join(''), Rs = slots.map((d, i) => d.side === 'R' ? slotHtml(d, i) : '').join('');
@@ -196,13 +199,13 @@ export function installRpgUI(UI) {
     const ps = g.pstats;
     const C = CLASSES[inv.cls];
     const row = (a, b) => `<div>${a}: <b>${b}</b></div>`;
-    $('statsheet').innerHTML = [row('Health', Math.round(inv.hp) + '/' + inv.maxHp), row('Damage', ps.wmin + '–' + ps.wmax), row('Armour', ps.armor), row('Crit', ps.crit.toFixed(0) + '%'), row('Crit dmg', '+' + ps.critDmg + '%'), row('Atk speed', ps.wspd.toFixed(2)), row('Dmg +', ps.dmgPct + '%'), row('Life steal', ps.lifesteal + '%'), row('Cooldowns', '-' + ps.cdr + '%'), row('Move', '+' + ps.moveSpd + '%'), row('Magic find', ps.mf + '%'), row('XP', inv.xp + '/' + xpNeed(inv.level)), row('Pips', inv.coins), row('Bag', inv.bag.length + '/30')].join('') + (inv.mats ? `<div class="mats">${Object.keys(MATS).filter(k => inv.mats[k]).map(k => `<span title="${MATS[k].desc}"><b style="color:${MATS[k].color}">${MATS[k].icon}</b> ${MATS[k].name} ×${inv.mats[k]}</span>`).join('') || '<span style="color:#a99">No crafting materials yet.</span>'}</div>` : '');
+    $('statsheet').innerHTML = [row('Health', Math.round(inv.hp) + '/' + inv.maxHp), row('Damage', Math.round(ps.wmin * 10) / 10 + '–' + Math.round(ps.wmax * 10) / 10), row('Armour', ps.armor), row('Crit', ps.crit.toFixed(0) + '%'), row('Crit dmg', '+' + ps.critDmg + '%'), row('Atk speed', ps.wspd.toFixed(2)), row('Dmg +', ps.dmgPct + '%'), row('Life steal', ps.lifesteal + '%'), row('Cooldowns', '-' + ps.cdr + '%'), row('Move', '+' + ps.moveSpd + '%'), row('Magic find', ps.mf + '%'), row('XP', inv.xp + '/' + xpNeed(inv.level)), row('Pips', inv.coins), row('Bag', inv.bag.length + '/30')].join('') + (inv.mats ? `<div class="mats">${Object.keys(MATS).filter(k => inv.mats[k]).map(k => `<span title="${MATS[k].desc}"><b style="color:${MATS[k].color}">${MATS[k].icon}</b> ${MATS[k].name} ×${inv.mats[k]}</span>`).join('') || '<span style="color:#a99">No crafting materials yet.</span>'}</div>` : '');
     const view = this.bagView();
     let cells = '';
     for (let v = 0; v < 30; v++) {
       const i = view[v], it = i === undefined ? null : inv.bag[i];
       if (!it) { cells += `<div class="cell" data-i="-99"></div>`; continue; }
-      const cur = inv.equip[g.equipSlotFor ? (it.slot === 'ring' ? 'ring1' : it.slot) : it.slot];
+      const cur = inv.equip[it.slot === 'ring' ? (this.compareRing || 'ring1') : it.slot];
       const mark = g.isOffClass(it) ? '<span class="oc" title="Off-class">◐</span>' : itemPower(it) > itemPower(cur) ? '<span class="up">▲</span>' : '';
       const hi = it.highestAffixTier && AFFIX_RARITY_TIERS[it.highestAffixTier] && AFFIX_RARITY_TIERS[it.highestAffixTier].tierIndex >= 5 ? ` style="--ac:${it.highestAffixColor}"` : '';
       cells += `<div class="cell rar${it.r} ${it.set ? 'isset' : ''} ${hi ? 'afx' : ''} ${this.invSel === i ? 'sel' : ''}" data-i="${i}"${hi}>${this.icon(it)}${mark}${g.isLocked(it) ? '<span class="lk">🔒</span>' : ''}${it.upgradeLevel ? `<span class="ul">+${it.upgradeLevel}</span>` : ''}</div>`;
@@ -213,14 +216,14 @@ export function installRpgUI(UI) {
     $('baggrid').querySelectorAll('[data-f]').forEach(el => { el.style.pointerEvents = 'auto'; el.onclick = () => { this.bagFilter = el.dataset.f; sfx('select'); this.renderInventory(); }; });
     const so = $('baggrid').querySelector('[data-s]'); so.style.pointerEvents = 'auto'; so.onclick = () => this.cycleSort();
     const sel = this.invSel >= 0 ? inv.bag[this.invSel] : inv.equip[(slots[-1 - this.invSel] || {}).key];
-    const cmp = sel && this.invSel >= 0 ? inv.equip[sel.slot] || null : undefined;
+    const cmp = sel && this.invSel >= 0 ? inv.equip[sel.slot === 'ring' ? (this.compareRing || 'ring1') : sel.slot] || null : undefined;
     $('tooltip').innerHTML = this.itemHtml(sel, cmp) + (sel && this.invSel >= 0 ? `<div class="cmp"><div class="sub">Currently equipped:</div>${cmp ? this.itemHtml(cmp) : '<div class="tt">—</div>'}</div>` : '');
     $('baggrid').querySelectorAll('.cell').forEach(c => {
       const i = +c.dataset.i;
       if (i < 0) return;
       c.onclick = () => { this.invSel = i; sfx('select'); this.renderInventory(); };
-      c.ondblclick = () => { this.invSel = i; g.equipItem(i); this.renderInventory(); };
-      c.oncontextmenu = e => { e.preventDefault(); this.invSel = i; g.salvageItem(i); this.renderInventory(); };
+      c.ondblclick = () => { this.invSel = i; g.equipItem(i, inv.bag[i]?.slot === 'ring' ? (this.compareRing || 'ring1') : undefined); this.renderInventory(); };
+      c.oncontextmenu = e => { e.preventDefault(); this.invSel = i; g.salvageItem(i); g.save(); this.renderInventory(); };
     });
     $('paperdoll').querySelectorAll('.slotbox').forEach(c => { c.onclick = () => { this.invSel = -1 - +c.dataset.eq; this.renderInventory(); }; });
     // equip feedback: the slot that just changed pulses
@@ -252,7 +255,7 @@ export function installRpgUI(UI) {
   P.bagView = function () {
     const inv = this.g.inv, f = this.bagFilter || 'all', s = this.bagSort || 'new';
     const ok = it => f === 'all' || (f === 'weapon' && it.slot === 'weapon') || (f === 'armour' && ['helm', 'armor', 'arms', 'legs', 'boots'].includes(it.slot)) || (f === 'jewel' && (it.slot === 'charm' || it.slot === 'ring')) || (f === 'set' && it.set) || (f === 'named' && it.unique);
-    const idx = inv.bag.map((it, i) => i).filter(i => inv.bag[i] && ok(inv.bag[i]));
+    const idx = inv.bag.map((it, i) => i).filter(i => inv.bag[i] && ok(inv.bag[i]) && (!this.bagSearch || inv.bag[i].name.toLowerCase().includes(this.bagSearch.toLowerCase())));
     const order = { weapon: 0, helm: 1, armor: 2, arms: 3, legs: 4, boots: 5, charm: 6, ring: 7 };
     if (s === 'new') idx.reverse();
     if (s === 'rarity') idx.sort((a, b) => inv.bag[b].r - inv.bag[a].r || itemPower(inv.bag[b]) - itemPower(inv.bag[a]));
@@ -264,6 +267,7 @@ export function installRpgUI(UI) {
   P.updateInventory = function (input) {
     if (!this.invOpen) return false;
     const g = this.g, inv = g.inv;
+    if (input.pressed('inventory') && this.invTab === 'skills') { this.invTab = 'bag'; this.renderInventory(); return true; }
     if (input.pressed('inventory') || input.pressed('pause')) { this.closeInventory(); input.consume('pause'); return true; }
     if (input.pressed('shield')) { this.invTab = this.invTab === 'bag' ? 'skills' : 'bag'; sfx('select'); this.renderInventory(); return true; }
     if (this.invTab === 'skills') { this.updateSkillsInput(input); return true; }
@@ -272,15 +276,16 @@ export function installRpgUI(UI) {
     if (input.pressed('lock')) { const it = this.invSel >= 0 ? inv.bag[this.invSel] : null; if (it) { g.toggleLock(it); this.renderInventory(); } return true; }
     // navigate in the order the bag is shown (filtered / sorted)
     const view = this.bagView();
+    const columns = getComputedStyle($('baggrid')).gridTemplateColumns.split(' ').length;
     let s = this.invSel, moved = false;
     if (s >= 0) {
       let v = view.indexOf(s); if (v < 0) v = 0;
       if (input.pressed('left')) { v = Math.max(0, v - 1); moved = true; }
       if (input.pressed('right')) { v = Math.min(Math.max(0, view.length - 1), v + 1); moved = true; }
-      if (input.pressed('down')) { v = Math.min(Math.max(0, view.length - 1), v + 10); moved = true; }
-      if (input.pressed('up')) { if (v < 10) { this.invSel = -1; sfx('select'); this.renderInventory(); return true; } v -= 10; moved = true; }
-      if (input.pressed('interact')) { g.equipItem(s); this.renderInventory(); }
-      if (input.pressed('salvage')) { g.salvageItem(s); this.renderInventory(); }
+      if (input.pressed('down')) { v = Math.min(Math.max(0, view.length - 1), v + columns); moved = true; }
+      if (input.pressed('up')) { if (v < columns) { this.invSel = -1; sfx('select'); this.renderInventory(); return true; } v -= columns; moved = true; }
+      if (input.pressed('interact')) { g.equipItem(s, inv.bag[s]?.slot === 'ring' ? (this.compareRing || 'ring1') : undefined); this.renderInventory(); }
+      if (input.pressed('salvage')) { g.salvageItem(s); g.save(); this.renderInventory(); }
       if (moved) { this.invSel = view[v] ?? s; sfx('select'); this.renderInventory(); }
       return true;
     }
@@ -293,8 +298,8 @@ export function installRpgUI(UI) {
       if (input.pressed('right')) { s = Math.min(29, s + 1); moved = true; }
       if (input.pressed('down')) { s = Math.min(29, s + 10); moved = true; }
       if (input.pressed('up')) { s = s < 10 ? -1 : s - 10; moved = true; }
-      if (input.pressed('interact')) { g.equipItem(s); this.renderInventory(); }
-      if (input.pressed('salvage')) { g.salvageItem(s); this.renderInventory(); }
+      if (input.pressed('interact')) { g.equipItem(s, inv.bag[s]?.slot === 'ring' ? (this.compareRing || 'ring1') : undefined); this.renderInventory(); }
+      if (input.pressed('salvage')) { g.salvageItem(s); g.save(); this.renderInventory(); }
     }
     if (moved) { this.invSel = s; sfx('select'); this.renderInventory(); }
     return true;

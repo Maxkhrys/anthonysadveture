@@ -1,10 +1,5 @@
 // Unified keyboard / mouse / gamepad input with edge detection.
-const KEYMAP = {
-  up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'], left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'],
-  attack: ['KeyJ'], shield: ['KeyK'], roll: ['Space', 'ShiftLeft', 'ShiftRight'], item: ['KeyL'],
-  interact: ['KeyE', 'Enter'], surge: ['KeyR'], potion: ['KeyQ'], pause: ['Escape', 'Tab', 'KeyP'], music: ['KeyM'],
-  ab1: ['Digit1', 'Numpad1', 'KeyU'], ab2: ['Digit2', 'Numpad2', 'KeyO'], ab3: ['Digit3', 'Numpad3', 'KeyH'], ab4: ['Digit4', 'Numpad4'], ab5: ['Digit5', 'Numpad5'], ab6: ['Digit6', 'Numpad6'], inventory: ['KeyI', 'KeyB'], salvage: ['KeyX', 'Delete'], lock: ['KeyF'], sort: ['KeyT'], filter: ['KeyG'],
-};
+import { KEYMAP } from './actions.js';
 const PAD = { attack: 2, roll: 0, interact: 1, item: 3, shield: [4], surge: [5, 7], pause: 9, potion: 8 };
 // Holding LT (button 6) switches the face and shoulder buttons to the six ability slots:
 // X/Y/B/A = slots 1-4, LB/RB = slots 5-6. Release LT for normal controls.
@@ -25,13 +20,26 @@ export class Input {
     this.paused = false;
     addEventListener('keydown', e => {
       if (this.paused) return;
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) {
+        if (e.code !== 'Escape') return;
+        e.target.blur();
+      }
+      if (e.code === 'Tab') {
+        const dialog = document.querySelector('#dialog:not(.hidden)');
+        const screen = dialog || document.querySelector('.screen:not(.hidden):not(#title)');
+        if (screen) {
+          const nodes = [...screen.querySelectorAll('button:not(:disabled),input,select,[tabindex="0"],a')].filter(el => el.getClientRects().length);
+          if(nodes.length) { e.preventDefault(); const i=nodes.indexOf(document.activeElement); nodes[(i+(e.shiftKey?-1:1)+nodes.length)%nodes.length].focus(); }
+          return;
+        }
+      }
       if (['Tab', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
       this.keys.add(e.code); this.taps.add(e.code); this.usingPad = false;
-      // attacking from the keyboard (J) is an intentional switch to keyboard aiming
-      if (e.code === 'KeyJ' && this.aimPref !== 'mouse') this.aimSrc = 'keys';
+      // attacking from the keyboard (C) is an intentional switch to keyboard aiming
+      if (e.code === 'KeyC' && this.aimPref !== 'mouse') this.aimSrc = 'keys';
     });
     addEventListener('keyup', e => { if (!this.paused) this.keys.delete(e.code); });
-    addEventListener('blur', () => { this.keys.clear(); this.mouse.clear(); });
+    addEventListener('blur', () => { this.keys.clear(); this.taps.clear(); this.mouse.clear(); this.mtaps.clear(); });
     const cv = document.getElementById('game');
     cv.addEventListener('mousedown', e => { if (this.paused) return; this.mouse.add(e.button); this.mtaps.add(e.button); this.mouseAt(e); if (this.aimPref !== 'keys') this.aimSrc = 'mouse'; e.preventDefault(); });
     addEventListener('mousemove', e => {

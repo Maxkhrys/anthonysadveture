@@ -1,3 +1,5 @@
+import { glyph } from './engine/actions.js';
+import { installJournalUI } from './ui_journal.js';
 // HTML overlay: HUD, dialogue, prompts, menus, maps.
 import { drawDevOverlay } from './dev/pass6.js';
 import { sfx, duckMusic } from './engine/audio.js';
@@ -73,7 +75,7 @@ export class UI {
   prompt(text) {
     const el = $('prompt');
     if (!text) { el.classList.add('hidden'); return; }
-    el.innerHTML = `<kbd>E</kbd>${text}`; el.classList.remove('hidden');
+    el.innerHTML = `<kbd>${glyph('interact')}</kbd>${text}`; el.classList.remove('hidden');
   }
   toast(text, small = '', dur = 2) {
     const el = $('toast');
@@ -383,3 +385,5 @@ export class UI {
 installRpgUI(UI);
 installSkillUI(UI);
 installCraftUI(UI);
+
+installJournalUI(UI);

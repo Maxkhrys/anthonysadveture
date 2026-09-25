@@ -99,7 +99,7 @@ export class Story {
   introWon() {
     const g = this.g;
     this.f.introFought = true;
-    g.ui.toast('Talk to Elder Tamsin', 'Press E near someone to talk.', 4);
+    g.ui.toast('Talk to Elder Tamsin', 'Press F near someone to talk.', 4);
     g.ui.updateHud();
   }
 
@@ -510,6 +510,6 @@ export class Story {
     const inv = this.g.inv;
     const row = (a, b) => `<tr><td>${a}</td><td>${b}</td></tr>`;
     return `<table>${['weapon', 'helm', 'armor', 'charm'].map(k => row(k[0].toUpperCase() + k.slice(1), inv.equip[k] ? `<span style="color:${RARITY[inv.equip[k].r].color}">${inv.equip[k].name}</span>` : '—')).join('')}${row('Tool', inv.bellows ? 'Gustbellows' + (inv.galeValve ? ' + Gale Valve' : '') : '—')}${row('Tonics', inv.potions + ' / ' + inv.maxPotions)}${row('Chimes', inv.chimes.length ? inv.chimes.map(c => c[0].toUpperCase() + c.slice(1)).join(', ') : '—')}</table>
-    <p style="font-size:14px;color:#e2c98f">Press I for your bag, stats and skills. Gustbellows: tap L for a puff, hold for a gale.</p>`;
+    <p style="font-size:14px;color:#e2c98f">Press E for your bag, stats and skills. Gustbellows: tap L for a puff, hold for a gale.</p>`;
   }
 }
