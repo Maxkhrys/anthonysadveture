@@ -1,6 +1,6 @@
 // Pass 5: skill trees, six-slot hotbar, every active ability, respec, migration,
 // off-class weapons, element reactions and armour sets.
-import { sim, fresh } from './lib.mjs';
+import { sim, fresh, toSquare } from './lib.mjs';
 
 // unlock every active of the class (dev-style), keep a dummy crowd in front, cast each one
 async function castAll(page, cls) {
@@ -104,7 +104,7 @@ export default async function (page, R) {
   R.ok(mig.tree.multishot === 4 && mig.tree.snare === 2 && mig.tree.rain === 1 && mig.sp === 2 && mig.stable && mig.loadout.join(',') === 'multishot,snare,rain,,,', 'legacy ranks [4,2,1] migrate exactly, points unchanged, idempotent', JSON.stringify(mig));
 
   // ---------------------------------------------------------------- off-class weapons behave like the weapon
-  await fresh(page, 'witch', { stage: 1, level: 5 });
+  await fresh(page, 'witch', { stage: 1, level: 5 }); await toSquare(page);
   const off = await page.evaluate(() => {
     const g = window.__game, inv = g.inv, p = g.player, I = window.__items;
     for (const e of g.entities) if (e.isEnemy) e.remove();

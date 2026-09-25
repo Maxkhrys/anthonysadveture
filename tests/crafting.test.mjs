@@ -1,6 +1,6 @@
 // Crafting: discovery, requirements, failed transactions, class rules, transfers, saving,
 // every recipe's behaviour, recursion guards and a strong build against a crowd and a boss.
-import { sim, fresh, walkTo, pressE } from './lib.mjs';
+import { sim, fresh, walkTo, pressE, toSquare } from './lib.mjs';
 
 const give = (page, mats, recipes = []) => page.evaluate(([mats, recipes]) => { const g = window.__game; Object.assign(g.inv.mats, mats); for (const r of recipes) if (!g.inv.recipes.includes(r)) g.inv.recipes.push(r); }, [mats, recipes]);
 const crowd = (page, n, dx = 4, kind = 'blot') => page.evaluate(([n, dx, kind]) => {
@@ -13,6 +13,7 @@ const clear = page => page.evaluate(() => { for (const e of window.__game.entiti
 export default async function (page, R) {
   // ---------------------------------------------------------------- the workbench, as a player uses it
   await fresh(page, 'samurai', { level: 3 });
+  await toSquare(page);
   const wb = await page.evaluate(() => { const b = window.__game.entities.find(e => e.constructor.name === 'Workbench'); return b && [b.x, b.z]; });
   R.ok(!!wb, 'Posy\'s workbench stands in the village');
   await walkTo(page, wb[0], wb[1] + 0.75);
@@ -94,7 +95,7 @@ export default async function (page, R) {
   R.ok(await page.evaluate(() => window.__game.stats.crafted >= 3), 'crafting counts in stats');
 
   // ---------------------------------------------------------------- Archer: Echo Fletching
-  await fresh(page, 'archer', { level: 6 });
+  await fresh(page, 'archer', { level: 6 }); await toSquare(page);
   await give(page, { echo: 2, shard: 20 }, ['echofletch', 'echosnare']);
   await page.evaluate(() => { const g = window.__game; g.inv.coins = 200; const c = window.__craft; c.craft(g, 'echofletch', g.inv.equip.weapon); c.craft(g, 'echosnare'); });
   const ef = await page.evaluate(() => {
@@ -152,7 +153,7 @@ export default async function (page, R) {
   R.ok(boss.hp1 === boss.hp0, 'Bramblemaw still shrugs off shots until it is choked', JSON.stringify(boss));
 
   // ---------------------------------------------------------------- Witch: Ember Seeds + Rime Bloom + proc guard
-  await fresh(page, 'witch', { level: 6 });
+  await fresh(page, 'witch', { level: 6 }); await toSquare(page);
   await give(page, { ember: 1, thornheart: 1, shard: 20 }, ['emberseeds', 'rimebloom']);
   const wc = await page.evaluate(() => { const g = window.__game, c = window.__craft; g.inv.coins = 200; return [c.craft(g, 'emberseeds', g.inv.equip.weapon).ok, c.craft(g, 'rimebloom').ok]; });
   R.ok(wc[0] && wc[1], 'witch crafts Ember Seeds and Rime Bloom');

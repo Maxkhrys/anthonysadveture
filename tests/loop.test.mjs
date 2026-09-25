@@ -125,5 +125,5 @@ export async function migration(page, R) {
   const c = await page.evaluate(() => { const g = window.__game; return { tree: JSON.stringify(g.inv.tree), lo: g.inv.loadout.join(), sp: g.inv.sp, ids: [...Object.values(g.inv.equip).filter(Boolean), ...g.inv.bag].map(i => i.itemInstanceId).sort() }; });
   R.ok(b.ok && c.tree === b.tree && c.lo === b.lo && c.sp === orig.inventory.sp - 1 && JSON.stringify(c.ids) === JSON.stringify(ids), 'save, reload, spend a point, reload again: tree, hotbar and items are stable', JSON.stringify({ b, c: { tree: c.tree, lo: c.lo, sp: c.sp } }));
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('mossling-save-v2')).schemaVersion);
-  R.ok(stored === 3, 'the save stays schema 3 under the same key (older builds can still read it)', String(stored));
+  R.ok(stored === 4, 'the save is schema 4 (character appearance) under the same key; schema 3 saves still load and upgrade', String(stored));
 }

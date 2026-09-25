@@ -1,15 +1,18 @@
-import {fresh,sim} from './lib.mjs';
+import {fresh,sim,toSquare} from './lib.mjs';
 export default async function(page,R){
- await fresh(page,'archer',{level:18});
+ await fresh(page,'archer',{level:18}); await toSquare(page);
  const result=await page.evaluate(async()=>{
  const g=window.__game,I=window.__items,C=await import('/src/rpg/combat.js'),H=await import('/src/rpg/heirlooms.js'),V=await import('/src/hero.js');
  const all=H.HEIRLOOMS.map(h=>I.makeNamed(h.id,18));
+ // named weapons now carry random ARPG rolls; these checks are about the weapon's own effect,
+ // so use a roll without extra projectiles, pierce or bounce
+ const plain=(id,l)=>{for(let k=0;k<200;k++){const it=I.makeNamed(id,l);g.inv.equip.weapon=it;g.recalc();const s=g.pstats.arpg?.stats||{},m=g.pstats.arpg?.mods||{};if(!s.projectileCount&&!s.pierce&&!s.bounce&&!m.projectileCount&&!m.pierce&&!m.bounce&&!m.fork)return it;}return I.makeNamed(id,l);};
  const valid=all.every(i=>i&&Number.isFinite(i.min)&&i.max>i.min&&i.itemInstanceId&&V.weaponModel(i).parts.length>0);
- g.inv.equip.weapon=I.makeNamed('thornwood',8);g.recalc();g.player.fireBasic(false);
+ g.inv.equip.weapon=plain('thornwood',8);g.recalc();g.player.fireBasic(false);
  const arrows=g.entities.filter(e=>e instanceof C.Projectile).length;
  for(const e of g.entities)if(e instanceof C.Projectile)e.remove();
  g.inv.equip.weapon=I.makeNamed('hickorybow',1);g.recalc();const fast=new C.Projectile(g,{x:g.player.x,z:g.player.z,dir:0,speed:10,kind:'arrow'});
- g.inv.equip.weapon=I.makeNamed('starfallcrossbow',12);g.recalc();g.player.fireBasic(false);
+ g.inv.equip.weapon=plain('starfallcrossbow',12);g.recalc();g.player.fireBasic(false);
  const pierce=g.entities.filter(e=>e instanceof C.Projectile&&!e.dead).some(e=>e.pierce===2);
  g.inv.bag=all;g.ui.navigate('bag');g.ui.invSel=4;g.ui.renderInventory();
  return {valid,arrows,speed:fast.speed,pierce,count:all.length};

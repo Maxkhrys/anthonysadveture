@@ -1,16 +1,16 @@
 // Pass 5 content: new creatures, elite modifiers, materials, the Conservatory, the Seamkeeper
 // and the Crowned Toad. Scripted checks prove the systems run; they are not a verdict on feel.
-import { sim, fresh } from './lib.mjs';
+import { sim, fresh, toSquare } from './lib.mjs';
 
 export default async function (page, R) {
-  await fresh(page, 'samurai', { stage: 1, level: 8 });
+  await fresh(page, 'samurai', { stage: 1, level: 8 }); await toSquare(page);
   // ---------------------------------------------------------------- five families fight and die cleanly
   const fam = await page.evaluate(() => {
     const g = window.__game, p = g.player, out = {};
     g.godMode = true;
     for (const kind of ['mantis', 'slug', 'moth', 'porcelain', 'leech']) {
       for (const e of g.entities) if (e.isEnemy) e.remove();
-      p.x = 58.5 + 90; p.z = 64.5 + 70; p.setState('move'); g.snapCamera();
+      p.x = 58.5 + 90; p.z = 62.5 + 70; p.setState('move'); g.snapCamera(); // clear of the square's signpost
       const e = g.spawnEnemy(kind, p.x + 2.5, p.z, { noRoom: true, eliteChance: 0 }); e.spawnT = 0; e.obj.scale.setScalar(1);
       const states = new Set();
       g.noRender = true;
@@ -83,7 +83,7 @@ export default async function (page, R) {
 }
 
 export async function conservatory(page, R) {
-  await fresh(page, 'archer', { stage: 1, level: 9 });
+  await fresh(page, 'archer', { stage: 1, level: 9 }); await toSquare(page);
   await page.evaluate(() => { const g = window.__game; g.inv.bellows = true; g.warpTo('conservatory', 'entrance'); });
   await page.waitForFunction(() => window.__game.area.id === 'conservatory' && !window.__game.transitioning, null, { timeout: 15000 });
   await sim(page, 3);

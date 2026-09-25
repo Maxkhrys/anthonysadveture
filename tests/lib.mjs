@@ -51,6 +51,8 @@ export async function fresh(page, cls = 'samurai', opts = {}) {
   }, [cls, opts]);
   await sim(page, 2);
 }
+// New games arrive under the bell tree; older checks were written for the open village square.
+export const toSquare = page => page.evaluate(() => { const g = window.__game, p = g.player; p.x = 148.5; p.z = 132.5; p.facing = 0; p.aimSrc = 'keys'; g.snapCamera(); });
 export class Report {
   constructor(name) { this.name = name; this.fails = 0; this.passes = 0; }
   ok(cond, label, extra = '') { if (cond) this.passes++; else this.fails++; console.log(`  ${cond ? 'PASS' : 'FAIL'}  ${label}${extra ? '  — ' + extra : ''}`); return cond; }
