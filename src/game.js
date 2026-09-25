@@ -1,5 +1,6 @@
 import { Onboarding, VillageTarget, WelcomeChest } from './onboarding.js';
 import { normalizeAppearance } from './appearance.js';
+import { Critters } from './critters.js';
 import { Hover } from './hover.js';
 import { itemCombat } from './rpg/arpg/runtime.js';
 import {bagCapacity,BOONS} from './rpg/relics.js';
@@ -84,6 +85,7 @@ export class Game {
     this.fx = new FX(this.scene);
     this.fx.groundAt = (x, z) => this.groundAt(x, z);
     this.ui = new UI(this);
+    this.critters = new Critters(this); // butterflies over the meadows
     this.hover = new Hover(this); // mouse inspection: highlight, name tags, drop tooltips, click to pick up
     this.story = new Story(this);
     if (typeof document !== 'undefined') {
@@ -274,7 +276,7 @@ export class Game {
     if (r > 0.05 && Math.random() < r * 1.5) this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 22, y: 0.03, z: this.cam.z + (Math.random() - 0.5) * 16, vy: 0.8, g: 5, color: 0xdfe8ff, life: 0.22, size: 0.05 });
     // fireflies at night, butterflies and drifting seeds by day
     if (N > 0.55 && Math.random() < 0.35) this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 24, y: 0.4 + Math.random(), z: this.cam.z + (Math.random() - 0.5) * 18, vx: (Math.random() - 0.5) * 0.4, vz: (Math.random() - 0.5) * 0.4, g: 0, drag: 0, color: 0xd8ff8a, life: 2.5, size: 0.05, wob: 0.8 });
-    if (L > 0.6 && r < 0.3 && Math.random() < 0.06) { const c = [0xffd25e, 0xf06a8a, 0x9ad8ff, 0xffffff][Math.floor(Math.random() * 4)]; this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 22, y: 0.4 + Math.random() * 0.6, z: this.cam.z + (Math.random() - 0.5) * 16, vx: (Math.random() - 0.5) * 0.8, vz: (Math.random() - 0.5) * 0.6, vy: 0.05, g: 0, drag: 0, color: c, life: 4, size: 0.07, wob: 3, shrink: false }); }
+    if (L > 0.6 && r < 0.3 && Math.random() < 0.05) this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 22, y: 0.5 + Math.random() * 0.8, z: this.cam.z + (Math.random() - 0.5) * 16, vx: 0.35 + Math.random() * 0.2, vz: (Math.random() - 0.5) * 0.2, vy: 0.03, g: 0, drag: 0, color: 0xfffaf0, life: 5, size: 0.035, wob: 1.2, shrink: false }); // drifting seeds (butterflies are real models now: critters.js)
     this.regionAir(rid, N, L, r);
     // Whisperwood sheds leaves
     if (reg === 'Whisperwood' && Math.random() < 0.25) this.fx.add({ x: this.cam.x + (Math.random() - 0.5) * 24, y: 2.5 + Math.random(), z: this.cam.z + (Math.random() - 0.5) * 18, vx: 0.4, vy: -0.35, g: 0, drag: 0, color: Math.random() < 0.5 ? 0xc8742a : 0x8aa83a, life: 6, size: 0.06, wob: 1.5, shrink: false });
@@ -1455,6 +1457,7 @@ export class Game {
     if(this.pstats?.uniques.has('worldseed')&&!this.dead&&this.player.state!=='dead'&&!this.locked()&&!this.ui.invOpen&&this.area.id!=='devroom'){const key='boon:'+this.area.id;if(this.flags[key]){if(this.inv.areaBoon!==this.flags[key]){this.inv.areaBoon=this.flags[key];this.recalc();}}else{this.ui.ask('Worldseed','Choose a boon for '+this.area.name+'. This choice stays with this adventure.',Object.entries(BOONS).map(([id,b])=>({label:b.name+' · '+b.text,cb:()=>{this.flags[key]=id;this.inv.areaBoon=id;this.recalc();this.save();}})));}}
     const input = this.input;
     if (this.hover && this.player) this.hover.update(dt);
+    if (this.critters) this.critters.update(dt);
     if (this.revealing && (input.pressed('interact') || input.pressed('attack'))) this.endReveal();
     this.ui.update(dt);
     if (this.dead) { this.aimView.hide(); if (input.pressed('interact')) this.revive(); this.render(dt); return; }

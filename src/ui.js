@@ -325,7 +325,7 @@ export class UI {
     x.fillStyle = '#5a3a1a'; x.beginPath(); x.moveTo(cx, cy - 24); x.lineTo(cx + 6, cy); x.lineTo(cx, cy + 24); x.lineTo(cx - 6, cy); x.fill();
     x.beginPath(); x.moveTo(cx - 24, cy); x.lineTo(cx, cy - 6); x.lineTo(cx + 24, cy); x.lineTo(cx, cy + 6); x.fill();
     x.fillStyle = '#c8402a'; x.beginPath(); x.moveTo(cx, cy - 24); x.lineTo(cx + 6, cy); x.lineTo(cx - 6, cy); x.fill();
-    x.font = 'bold 13px Pixelify Sans, monospace'; x.fillStyle = '#5a3a1a'; x.fillText('N', cx - 4, cy - 28);
+    x.font = 'bold 13px Mossling, monospace'; x.fillStyle = '#5a3a1a'; x.fillText('N', cx - 4, cy - 28);
     this.illus = c; this.illusArea = a;
   }
   // one soft parchment patch over every undiscovered 8x8-tile cell
@@ -368,7 +368,7 @@ export class UI {
       x.fillStyle = '#2a1a10'; x.beginPath(); x.moveTo(px, pz + 2); x.lineTo(px - 5, pz - 6); x.lineTo(px + 5, pz - 6); x.fill();
       x.fillStyle = m.color; x.beginPath(); x.arc(px, pz - 7, 5, 0, 6.3); x.fill(); x.strokeStyle = '#2a1a10'; x.lineWidth = 1.5; x.stroke();
     }
-    x.font = '13px Pixelify Sans, monospace'; x.textAlign = 'center';
+    x.font = '13px Mossling, monospace'; x.textAlign = 'center';
     for (const l of this.g.story.labels()) { const hw = x.measureText(l.t).width / 2 + 8, lx = Math.max(hw, Math.min(a.w * sc - hw, l.x * sc)); x.lineWidth = 3; x.strokeStyle = '#f0e0b8'; x.strokeText(l.t, lx, l.z * sc); x.fillStyle = '#4a2a14'; x.fillText(l.t, lx, l.z * sc); }
     x.textAlign = 'left';
     const p = g.player;

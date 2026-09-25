@@ -129,14 +129,16 @@ export class PixelRenderer {
           float db = dep(px+vec2(0.,texel.y));
           float rim = step(0.55, db - d) * (1.0-edge);
           c += rim * 0.10 * vec3(1.0,0.95,0.8);
-          // soft bloom: bright neighbours bleed light
-          vec3 glow = vec3(0.0);
+          // soft bloom: bright neighbours bleed light, in three rings (tight, mid and a wide warm halo
+          // rotated half a step so the rings never line up into a star)
+          vec3 glow = vec3(0.0), halo = vec3(0.0);
           for (int i = 0; i < 8; i++) {
             float a = float(i) * 0.785398;
-            vec2 o = vec2(cos(a), sin(a)) * texel;
-            glow += max(texture2D(tColor, px + o * 2.0).rgb - 0.7, 0.0) + max(texture2D(tColor, px + o * 4.5).rgb - 0.7, 0.0) * 0.6;
+            vec2 o = vec2(cos(a), sin(a)) * texel, o2 = vec2(cos(a + 0.3927), sin(a + 0.3927)) * texel;
+            glow += max(texture2D(tColor, px + o * 2.0).rgb - 0.7, 0.0) + max(texture2D(tColor, px + o2 * 4.5).rgb - 0.68, 0.0) * 0.6;
+            vec3 hs = texture2D(tColor, px + o * 8.5).rgb; halo += hs * smoothstep(0.82, 1.0, max(hs.r, max(hs.g, hs.b)) * dot(hs, vec3(0.3, 0.45, 0.25)) * 1.25);
           }
-          c += glow * bloom * bloomScale;
+          c += (glow + halo * vec3(0.16, 0.13, 0.09)) * bloom * bloomScale;
           // aerial perspective: things further up the screen (further from the camera) haze out
           float fd = clamp((d - fogNear) / (fogFar - fogNear), 0.0, 1.0);
           c = mix(c, fogColor, fd * fogAmt * (1.0 - edge * 0.5));

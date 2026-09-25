@@ -116,12 +116,12 @@ export function installAtlasUI(UI){
   for(const p of points){const [xx,z]=tr(p.x,p.z);if(xx<8||xx>W-8||z<8||z>H-8)continue;if(sc<3&&p.priority>1)continue;pin(x,p,xx,z);occupied.push({x:xx-6,y:z-6,w:12,h:12});if(sc>=3)labels.push({text:p.name,px:xx,py:z,region:false});}
   const discovered=g.world6?.discovery?.regions||[];
   if(sc<3)for(const r of this.atlasRegions||[]){const [xx,z]=tr(r.sx/r.n,r.sz/r.n);labels.push({text:discovered.includes(r.id)?r.name:'Uncharted',px:xx,py:z,region:true});}
-  x.font=sc<3?'bold 15px Georgia, serif':'12px Tahoma, sans-serif';
+  x.font=sc<3?'bold 15px Mossling, monospace':'12px Mossling, monospace';
   this.atlasLabelBoxes=placeLabels(x,labels,W,H,occupied);
   for(const l of this.atlasLabelBoxes){x.fillStyle='#f1e2bddf';x.fillRect(l.x,l.y,l.w,l.h);x.fillStyle=INK;x.textBaseline='middle';x.fillText(l.text,l.x+6,l.y+l.h/2);}
   arrow(x,px,py,g.player.facing);
   // Compass and measured scale are fixed to the paper, not the world camera.
-  x.fillStyle=INK;x.font='bold 13px Georgia';x.textAlign='center';x.fillText('N',W-22,20);x.beginPath();x.moveTo(W-22,28);x.lineTo(W-26,36);x.lineTo(W-18,36);x.closePath();x.fill();x.textAlign='left';
+  x.fillStyle=INK;x.font='bold 13px Mossling';x.textAlign='center';x.fillText('N',W-22,20);x.beginPath();x.moveTo(W-22,28);x.lineTo(W-26,36);x.lineTo(W-18,36);x.closePath();x.fill();x.textAlign='left';
   const units=sc<2?50:sc<5?20:10,len=units*sc;x.strokeStyle=INK;x.lineWidth=2;x.beginPath();x.moveTo(14,H-20);x.lineTo(14+len,H-20);x.stroke();x.font='10px Tahoma';x.fillText(units+' tiles',14,H-31);
   $('atlas-zoom').textContent=Math.round(sc/this.atlasFit*100)+'%';$('atlas-location').textContent=a.placeAt?.(g.player.x,g.player.z)?.name||a.name;
   $('atlas-heading').querySelector('h2').textContent=a.dungeon?a.name+' map':'Lanternreach atlas';
@@ -144,7 +144,7 @@ export function installAtlasUI(UI){
   else {x.drawImage(this.miniCache,0,0);if(a.id==='overworld'&&!g.devMapOverlay){const fog=this.fogCanvas();if(fog)x.drawImage(fog,0,0,a.w,a.h);}}x.restore();
   if(this._miniPointArea!==a||performance.now()>(this._miniPointTime||0)){this._miniPointArea=a;this._miniPointTime=performance.now()+400;this._miniPoints=this.atlasPoints();}
   for(const pt of this._miniPoints){const xx=ox+pt.x*sc,z=oz+pt.z*sc;if(xx<8||xx>W-8||z<8||z>H-8)continue;pin(x,pt,xx,z,pt.priority===0?4:3);}
-  arrow(x,W/2,H/2,p.facing,7);x.font='bold 11px Tahoma';x.fillStyle=INK;x.fillText('N',7,13);
+  arrow(x,W/2,H/2,p.facing,7);x.font='bold 11px Mossling';x.fillStyle=INK;x.fillText('N',7,13);
   const target=g.story.markers().find(m=>m.pulse);if(target){const dx=(target.x-p.x)*sc,dz=(target.z-p.z)*sc,k=Math.max(Math.abs(dx)/(W/2-12),Math.abs(dz)/(H/2-12));if(k>1){arrow(x,W/2+dx/k,H/2+dz/k,Math.atan2(dx,dz),5);}}
   const caption=$('map-caption');if(caption)caption.textContent=a.placeAt?.(p.x,p.z)?.name||a.name;
  };
