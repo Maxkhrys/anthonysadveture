@@ -51,6 +51,8 @@ export class Input {
     cv.addEventListener('mouseenter', () => { this.onCanvas = true; });
     addEventListener('mouseup', e => this.mouse.delete(e.button));
     cv.addEventListener('contextmenu', e => e.preventDefault());
+    this.wheel = 0; // accumulated wheel notches (Survival build mode reads and clears it)
+    cv.addEventListener('wheel', e => { if (!this.paused) this.wheel += Math.sign(e.deltaY); }, { passive: true });
   }
   mouseAt(e) { this.mouseX = e.clientX; this.mouseY = e.clientY; this.onCanvas = true; }
   get mouseAim() { return this.aimSrc === 'mouse' && this.aimPref !== 'keys'; }

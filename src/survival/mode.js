@@ -5,7 +5,11 @@ import * as THREE from 'three';
 import { SurvivalStore, RESOURCES } from './store.js';
 import { buildWilds, CH } from './world.js';
 import { buildCave } from './cave.js';
-import { ResourceNode, NodeBatch, Structure, CaveMouth, Landmark, LootCache, PIECES } from './entities.js';
+import { ResourceNode, NodeBatch, Structure, CaveMouth, Landmark, LootCache, PIECES, pieceParts } from './entities.js';
+import { KIT, isKit, levelY, STOREY } from './kit.js';
+import { HouseGrid, Cutaway, applySupport, supportHeight, sameLevel, levelOf, placeWhy, removeWhy, snapPiece, slotKey, pieceBase, footprint, locate, spans, FURNITURE, STEP } from './houses.js';
+import { KitPiece, pieceLook } from './pieces.js';
+import { instantiate, TEMPLATES } from './templates.js';
 import { RECIPES } from './craft.js';
 import { WORLD, GEN_VERSION, BIOMES } from './biome.js';
 import { regionPoi } from './gen.js';
@@ -16,6 +20,13 @@ import { starterWeapon } from '../rpg/items.js';
 import { makeEnemy } from '../entities/enemies.js';
 import { Entity } from '../entities/entity.js';
 import { geo, B, MAT } from '../models.js';
+
+// spawn order inside a chunk: what a piece rests on comes first (stairs read the floor under
+// them, gables the roof beside them)
+const LAYER_ORDER = { floor: 0, post: 1, wall: 2, stairs: 3, roof: 4, gable: 5 };
+const byLayer = (a, b) => (LAYER_ORDER[KIT[a.type]?.layer] ?? 6) - (LAYER_ORDER[KIT[b.type]?.layer] ?? 6) || (a.lv | 0) - (b.lv | 0);
+const LEVEL_NAME = lv => lv === 0 ? 'ground floor' : lv === 1 ? 'upper floor' : 'level ' + lv;
+const FACING = ['south', 'east', 'north', 'west'];
 import { sfx } from '../engine/audio.js';
 
 export const HINTS = [
@@ -40,7 +51,7 @@ class CaveExit extends Entity {
 }
 
 export class SurvivalMode {
-  constructor(g, storage) { this.g = g; this.store = new SurvivalStore(storage); this.active = false; }
+  constructor(g, storage) { this.g = g; this.store = new SurvivalStore(storage); this.active = false; this.grid = new HouseGrid(); this.cut = new Cutaway(this.grid); this.dt = 1 / 60; }
   // ---------------------------------------------------------------- start / stop
   start(record) {
     const g = this.g, R = this.record = record;
@@ -60,13 +71,30 @@ export class SurvivalMode {
     g.flags.onboarding = { version: 1, phase: 'complete', done: {} }; // the story tutorial is not part of survival
     g.recalc(); g.inv.hp = g.inv.maxHp; g.res = 100;
     const pos = R.pos && R.pos.x != null ? { x: R.pos.x, z: R.pos.z } : 'start';
+    this.pendingFy = pos === 'start' ? 0 : +R.pos.fy || 0; // standing upstairs when saved
+    // Survival houses: storey heights, storey-separated combat and floor-aware spawning
+    g.support = e => applySupport(this.grid, e, this.dt);
+    g.sameLevel = sameLevel;
+    g.onSpawn = e => this.onSpawn(e);
     g.checkpoint = { area: 'wilds', spawn: R.home ? 'home' : 'start' };
     g.loadArea('wilds', pos);
     g.ui.areaName && g.ui.areaName(R.name);
     this.ui && this.ui.show();
   }
   quit() { this.endBuild(); this.g.save().then(() => this.onQuit && this.onQuit()); }
-  stop() { this.active = false; this.g.mode = 'story'; this.g.survival = null; document.documentElement.classList.remove('mode-survival'); this.ui && this.ui.hide(); }
+  stop() {
+    this.active = false; this.g.mode = 'story'; this.g.survival = null; document.documentElement.classList.remove('mode-survival'); this.ui && this.ui.hide();
+    this.g.support = this.g.sameLevel = this.g.onSpawn = null; this.grid.clear(); this.cut.reset();
+  }
+  // new entities start on the floor they appear on (shots and drops from upstairs stay upstairs)
+  onSpawn(e) {
+    if (e.fy !== undefined || e.isCollider) return;
+    const g = this.g, p = g.player; let ref = 0, bd = 2.2;
+    if (p && !p.dead) { const d = Math.hypot(e.x - p.x, e.z - p.z); if (d < bd) { bd = d; ref = p.fy || 0; } }
+    if (this.grid.slots.size) for (const o of g.entities) if (o.isEnemy && !o.dead && o.fy) { const d = Math.hypot(e.x - o.x, e.z - o.z); if (d < bd) { bd = d; ref = o.fy; } }
+    e.fy = ref ? supportHeight(this.grid, e.x, e.z, ref) : 0;
+    if (e.fy && e.gy0 !== undefined) e.gy0 += e.fy; // projectiles fly level from where they were loosed
+  }
   // Game.loadArea asks for survival areas here
   buildArea(id) {
     if (!this.active) return null;
@@ -77,11 +105,16 @@ export class SurvivalMode {
   // called after the area's entities are cleared and the player exists
   onAreaLoaded(area) {
     this.live = new Map(); this.byChunk = new Map(); this.batches = new Map(); this.lightsInUse = 0; this.caveFoes = null; this.streamT = 0;
+    this.grid.clear(); this.cut.reset(); this.houses = new Map();
     const g = this.g;
     if (area.id === 'wilds') {
       const p = g.player; area.ensureChunk(Math.floor(p.x / CH), Math.floor(p.z / CH));
-      if (!this.freeTile(p.x, p.z)) this.unstick(true);
       this.stream(true);
+      // back upstairs where the save left you, if that floor still stands; otherwise the ground
+      const want = this.pendingFy || 0; this.pendingFy = 0;
+      if (want > 0) { const h = supportHeight(this.grid, p.x, p.z, want); p.fy = Math.abs(h - want) < 0.3 ? h : 0; }
+      if (!this.freeTile(p.x, p.z, p.fy || 0)) this.unstick(true);
+      p.sync(); g.snapCamera && g.snapCamera();
     }
     if (area.id === 'cave') {
       const C = this.caveState(this.caveId);
@@ -113,6 +146,9 @@ export class SurvivalMode {
       if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) <= 2) continue; // hysteresis: drop only well out of range
       for (const e of list) if (!e.dead && !(e.isEnemy && (e.aggro > 0 && e.state !== 'idle' && e.dist(p) < 14))) e.remove();
       this.byChunk.delete(k); const bt = this.batches?.get(k); if (bt) { bt.dispose(); this.batches.delete(k); }
+      for (const [id, d] of this.grid.deco) if (d.ent.dead) this.grid.deco.delete(id);
+      for (const [id, h] of this.houses) if (h.key === k) this.houses.delete(id);
+      this.grid.version++;
     }
     const key = pcx + ',' + pcz; if (!this.record.explored.includes(key)) { this.record.explored.push(key); if (this.record.explored.length > 4000) this.record.explored.shift(); }
   }
@@ -126,8 +162,29 @@ export class SurvivalMode {
       else list.push(g.spawn(new Landmark(g, d, this)));
     }
     for (const m of c.packs) if (!this.killed.has(m.id)) { const e = this.enemy(m.kind, m.x, m.z); if (e) { e.packId = m.id; list.push(e); } }
-    for (const s of R.structures) if (this.chunkOf(s.x, s.z) === key) list.push(g.spawn(new Structure(g, s, this)));
+    for (const s of R.structures.filter(s => this.chunkOf(s.x, s.z) === key).sort(byLayer)) list.push(this.spawnPiece(s));
+    for (const h of c.houses || []) this.spawnHouse(h, list, key);
     this.byChunk.set(key, list);
+    this.refreshShapes();
+  }
+  // one placed or generated piece into the world (kit pieces get the modular entity)
+  spawnPiece(s, gen = null) { const g = this.g, e = isKit(s.type) ? new KitPiece(g, s, this, gen) : new Structure(g, s, this); e.gen = gen; return g.spawn(e); }
+  // gables and stairs take their shape from pieces that may stream in later: rebuild if changed
+  refreshShapes() { for (const e of this.grid.ents.values()) if (e.isKit && (e.type === 'timber_gable' || e.type === 'timber_stairs') && !e.dead) { const k = e.shapeKey(); if (k !== e.shape) e.build(); } }
+  // A generated house: the same kit pieces, with stable ids and the player's changes applied.
+  // Never built over the player's own pieces; pieces taken down stay down.
+  spawnHouse(h, list, key) {
+    const g = this.g, R = this.record, H = R.houses[h.id];
+    if (H && H.suppressed) return;
+    const I = instantiate(h);
+    if (!H) { const [x0, z0, x1, z1] = I.rect; if (R.structures.some(s => s.x > x0 - 1 && s.x < x1 + 1 && s.z > z0 - 1 && s.z < z1 + 1)) { R.houses[h.id] = { suppressed: true }; return; } }
+    const removed = H?.removed || {}, open = H?.open || {};
+    for (const s of I.pieces.sort(byLayer)) { if (removed[s.id]) continue; if (open[s.id]) s.open = true; list.push(this.spawnPiece(s, h.id)); }
+    for (const c of I.caches) {
+      const e = new LootCache(g, { id: c.id, x: c.x, z: c.z, loot: 'house' }, this); e.fy = supportHeight(this.grid, c.x, c.z, levelY(c.lv) + 0.35);
+      list.push(g.spawn(e)); this.grid.deco.set(c.id, { id: c.id, x: c.x, z: c.z, lv: c.lv, ent: e });
+    }
+    const T = TEMPLATES[h.t]; this.houses.set(h.id, { h, key, x: (I.rect[0] + I.rect[2]) / 2, z: (I.rect[1] + I.rect[3]) / 2, name: T.name });
   }
   removeNode(node) {
     const R = this.record;
@@ -136,11 +193,22 @@ export class SurvivalMode {
     delete this.damage[node.id];
     R.stats = R.stats || {}; R.stats.gathered = (R.stats.gathered || 0) + 1;
   }
-  freeTile(x, z) { const t = this.g.tileAt(Math.floor(x), Math.floor(z)); return !isSolid(t) && !isLiquid(t) && !this.g.entities.some(e => e.solid && !e.dead && !e.isPlayer && !e.isEnemy && Math.abs(e.x - x) < e.hw + 0.25 && Math.abs(e.z - z) < e.hd + 0.25); }
-  // Unstuck: the nearest free spot, spiralling outward; falls back to home
+  // free to stand at (x, z) at height y: open tile, a surface at that height, nothing solid there
+  freeTile(x, z, y = 0) {
+    const t = this.g.tileAt(Math.floor(x), Math.floor(z)); if (isSolid(t) || isLiquid(t)) return false;
+    if (y > 0 && Math.abs(supportHeight(this.grid, x, z, y) - y) > 0.3) return false;
+    const probe = { fy: y };
+    return !this.g.entities.some(e => e.solid && !e.dead && !e.isPlayer && !e.isEnemy && Math.abs(e.x - x) < e.hw + 0.25 && Math.abs(e.z - z) < e.hd + 0.25 && (!e.solidFor || e.solidFor(probe)));
+  }
+  // Unstuck: the nearest free spot on the floor you are on, spiralling outward; then open
+  // ground; then home
   unstick(silent) {
-    const g = this.g, p = g.player;
-    for (let r = 0; r < 12; r++) for (let a = 0; a < 16; a++) { const x = Math.floor(p.x) + 0.5 + Math.round(Math.cos(a / 16 * 6.28) * r), z = Math.floor(p.z) + 0.5 + Math.round(Math.sin(a / 16 * 6.28) * r); if (this.freeTile(x, z)) { p.x = x; p.z = z; g.snapCamera && g.snapCamera(); if (!silent) g.ui.toast('Unstuck', 'Moved to the nearest open ground.', 1.6); return true; } }
+    const g = this.g, p = g.player, y0 = p.fy || 0;
+    for (const y of y0 > 0 ? [y0, 0] : [0]) for (let r = 0; r < 12; r++) for (let a = 0; a < 16; a++) {
+      const x = Math.floor(p.x) + 0.5 + Math.round(Math.cos(a / 16 * 6.28) * r), z = Math.floor(p.z) + 0.5 + Math.round(Math.sin(a / 16 * 6.28) * r);
+      const yy = y ? supportHeight(this.grid, x, z, y) : 0;
+      if (this.freeTile(x, z, yy)) { p.x = x; p.z = z; p.fy = yy; p.fvy = 0; p.sync(); g.snapCamera && g.snapCamera(); if (!silent) g.ui.toast('Unstuck', yy ? 'Moved to open floor nearby.' : 'Moved to the nearest open ground.', 1.6); return true; }
+    }
     this.goHome(); return false;
   }
   goHome() {
@@ -172,26 +240,78 @@ export class SurvivalMode {
     this.ui && this.ui.refresh(); this.hintCheck(); this.g.save();
     return { ok: true };
   }
+  // ---------------------------------------------------------------- building (modular kit + furniture)
+  // Build mode: a ghost of the real piece follows the aim, on the chosen level and rotation.
+  // Click / C places (hold and sweep to lay rows), right click / X stops, T or the wheel rotates,
+  // [ and ] change level. Nothing is spent until a placement succeeds.
   startBuild(type) {
     if (type !== 'demolish' && !((this.record.kits || {})[type] > 0)) { sfx('error'); return false; }
-    this.endBuild();
-    const g = this.g, ghost = new THREE.Mesh(new THREE.BoxGeometry(1, type === 'floor' || type === 'roof' ? 0.12 : 1.2, 1), new THREE.MeshBasicMaterial({ color: 0x7fd36a, transparent: true, opacity: 0.4, depthWrite: false }));
-    g.scene.add(ghost); this.build = { type, ghost, ok: false, tx: 0, tz: 0 }; this.ui && this.ui.refresh();
+    const keep = this.build; this.endBuild();
+    const g = this.g, mat = new THREE.MeshBasicMaterial({ color: 0x7fd36a, transparent: true, opacity: 0.45, depthWrite: false });
+    const ghost = new THREE.Group(); g.scene.add(ghost);
+    const P = PIECES[type], range = P?.levels || [0, 2], lv = Math.max(range[0], Math.min(range[1], keep ? keep.lv : levelOf(g.player.fy)));
+    this.build = { type, ghost, mat, ok: false, why: '', tx: 0, tz: 0, lv, r: keep && keep.type === type ? keep.r : 0, look: '', rec: null, info: '' };
+    this.ui && this.ui.refresh();
     return true;
   }
-  endBuild() { if (this.build) { this.g.scene.remove(this.build.ghost); this.build.ghost.geometry.dispose(); this.build.ghost.material.dispose(); this.build = null; this.ui && this.ui.refresh(); } }
-  target() {
-    const g = this.g, p = g.player, inp = g.input;
-    let x = p.x + Math.sin(p.facing) * 1.4, z = p.z + Math.cos(p.facing) * 1.4;
-    if (p.aimSrc === 'mouse' && inp.onCanvas) { const q = g.pr.screenToWorld(inp.mouseX, inp.mouseY, 0); if (Math.hypot(q.x - p.x, q.z - p.z) < 6) { x = q.x; z = q.z; } }
-    return { tx: Math.floor(x), tz: Math.floor(z) };
+  endBuild() {
+    const b = this.build; if (!b) return;
+    this.g.scene.remove(b.ghost); b.mat.dispose(); for (const gm of this.ghostGeo || []) gm.dispose(); this.ghostGeo = [];
+    this.build = null; this.ui && this.ui.refresh();
   }
-  structureAt(tx, tz, type) { return this.g.entities.find(e => e.isStructure && !e.dead && Math.floor(e.x) === tx && Math.floor(e.z) === tz && (!type || (type === 'roof') === (e.type === 'roof'))); }
-  // what may go where: open ground, nothing solid in the way, never on top of the player
-  placeCheck(type, tx, tz) {
-    const g = this.g, t = g.tileAt(tx, tz), P = PIECES[type], p = g.player, x = tx + 0.5, z = tz + 0.5;
-    if (g.area.id !== 'wilds') return 'Build in the wilds, not in caves.';
+  target() {
+    const g = this.g, p = g.player, inp = g.input, lv = this.build ? this.build.lv : 0;
+    let x = p.x + Math.sin(p.facing) * 1.6, z = p.z + Math.cos(p.facing) * 1.6;
+    if (p.aimSrc === 'mouse' && inp.onCanvas) { const q = g.pr.screenToWorld(inp.mouseX, inp.mouseY, levelY(lv) + 0.1); if (Math.hypot(q.x - p.x, q.z - p.z) < 7) { x = q.x; z = q.z; } }
+    return { x, z, tx: Math.floor(x), tz: Math.floor(z) };
+  }
+  // the record a build of this type would place at (x, z)
+  recFor(type, x, z, lv, r) { return isKit(type) ? snapPiece(type, x, z, lv, r) : { type, x: Math.floor(x) + 0.5, z: Math.floor(z) + 0.5, lv, r: PIECES[type]?.rotates ? r : 0 }; }
+  structureAt(tx, tz, type) { return this.g.entities.find(e => e.isStructure && !e.isKit && !e.dead && Math.floor(e.x) === tx && Math.floor(e.z) === tz && (!type || (type === 'roof') === (e.type === 'roof'))); }
+  // what the placement rules need from the world
+  env() {
+    const g = this.g, grid = this.grid;
+    const scenery = (x0, z0, x1, z1) => {
+      for (const e of g.entities) {
+        if (e.dead || !(e.isNode || e instanceof CaveMouth || e instanceof LootCache || e instanceof Landmark)) continue;
+        const h = e instanceof Landmark ? 2.4 : e instanceof CaveMouth ? 1.6 : Math.max(e.hw || 0.4, 0.4);
+        if ((e.fy || 0) < 0.5 && e.x + h > x0 && e.x - h < x1 && e.z + h > z0 && e.z - h < z1) return 'Clear the space first.';
+      }
+      return '';
+    };
+    return {
+      player: g.player,
+      groundWhy(x0, z0, x1, z1, s) {
+        for (let tz = Math.floor(z0); tz < Math.ceil(z1); tz++) for (let tx = Math.floor(x0); tx < Math.ceil(x1); tx++) {
+          const t = g.tileAt(tx, tz); if (isSolid(t) || isLiquid(t) || t === T.SHALLOW || t === T.PIT) return 'Needs open, dry ground.';
+          const o = grid.tile(0, tx, tz) || grid.get('lr:0:' + tx + ',' + tz);
+          if (o && (PIECES[o.type]?.legacy || KIT[s.type].kind === 'cell')) return PIECES[o.type]?.legacy ? 'An old tile piece stands here; take it down first.' : 'Move the ' + PIECES[o.type].name.toLowerCase() + ' first.';
+        }
+        return scenery(x0, z0, x1, z1);
+      },
+      bodies() { return g.entities.filter(e => !e.dead && (e.isPlayer || (e.isEnemy && e.moveMode !== 'fly'))).map(e => ({ x: e.x, z: e.z, r: e.r || 0.3, fy: e.fy || 0, isPlayer: !!e.isPlayer })); },
+      // furniture on bare ground keeps the first pass's rules; on a floor, only bodies matter
+      furnitureWhy(s) {
+        const tx = Math.floor(s.x), tz = Math.floor(s.z), onFloor = grid.floor(s.lv | 0, Math.floor(tx / 2), Math.floor(tz / 2)), y = pieceBase(grid, s);
+        if (!onFloor) { const t = g.tileAt(tx, tz); if (isSolid(t) || isLiquid(t) || t === T.SHALLOW || t === T.PIT) return 'Needs open ground.'; const w = scenery(tx + 0.1, tz + 0.1, tx + 0.9, tz + 0.9); if (w) return w; }
+        if (PIECES[s.type].solid) for (const e of g.entities) if (!e.dead && (e.isPlayer || e.isEnemy) && Math.abs(e.x - s.x) < 0.5 + (e.r || 0.3) && Math.abs(e.z - s.z) < 0.5 + (e.r || 0.3) && spans(y, y + 1.1, e.fy)) return e.isPlayer ? 'You are standing there.' : 'Something is in the way.';
+        return '';
+      },
+    };
+  }
+  // why a record cannot be placed ('' when it can). Old 1-tile pieces keep their old rules.
+  checkPiece(rec) {
+    const g = this.g; if (g.area?.id !== 'wilds') return 'Build in the wilds, not in caves.';
+    if (!PIECES[rec.type]) return 'Unknown piece.';
+    if (isKit(rec.type) || FURNITURE.has(rec.type)) return placeWhy(this.grid, this.env(), rec);
+    return this.legacyCheck(rec.type, Math.floor(rec.x), Math.floor(rec.z));
+  }
+  // kept for callers of the first pass: (type, tx, tz) on the ground floor
+  placeCheck(type, tx, tz, lv = 0, r = 0) { return this.checkPiece(this.recFor(type, tx + 0.5, tz + 0.5, lv, r)); }
+  legacyCheck(type, tx, tz) {
+    const g = this.g, t = g.tileAt(tx, tz), P = PIECES[type], p = g.player, x = tx + 0.5, z = tz + 0.5, cx = Math.floor(tx / 2), cz = Math.floor(tz / 2);
     if (isSolid(t) || isLiquid(t) || t === T.SHALLOW || t === T.PIT) return 'Needs open ground.';
+    if (this.grid.floor(0, cx, cz) || this.grid.stairs(0, cx, cz)) return 'A house floor is here; use the house kit.';
     if (type === 'roof') return this.structureAt(tx, tz, 'roof') ? 'There is already a roof here.' : (this.structureAt(tx, tz) ? '' : 'Roofs go over a floor, wall or doorway.');
     if (this.structureAt(tx, tz)) return 'Something is already built here.';
     if (g.entities.some(e => !e.dead && e !== p && (e.isNode || e instanceof CaveMouth || e instanceof LootCache || e instanceof Landmark && Math.hypot(e.x - x, e.z - z) < 2) && Math.abs(e.x - x) < 0.9 && Math.abs(e.z - z) < 0.9)) return 'Clear the space first.';
@@ -199,24 +319,91 @@ export class SurvivalMode {
     if (P.solid && g.entities.some(e => e.isEnemy && !e.dead && Math.abs(e.x - x) < 0.8 && Math.abs(e.z - z) < 0.8)) return 'Something is in the way.';
     return '';
   }
-  place() {
-    const b = this.build; if (!b) return false; const R = this.record, g = this.g;
-    if (b.type === 'demolish') return this.demolish(b.tx, b.tz);
-    const why = this.placeCheck(b.type, b.tx, b.tz); if (why) { sfx('error'); g.ui.toast('Cannot build here', why, 1.4); return false; }
-    const s = { id: 's' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), type: b.type, x: b.tx + 0.5, z: b.tz + 0.5 };
-    R.structures.push(s); R.kits[b.type]--;
-    const e = g.spawn(new Structure(g, s, this)); const k = this.chunkOf(s.x, s.z); (this.byChunk.get(k) || this.byChunk.set(k, []).get(k)).push(e);
+  newId() { return 's' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
+  // Stable API (also for the crafting UI): place one piece from the build pouch. Validates first;
+  // spends exactly one kit only when the piece is placed.
+  placePiece(rec) {
+    const g = this.g, R = this.record; R.kits = R.kits || {};
+    rec = this.recFor(rec.type, rec.x, rec.z, rec.lv | 0, rec.r | 0);
+    if (!(R.kits[rec.type] > 0)) return { ok: false, why: 'No ' + (PIECES[rec.type]?.name || rec.type).toLowerCase() + ' in your build pouch.' };
+    const why = this.checkPiece(rec); if (why) return { ok: false, why };
+    const s = { id: this.newId(), type: rec.type, x: rec.x, z: rec.z }; if (rec.lv) s.lv = rec.lv; if (rec.r) s.r = rec.r;
+    R.structures.push(s); R.kits[rec.type]--;
+    const e = this.spawnPiece(s), k = this.chunkOf(s.x, s.z); (this.byChunk.get(k) || this.byChunk.set(k, []).get(k)).push(e);
+    if (KIT[s.type]?.layer === 'roof' || KIT[s.type]?.layer === 'floor') this.refreshShapes();
     sfx('push'); g.fx.dust(s.x, s.z, 8);
-    if (b.type === 'campfire' && !R.home) this.setHome(s.x, s.z + 1.2, true);
+    if (s.type === 'campfire' && !R.home) this.setHome(s.x, s.z + 1.2, true);
     this.hintCheck(); g.save();
-    if (!(R.kits[b.type] > 0)) this.endBuild(); else this.ui && this.ui.refresh();
+    return { ok: true, why: '', id: s.id, piece: s };
+  }
+  place() {
+    const b = this.build; if (!b) return false; const g = this.g;
+    if (b.type === 'demolish') { const t = b.target || this.pickTarget(b.tx + 0.5, b.tz + 0.5, b.lv); return t ? this.removePiece(t.s.id).ok : (sfx('error'), false); }
+    const rec = b.rec && b.recAt === b.tx + ',' + b.tz ? b.rec : this.recFor(b.type, b.tx + 0.5, b.tz + 0.5, b.lv, b.r);
+    const res = this.placePiece(rec);
+    if (!res.ok) { sfx('error'); g.ui.toast('Cannot build here', res.why, 1.4); return false; }
+    b.lastKey = slotKey(res.piece);
+    if (!(this.record.kits[b.type] > 0)) this.endBuild(); else this.ui && this.ui.refresh();
     return true;
   }
-  demolish(tx, tz) {
-    const g = this.g, R = this.record, e = this.structureAt(tx, tz, 'roof') || this.structureAt(tx, tz); if (!e) { sfx('error'); return false; }
-    if (e.type === 'chest') { const S = R.storage[e.id] || {}; for (const [k, v] of Object.entries(S)) R.resources[k] += v; delete R.storage[e.id]; }
-    R.structures = R.structures.filter(s => s.id !== e.id); R.kits = R.kits || {}; R.kits[e.type] = (R.kits[e.type] || 0) + 1; // the kit comes back whole
-    e.remove(); sfx('thud'); g.save(); this.ui && this.ui.refresh(); return true;
+  // the built piece under the aim on a level: furniture, then walls, posts, stairs, roof, floor
+  pickTarget(x, z, lv) {
+    const G = this.grid, E = G.ents, tx = Math.floor(x), tz = Math.floor(z), cx = Math.floor(x / 2), cz = Math.floor(z / 2);
+    const ent = s => s && E.get(s.id);
+    let s = G.tile(lv, tx, tz) || (lv === 0 && G.get('lr:0:' + tx + ',' + tz)); if (s && ent(s)) return ent(s);
+    const edge = snapPiece('timber_wall', x, z, lv, 0), L = locate(edge), dEdge = L.a === 'h' ? Math.abs(z - edge.z) : Math.abs(x - edge.x);
+    if (dEdge < 0.5 && (s = G.band(lv, L.a, L.ex, L.ez)) && ent(s)) return ent(s);
+    const vx = Math.round(x / 2), vz = Math.round(z / 2); if (Math.hypot(x - vx * 2, z - vz * 2) < 0.5 && (s = G.post(lv, vx, vz)) && ent(s)) return ent(s);
+    for (s of [G.stairs(lv, cx, cz), G.roof(lv, cx, cz), G.floor(lv, cx, cz)]) if (s && ent(s)) return ent(s);
+    return null;
+  }
+  // Stable API: why a piece cannot be taken down ('' if it can). Never removes dependants.
+  canRemove(id) {
+    const e = this.grid.ents.get(id); if (!e || e.dead) return 'Nothing built here.';
+    if (this.g.area?.id !== 'wilds') return 'Not here.';
+    if (isKit(e.type)) return removeWhy(this.grid, e.s);
+    return '';
+  }
+  // Stable API: take a piece down. The piece's kit comes back once; a chest's contents go back
+  // to your resources; a generated piece is remembered as taken, so it never regrows.
+  removePiece(id) {
+    const g = this.g, R = this.record, e = this.grid.ents.get(id), why = this.canRemove(id);
+    if (why) { sfx('error'); g.ui.toast('Cannot take this down', why, 1.8); return { ok: false, why }; }
+    if (e.type === 'chest') { const S = R.storage[e.id] || {}; let n = 0; for (const [k, v] of Object.entries(S)) { R.resources[k] = (R.resources[k] || 0) + v; n += v; } delete R.storage[e.id]; if (n) g.ui.toast('Chest emptied', n + ' resources went back to your pouch.', 1.8); }
+    if (e.gen) { const H = R.houses[e.gen] || (R.houses[e.gen] = { removed: {}, open: {} }); (H.removed || (H.removed = {}))[e.id] = true; }
+    else R.structures = R.structures.filter(s => s.id !== e.id);
+    R.kits = R.kits || {}; R.kits[e.type] = (R.kits[e.type] || 0) + 1; // the kit comes back whole
+    e.remove(); sfx('thud'); g.save(); this.ui && this.ui.refresh();
+    return { ok: true, why: '' };
+  }
+  demolish(tx, tz, lv = 0) { const t = this.pickTarget(tx + 0.5, tz + 0.5, lv); if (!t) { sfx('error'); return false; } return this.removePiece(t.s.id).ok; }
+  toggleDoor(p) {
+    const g = this.g, s = p.s;
+    if (s.open) { // closing: never on someone standing in the doorway
+      const leaf = p.colliders.find(c => c.leaf);
+      if (leaf && g.entities.some(e => !e.dead && (e.isPlayer || e.isEnemy) && Math.abs(e.x - leaf.x) < leaf.hw + (e.r || 0.3) && Math.abs(e.z - leaf.z) < leaf.hd + (e.r || 0.3) && spans(leaf.lo, leaf.hi, e.fy))) { sfx('error'); g.ui.toast('Someone is in the doorway', '', 1.2); return false; }
+    }
+    s.open = !s.open;
+    if (p.gen) { const H = this.record.houses[p.gen] || (this.record.houses[p.gen] = { removed: {}, open: {} }); (H.open || (H.open = {}))[s.id] = s.open; }
+    sfx('push'); g.save(); return true;
+  }
+  // Stable API: what the crafting UI can show for a piece id
+  pieceInfo(type) { const P = PIECES[type], K = KIT[type], r = RECIPES.find(x => x.gives === type); return P && { id: type, name: P.name, desc: P.desc, kind: P.kind, levels: P.levels, rotates: !!P.rotates, legacy: !!P.legacy, layer: K?.layer || 'furniture', cost: r ? { ...r.cost } : null, qty: r?.qty || 1, station: r?.station || null, recipe: r?.id || null }; }
+  // the ghost: the real model on the chosen level and rotation, green or red
+  updateGhost(b) {
+    const g = this.g, grid = this.grid;
+    if (b.type === 'demolish') {
+      const t = b.target, key = t ? 'd:' + t.s.id : '';
+      if (key !== b.look) { b.look = key; b.ghost.clear(); if (t) { const [x0, z0, x1, z1] = footprint(t.s), K = KIT[t.type], h = K ? ({ wall: 2, gable: 1.5, roof: 1.2, stairs: 2.1, post: 2, floor: 0.3 })[K.layer] : 1.1; const m = new THREE.Mesh(this.boxGeo || (this.boxGeo = new THREE.BoxGeometry(1, 1, 1)), b.mat); m.scale.set(Math.max(0.3, x1 - x0) + 0.1, h, Math.max(0.3, z1 - z0) + 0.1); m.position.set((x0 + x1) / 2, pieceBase(grid, t.s) + h / 2, (z0 + z1) / 2); b.ghost.add(m); } }
+      b.mat.color.setHex(b.ok ? 0xff8a5a : 0x777777); return;
+    }
+    const rec = b.rec; if (!rec) return;
+    let look;
+    if (isKit(rec.type)) { grid.skip = null; look = pieceLook(grid, rec); }
+    else { const k = 'f:' + rec.type; if (!(this.furnGeo || (this.furnGeo = {}))[k]) this.furnGeo[k] = geo(pieceParts(rec.type)); look = { geometry: this.furnGeo[k], yaw: (rec.r | 0) * Math.PI / 2, key: k + rec.r }; }
+    if (look.key !== b.look) { b.look = look.key; b.ghost.clear(); const m = new THREE.Mesh(look.geometry, b.mat); m.rotation.y = look.yaw; b.ghost.add(m); }
+    b.ghost.position.set(rec.x, pieceBase(grid, rec) + 0.02, rec.z);
+    b.mat.color.setHex(b.ok ? 0x7fd36a : 0xe8424f);
   }
   setHome(x, z, quiet) { const R = this.record; R.home = { x, z }; if (this.wilds) this.wilds.spawns.home = { x, z }; this.g.checkpoint = { area: 'wilds', spawn: 'home' }; if (!quiet) this.g.ui.toast('Home set', 'You will wake here, and the map marks the way back.', 2); }
   useStructure(s) {
@@ -255,6 +442,11 @@ export class SurvivalMode {
     this.hintCheck(); g.save();
   }
 
+  // generated houses you walk up to are marked on the map
+  houseCheck() {
+    const p = this.g.player; if (!p || !this.houses) return;
+    for (const [id, h] of this.houses) if (!this.record.discovered[id] && Math.hypot(p.x - h.x, p.z - h.z) < 9) this.discover({ id, type: 'house', x: h.x, z: h.z, name: h.name });
+  }
   // ---------------------------------------------------------------- guidance
   hintCheck() {
     const R = this.record, H = R.hints; if (H.done) return;
@@ -282,23 +474,35 @@ export class SurvivalMode {
   // ---------------------------------------------------------------- frame
   tick(dt) {
     if (!this.active) return;
-    const g = this.g, inp = g.input;
-    this.streamT -= dt; if (this.streamT <= 0) { this.streamT = 0.3; this.stream(); }
+    const g = this.g, inp = g.input; this.dt = dt;
+    this.streamT -= dt; if (this.streamT <= 0) { this.streamT = 0.3; this.stream(); this.houseCheck(); }
+    if (g.area?.id === 'wilds' && g.player) this.cut.update(g.player, dt);
     this.record.playTime = (this.record.playTime || 0) + dt;
     // a cave whose creatures are all down stays cleared
     if (g.area?.id === 'cave' && this.caveFoes && this.caveFoes.length && this.caveFoes.every(e => e.dead)) { const C = this.caveState(this.caveId); if (!C.cleared) { C.cleared = true; sfx('fanfare'); g.ui.banner && g.ui.banner('CAVE CLEARED', 'It stays quiet now', 2); g.save(); } this.caveFoes = []; }
     // building: the ghost follows the aim; click / C places, right click / X leaves build mode
-    const b = this.build;
+    const b = this.build, wheel = inp.wheel || 0; inp.wheel = 0;
     if (b) {
+      const P = PIECES[b.type], range = P?.levels || [0, 2];
+      // rotation: cells and furniture turn; walls flip which way a door swings
+      const turn = (inp.pressed('buildRotate') ? 1 : 0) + wheel;
+      if (turn && b.type !== 'demolish' && P.rotates) b.r = P.kind === 'edge' ? (b.r + 2) % 4 : ((b.r + Math.sign(turn)) % 4 + 4) % 4;
+      if (inp.pressed('buildUp')) b.lv = Math.min(b.type === 'demolish' ? 3 : range[1], b.lv + 1);
+      if (inp.pressed('buildDown')) b.lv = Math.max(b.type === 'demolish' ? 0 : range[0], b.lv - 1);
       const t = this.target(); b.tx = t.tx; b.tz = t.tz;
-      const why = b.type === 'demolish' ? (this.structureAt(t.tx, t.tz) ? '' : 'Nothing built here.') : this.placeCheck(b.type, t.tx, t.tz);
+      let why;
+      if (b.type === 'demolish') { b.target = this.pickTarget(t.x, t.z, b.lv); why = b.target ? this.canRemove(b.target.s.id) : 'Nothing built here on the ' + LEVEL_NAME(b.lv) + '.'; }
+      else { b.rec = this.recFor(b.type, t.x, t.z, b.lv, b.r); b.recAt = t.tx + ',' + t.tz; why = this.checkPiece(b.rec); }
       b.ok = !why; b.why = why;
-      b.ghost.position.set(t.tx + 0.5, (b.type === 'roof' ? 1.5 : b.type === 'floor' ? 0.06 : 0.6) + (g.tileGround ? g.tileGround(t.tx, t.tz) : 0), t.tz + 0.5);
-      b.ghost.material.color.setHex(b.type === 'demolish' ? (b.ok ? 0xff8a5a : 0x777777) : b.ok ? 0x7fd36a : 0xe8424f);
+      b.info = LEVEL_NAME(b.lv) + (b.type !== 'demolish' && P.rotates ? (P.kind === 'edge' ? (b.r >= 2 ? ' · swings in' : ' · swings out') : ' · facing ' + FACING[b.r]) : '') + ' · [ ] level' + (b.type !== 'demolish' && P.rotates ? ' · T / wheel rotate' : '');
+      this.updateGhost(b);
       if (inp.pressed('attack')) this.place();
-      if (inp.pressed('secondary')) this.endBuild();
-      inp.state.attack = false; inp.state.secondary = false; // no swinging while building
-      this.ui && this.ui.buildStatus(b);
+      // hold and sweep to lay a row of the same piece (each spot is checked and paid for once)
+      else if (inp.state.attack && b.type !== 'demolish' && b.ok && b.rec && slotKey(b.rec) !== b.lastKey && (b.dragT = (b.dragT || 0) + dt) > 0.1) { b.dragT = 0; this.place(); }
+      if (!inp.state.attack) b.dragT = 0;
+      if (this.build && inp.pressed('secondary')) this.endBuild();
+      inp.state.attack = false; inp.state.secondary = false; inp.state.surge = false; // no swinging while building
+      this.build && this.ui && this.ui.buildStatus(this.build);
     }
     if (inp.pressed('craft') && !g.locked()) this.ui && this.ui.toggleCraft();
   }
@@ -306,7 +510,7 @@ export class SurvivalMode {
   capture() {
     const g = this.g, R = this.record; if (!this.active || !g.inv) return;
     R.character = { cls: g.inv.cls, inv: copy({ ...g.inv, equip: { ...g.inv.equip } }) };
-    if (g.area?.id === 'wilds' && g.player) R.pos = { area: 'wilds', x: g.player.x, z: g.player.z };
+    if (g.area?.id === 'wilds' && g.player) R.pos = { area: 'wilds', x: g.player.x, z: g.player.z, fy: Math.round((g.player.fy || 0) * 100) / 100 };
     else if (g.area?.id === 'cave' && this.caveAt) R.pos = { area: 'wilds', x: this.caveAt.x, z: this.caveAt.z }; // resume at the cave mouth
   }
 }

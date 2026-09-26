@@ -32,7 +32,7 @@ export class SurvivalUI {
   buildStatus(b) {
     this.bar.classList.remove('hidden');
     const name = b.type === 'demolish' ? 'Take down' : PIECES[b.type].name, left = b.type === 'demolish' ? '' : ` · ${(this.m.record.kits || {})[b.type] || 0} left`;
-    const html = `<b>${esc(name)}</b>${left} — ${b.ok ? '<span class="ok">click or C to ' + (b.type === 'demolish' ? 'take it down (you keep the piece)' : 'place') + '</span>' : '<span class="no">' + esc(b.why) + '</span>'} · right click or X to stop`;
+    const html = `<b>${esc(name)}</b>${left}${b.info ? ' · ' + esc(b.info) : ''} — ${b.ok ? '<span class="ok">click or C to ' + (b.type === 'demolish' ? 'take it down (you keep the piece)' : 'place') + '</span>' : '<span class="no">' + esc(b.why) + '</span>'} · right click or X to stop`;
     if (this.bar.innerHTML !== html) this.bar.innerHTML = html;
   }
   // ---------------------------------------------------------------- crafting / building
@@ -42,8 +42,8 @@ export class SurvivalUI {
   renderPanel() {
     const m = this.m, R = m.record, kits = R.kits || {};
     const bench = m.nearStation('workbench');
-    const recipes = RECIPES.map(r => { const c = m.canCraft(r.id); return `<div class="sv-row ${c.ok ? '' : 'dim'}"><div><b>${esc(r.name)}</b>${r.station ? ` <small class="sv-tag">${bench ? 'workbench' : 'needs workbench'}</small>` : ''}<p>${esc(r.desc)}</p><p class="sv-cost">${cost(r.cost, R.resources)}</p></div><button type="button" data-act="craftit" data-id="${r.id}" ${c.ok ? '' : 'disabled'} title="${esc(c.why)}">Craft</button></div>`; }).join('');
-    const pieces = Object.keys(PIECES).map(k => `<div class="sv-row ${kits[k] > 0 ? '' : 'dim'}"><div><b>${esc(PIECES[k].name)}</b> <small>×${kits[k] || 0}</small><p>${esc(PIECES[k].desc)}</p></div><button type="button" data-act="place" data-id="${k}" ${kits[k] > 0 ? '' : 'disabled'}>Place</button></div>`).join('');
+    const recipes = RECIPES.filter(r => !r.legacy).map(r => { const c = m.canCraft(r.id); return `<div class="sv-row ${c.ok ? '' : 'dim'}"><div><b>${esc(r.name)}</b>${r.station ? ` <small class="sv-tag">${bench ? 'workbench' : 'needs workbench'}</small>` : ''}<p>${esc(r.desc)}</p><p class="sv-cost">${cost(r.cost, R.resources)}</p></div><button type="button" data-act="craftit" data-id="${r.id}" ${c.ok ? '' : 'disabled'} title="${esc(c.why)}">Craft</button></div>`; }).join('');
+    const pieces = Object.keys(PIECES).filter(k => !PIECES[k].legacy || kits[k] > 0).map(k => `<div class="sv-row ${kits[k] > 0 ? '' : 'dim'}"><div><b>${esc(PIECES[k].name)}</b> <small>×${kits[k] || 0}</small><p>${esc(PIECES[k].desc)}</p></div><button type="button" data-act="place" data-id="${k}" ${kits[k] > 0 ? '' : 'disabled'}>Place</button></div>`).join('');
     this.panel.innerHTML = `<header><h2>Camp craft</h2><div class="sv-tabs"><button type="button" data-tab="craft" class="${this.tab === 'craft' ? 'on' : ''}">Craft</button><button type="button" data-tab="build" class="${this.tab === 'build' ? 'on' : ''}">Build</button></div><button type="button" data-act="close" aria-label="Close">✕</button></header>
       <div class="sv-have">${RESOURCES.map(r => `<span>${ICON[r]} ${NAME[r]} <b>${R.resources[r]}</b></span>`).join('')}</div>
       <div class="sv-list">${this.tab === 'craft' ? recipes : pieces + `<div class="sv-row"><div><b>Take down a piece</b><p>Point at something you built. You get the piece back (chests empty into your resources).</p></div><button type="button" data-act="place" data-id="demolish">Take down</button></div>`}</div>

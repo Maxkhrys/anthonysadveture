@@ -5,6 +5,8 @@ import { Entity } from '../entities/entity.js';
 import { geo, B, MAT, MAT_GLOW } from '../models.js';
 import { sfx } from '../engine/audio.js';
 import { hash2 } from '../engine/util.js';
+import { KIT } from './kit.js';
+import { pieceBase, spans } from './houses.js';
 
 // ------------------------------------------------------------------ gatherable nodes
 // Every class gathers with its normal weapon: one strike is one unit of work (two for heavy
@@ -113,18 +115,22 @@ export class Pickup extends Entity {
 }
 
 // ------------------------------------------------------------------ placed structures
+// The build registry, by stable id: the modular house kit (kit.js) first, then furniture
+// (1-tile, any level with a floor), then the first pass's 1-tile pieces, kept so older worlds
+// load and old kits can still be placed (legacy: no longer crafted).
 export const PIECES = {
-  floor: { name: 'Wooden floor', solid: false, desc: 'A plank floor tile. Walkable.' },
-  wall: { name: 'Wooden wall', solid: true, desc: 'A solid wall tile.' },
-  stonewall: { name: 'Stone wall', solid: true, desc: 'A sturdier-looking wall tile.' },
-  door: { name: 'Doorway', solid: false, desc: 'A framed opening you can walk through.' },
-  roof: { name: 'Thatch roof', solid: false, desc: 'A roof tile. It fades when you stand under it.' },
-  campfire: { name: 'Campfire', solid: true, station: true, desc: 'Rest here to heal and set your home.' },
-  workbench: { name: 'Workbench', solid: true, station: true, desc: 'Unlocks building recipes within a few steps.' },
-  chest: { name: 'Storage chest', solid: true, desc: 'Keeps resources safe at camp.' },
-  torch: { name: 'Torch', solid: false, desc: 'A little light at night.' },
+  ...Object.fromEntries(Object.entries(KIT).map(([id, K]) => [id, { name: K.name, solid: !!K.solid, desc: K.desc, kit: true, kind: K.kind, levels: K.levels, rotates: !!K.rotates || !!K.door }])),
+  campfire: { name: 'Campfire', solid: true, station: true, kind: 'tile', levels: [0, 0], desc: 'Rest here to heal and set your home. Ground or stone only.' },
+  workbench: { name: 'Workbench', solid: true, station: true, kind: 'tile', levels: [0, 2], rotates: true, desc: 'Unlocks building recipes within a few steps.' },
+  chest: { name: 'Storage chest', solid: true, kind: 'tile', levels: [0, 2], rotates: true, desc: 'Keeps resources safe at camp.' },
+  torch: { name: 'Torch', solid: false, kind: 'tile', levels: [0, 2], desc: 'A little light at night.' },
+  floor: { name: 'Wooden floor tile', solid: false, legacy: true, kind: 'tile', levels: [0, 0], desc: 'An old 1-tile plank floor.' },
+  wall: { name: 'Wooden wall block', solid: true, legacy: true, kind: 'tile', levels: [0, 0], desc: 'An old 1-tile wall block.' },
+  stonewall: { name: 'Stone wall block', solid: true, legacy: true, kind: 'tile', levels: [0, 0], desc: 'An old 1-tile stone block.' },
+  door: { name: 'Doorway frame', solid: false, legacy: true, kind: 'tile', levels: [0, 0], desc: 'An old 1-tile doorway.' },
+  roof: { name: 'Thatch roof tile', solid: false, legacy: true, kind: 'tile', levels: [0, 0], desc: 'An old 1-tile roof. It fades when you stand under it.' },
 };
-function pieceParts(type) {
+export function pieceParts(type) {
   switch (type) {
     case 'floor': return [B(1, 0.08, 1, 0, 0, 0, 0xa8784a), B(0.96, 0.02, 0.05, 0, 0.08, -0.25, 0x8a5e36), B(0.96, 0.02, 0.05, 0, 0.08, 0.25, 0x8a5e36)];
     case 'wall': return [B(1, 1.3, 0.9, 0, 0, 0, 0x9a6a3a), B(1.02, 0.12, 0.94, 0, 1.3, 0, 0x7a5230), B(0.12, 1.3, 0.94, -0.44, 0, 0, 0x7a5230), B(0.12, 1.3, 0.94, 0.44, 0, 0, 0x7a5230)];
@@ -139,11 +145,12 @@ function pieceParts(type) {
 }
 export class Structure extends Entity {
   constructor(g, s, owner) {
-    super(g, s.x, s.z); this.s = s; this.id = s.id; this.type = s.type; this.owner = owner; this.P = PIECES[s.type];
+    super(g, s.x, s.z); this.s = s; this.id = s.id; this.type = s.type; this.owner = owner; this.P = PIECES[s.type]; this.lv = s.lv | 0;
     this.solid = this.P.solid; this.hw = this.hd = s.type === 'campfire' || s.type === 'chest' ? 0.42 : 0.5; this.isStructure = true;
+    if (owner.grid) { owner.grid.add(s, this); this.fy = pieceBase(owner.grid, s); } else this.fy = 0; // stands on the floor of its level
     this.interactable = ['campfire', 'workbench', 'chest'].includes(s.type);
     if (s.type === 'roof') { this.mat = new THREE.MeshLambertMaterial({ color: 0xc8a050, transparent: true, opacity: 1 }); const m = new THREE.Mesh(geo([B(1.1, 0.14, 1.1, 0, 0, 0, 0xffffff), B(0.8, 0.14, 0.8, 0, 0.14, 0, 0xffffff)]), this.mat); m.position.y = 1.45; this.obj.add(m); }
-    else { const m = new THREE.Mesh(geo(pieceParts(s.type)), MAT); m.castShadow = true; this.obj.add(m); }
+    else { const m = new THREE.Mesh(geo(pieceParts(s.type)), MAT); m.castShadow = true; m.rotation.y = (s.r | 0) * Math.PI / 2; this.obj.add(m); }
     if (s.type === 'campfire' || s.type === 'torch') {
       this.flame = new THREE.Mesh(geo([B(0.22, 0.3, 0.22, 0, 0, 0, 0xffb347), B(0.12, 0.2, 0.12, 0, 0.24, 0, 0xfff0a0)]), MAT_GLOW, false); this.flame.position.y = s.type === 'torch' ? 1.0 : 0.12; this.obj.add(this.flame);
       if (owner.lightsInUse < 6) { owner.lightsInUse++; this.light = new THREE.PointLight(0xffa050, s.type === 'torch' ? 1.4 : 2.4, s.type === 'torch' ? 4 : 6, 1.6); this.light.position.y = 1.2; this.obj.add(this.light); }
@@ -151,7 +158,10 @@ export class Structure extends Entity {
   }
   get prompt() { return { campfire: 'Rest · set home here', workbench: 'Craft at the workbench', chest: 'Open storage' }[this.type] || null; }
   interact() { this.owner.useStructure(this); }
-  remove() { if (this.light) this.owner.lightsInUse--; super.remove(); }
+  // storey-aware: furniture blocks walkers on its own floor only
+  solidFor(e) { return spans(this.fy, this.fy + 1.1, e && e.fy); }
+  setVis(v) { this.obj.scale.y = Math.max(0.001, v); this.obj.visible = v > 0.02; }
+  remove() { if (this.light) this.owner.lightsInUse--; if (this.owner.grid) this.owner.grid.remove(this.s); super.remove(); }
   update(dt) {
     if (this.flame) { this.flame.scale.y = 0.85 + Math.sin(this.g.time * 12 + this.x) * 0.15; if (Math.random() < 0.15) this.g.fx.add({ x: this.x, y: this.flame.position.y + 0.3, z: this.z, vy: 1, g: -1, color: 0xffb347, life: 0.5, size: 0.04 }); }
     if (this.mat) { const p = this.g.player, near = Math.abs(p.x - this.x) < 1.6 && Math.abs(p.z - this.z) < 1.6; this.mat.opacity += ((near ? 0.25 : 1) - this.mat.opacity) * Math.min(1, dt * 8); this.mat.depthWrite = this.mat.opacity > 0.9; }
@@ -187,5 +197,6 @@ export class LootCache extends Entity {
     if (owner.isOpened(this.id)) this.lid.rotation.x = -1.4;
   }
   get prompt() { return this.owner.isOpened(this.id) ? null : 'Open'; }
+  setVis(v) { this.obj.scale.y = Math.max(0.001, v); this.obj.visible = v > 0.02; }
   interact() { if (this.owner.isOpened(this.id)) return; this.lid.rotation.x = -1.4; this.owner.openCache(this); }
 }

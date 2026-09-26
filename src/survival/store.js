@@ -29,7 +29,8 @@ export function newWorld({ name, cls, seed }) {
     pos: { area: 'wilds', x: null, z: null }, home: null,
     resources: Object.fromEntries(RESOURCES.map(r => [r, 0])),
     removed: {},                        // node id -> true (felled trees, mined rocks)
-    structures: [],                     // {id, type, x, z}
+    structures: [],                     // {id, type, x, z, lv?, r?, open?}  (lv: storey, r: quarter turns)
+    houses: {},                         // generated house id -> {removed:{pieceId:true}, open:{pieceId:bool}, suppressed?}
     storage: {},                        // structure id -> {resource: n}
     opened: {},                         // loot chests already opened
     discovered: {},                     // poi id -> {type, x, z, name}
@@ -46,6 +47,21 @@ export function normalizeWorld(w) {
   if (!CLASSES[out.character.cls]) out.character.cls = 'samurai';
   for (const r of RESOURCES) out.resources[r] = Math.max(0, Math.floor(+out.resources[r] || 0));
   if (!Array.isArray(out.structures)) out.structures = [];
+  // pieces from before modular houses have no level or rotation: they are ground-floor, unturned.
+  // A record that cannot be rebuilt (no type or position) is set aside, never deleted.
+  const keep = [], broken = [];
+  out.structures.forEach((s, i) => {
+    if (!s || typeof s !== 'object' || typeof s.type !== 'string' || !Number.isFinite(+s.x) || !Number.isFinite(+s.z)) { broken.push(s); return; }
+    const o = { ...s, x: +s.x, z: +s.z, id: s.id ? String(s.id) : 'old' + i };
+    const lv = Math.max(0, Math.min(2, Math.floor(+o.lv || 0))), r = ((Math.floor(+o.r || 0) % 4) + 4) % 4;
+    if (lv) o.lv = lv; else delete o.lv; if (r) o.r = r; else delete o.r;
+    if (o.open !== undefined) o.open = !!o.open;
+    keep.push(o);
+  });
+  out.structures = keep; if (broken.length) out.brokenStructures = [...(Array.isArray(w.brokenStructures) ? w.brokenStructures : []), ...broken];
+  if (!out.houses || typeof out.houses !== 'object' || Array.isArray(out.houses)) out.houses = {};
+  if (out.kits && typeof out.kits === 'object') for (const k of Object.keys(out.kits)) out.kits[k] = Math.max(0, Math.floor(+out.kits[k] || 0));
+  if (out.pos && out.pos.fy !== undefined) out.pos = { ...out.pos, fy: Math.max(0, Math.min(8, +out.pos.fy || 0)) };
   if (!Array.isArray(out.explored)) out.explored = [];
   out.genVersion ??= 1; // older than versioning: the first generator
   return out;
