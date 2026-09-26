@@ -216,4 +216,63 @@ export default async function(page, R) {
 
   R.ok(allitemsCheck.creativeOpen, '/allitems unlocks creative armoury catalogue in bag');
   R.ok(allitemsCheck.granted && allitemsCheck.addedToBag, 'creative cheat allows pulling items into inventory bag');
+
+  // 10. Hotbar Icon Centering & Mouse Wheel Slot Scrolling
+  const wheelAndIconCheck = await page.evaluate(async () => {
+    const g = __game;
+    const m = g.survival;
+    const hud = document.getElementById('sv-hud');
+
+    const { makeNamed } = await import('/src/rpg/items.js');
+    const { reconcileBelt, selectBelt } = await import('/src/survival/fieldkit.js');
+
+    const w1 = g.inv.equip.weapon;
+    let w2 = g.inv.bag.find(i => i.slot === 'weapon' && i.itemInstanceId !== w1?.itemInstanceId);
+    if (!w2) {
+      w2 = makeNamed('katana', g.inv.level || 1);
+      w2.itemInstanceId = crypto.randomUUID();
+      g.inv.bag.push(w2);
+    }
+    const belt = reconcileBelt(m.record, g);
+    belt.slots[0] = w1.itemInstanceId;
+    belt.slots[1] = w2.itemInstanceId;
+    m.ui.refresh();
+
+    // Verify icon sizing / bounding inside button
+    const firstBtn = hud.querySelector('.field-belt button[data-belt="0"]');
+    const firstImg = firstBtn?.querySelector('img.belt-icon');
+    const btnRect = firstBtn?.getBoundingClientRect();
+    const imgRect = firstImg?.getBoundingClientRect();
+
+    const iconInside = !!(firstImg && btnRect && imgRect &&
+      imgRect.top >= btnRect.top - 2 &&
+      imgRect.bottom <= btnRect.bottom + 2 &&
+      imgRect.width <= 40 && imgRect.height <= 40);
+
+    // Ensure player is in move state and slot 0 is equipped
+    g.player.state = 'move';
+    g.player.reload = false;
+    g.player.barrage = false;
+    g.player.targeting = false;
+    g.player.gunCd = 0;
+    selectBelt(g, 0);
+
+    // Scroll down: cycleBelt(1) -> slot 1
+    window.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true }));
+    const cycledForward = g.inv.equip.weapon?.itemInstanceId === belt.slots[1];
+
+    // Wait past throttle interval (75ms)
+    await new Promise(r => setTimeout(r, 90));
+
+    // Scroll up: cycleBelt(-1) -> slot 0
+    window.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, bubbles: true }));
+    const cycledBackward = g.inv.equip.weapon?.itemInstanceId === belt.slots[0];
+
+    return { iconInside, cycledForward, cycledBackward };
+  });
+
+  R.ok(wheelAndIconCheck.iconInside, 'hotbar icons are properly contained inside hotbar slot buttons without overhanging');
+  R.ok(wheelAndIconCheck.cycledForward, 'mouse wheel scroll down cycles to next equipped weapon in hotbar');
+  R.ok(wheelAndIconCheck.cycledBackward, 'mouse wheel scroll up cycles to previous equipped weapon in hotbar');
 }
+

@@ -28,7 +28,45 @@ export class SurvivalUI {
       if(e.target.closest('[data-act="craft"]'))this.openCraft();
       if(e.target.closest('[data-act="buildwheel"]'))this.openBuildWheel();
     });
+    let lastWheel = 0;
+    const handleWheel = e => {
+      if (!this.m?.active || this.g.dead || this.g.locked()) return;
+      if (this.g.ui?.invOpen || this.open || this.wheel?.isOpen) return;
+      if (document.querySelector('.screen:not(.hidden):not(#title)') || document.querySelector('#dialog:not(.hidden)')) return;
+      if (e.target.closest?.('#pause, #inventory, #chat, #devlab, .sv-sheet, #sv-panel, #sv-chest, textarea, input, select')) return;
+      const now = performance.now();
+      if (now - lastWheel < 75) return;
+      lastWheel = now;
+      const d = e.deltaY > 0 ? 1 : -1;
+      this.cycleBelt(d);
+    };
+    window.addEventListener('wheel', handleWheel, { passive: true });
+    this.hud.addEventListener('wheel', e => {
+      e.preventDefault();
+      const now = performance.now();
+      if (now - lastWheel < 75) return;
+      lastWheel = now;
+      const d = e.deltaY > 0 ? 1 : -1;
+      this.cycleBelt(d);
+    }, { passive: false });
     this.panel.addEventListener('change',e=>{if(e.target.matches('[data-quantity]')){this.quantity=Math.max(1,Math.min(99,Math.floor(+e.target.value)||1));this.renderPanel();}});
+  }
+  cycleBelt(dir = 1) {
+    if (!this.m?.active || this.g.dead || this.g.locked()) return false;
+    const p = this.g.player;
+    if (p && (p.state !== 'move' || p.reload || p.barrage || p.targeting || p.gunCd > 0)) {
+      return false;
+    }
+    const b = reconcileBelt(this.m.record, this.g);
+    const current = b.slots.indexOf(this.g.inv.equip.weapon?.itemInstanceId);
+    const start = current >= 0 ? current : 0;
+    for (let n = 1; n <= 8; n++) {
+      const i = (start + dir * n + 80) % 8;
+      if (b.slots[i]) {
+        return selectBelt(this.g, i);
+      }
+    }
+    return false;
   }
   get open() { return !this.panel.classList.contains('hidden') || !this.chest.classList.contains('hidden'); }
   show() { this.hud.classList.remove('hidden'); this.refresh(); }
@@ -38,7 +76,7 @@ export class SurvivalUI {
     const anyModal = this.open || this.g.ui?.invOpen || !document.getElementById('pause')?.classList.contains('hidden') || !document.getElementById('inventory')?.classList.contains('hidden') || !document.getElementById('shop')?.classList.contains('hidden') || !document.getElementById('craft')?.classList.contains('hidden') || this.g.mode === 'pause';
     this.hud.classList.toggle('hidden', anyModal);
     const belt=reconcileBelt(R,this.g),items=availableItems(this.g),tracked=RECIPES.find(r=>r.id===R.trackedRecipe);
-    const html=`<div class="field-belt" role="toolbar" aria-label="Quick weapon belt">${belt.slots.map((id,i)=>{const it=items.find(x=>x.itemInstanceId===id);return `<button type="button" data-belt="${i}" ${it?'':'disabled'} class="${it===this.g.inv.equip.weapon?'selected':''}" aria-label="${esc(it?it.name:'Empty belt slot '+(i+1))}" aria-pressed="${it===this.g.inv.equip.weapon}" title="${esc(it?.name||'New weapons fill empty slots')}"><small>${i+1}</small>${it?`<img src="${itemIconURL(it)}" alt="">`:'<span>·</span>'}</button>`;}).join('')}<button type="button" class="belt-action-btn" data-act="buildwheel" title="Radial Build Wheel (B)"><span class="belt-btn-icon">🔨</span><span>Build</span><kbd>B</kbd></button><button type="button" class="belt-action-btn" data-act="craft" title="Crafting Workshop (G)"><span class="belt-btn-icon">⚒️</span><span>Craft</span><kbd>${this.g.input.usingPad?'↓':'G'}</kbd></button></div><div class="belt-caption">${esc(this.g.inv.equip.weapon?.name||'Field belt')} · ${this.g.input.usingPad?'← / → or RB':'[ / ]'} switch</div>${tracked?`<div class="tracked-recipe"><b>${esc(tracked.name)}</b> ${Object.entries(tracked.cost).map(([k,v])=>`${NAME[k]} ${Math.min(R.resources[k],v)}/${v}`).join(' · ')}${tracked.station&&!this.m.nearStation(tracked.station)?' · Needs '+esc(PIECES[tracked.station]?.name||tracked.station):''}</div>`:''}`;
+    const html=`<div class="field-belt" role="toolbar" aria-label="Quick weapon belt">${belt.slots.map((id,i)=>{const it=items.find(x=>x.itemInstanceId===id);return `<button type="button" data-belt="${i}" ${it?'':'disabled'} class="${it===this.g.inv.equip.weapon?'selected':''}" aria-label="${esc(it?it.name:'Empty belt slot '+(i+1))}" aria-pressed="${it===this.g.inv.equip.weapon}" title="${esc(it?.name||'New weapons fill empty slots')}"><small>${i+1}</small>${it?`<img class="belt-icon" src="${itemIconURL(it)}" alt="${esc(it.name)}">`:'<span class="belt-slot-empty">·</span>'}</button>`;}).join('')}<button type="button" class="belt-action-btn" data-act="buildwheel" title="Radial Build Wheel (B)"><span class="belt-btn-icon">🔨</span><span>Build</span><kbd>B</kbd></button><button type="button" class="belt-action-btn" data-act="craft" title="Crafting Workshop (G)"><span class="belt-btn-icon">⚒️</span><span>Craft</span><kbd>${this.g.input.usingPad?'↓':'G'}</kbd></button></div><div class="belt-caption">${esc(this.g.inv.equip.weapon?.name||'Field belt')} · Scroll or ${this.g.input.usingPad?'← / → or RB':'[ / ]'} switch</div>${tracked?`<div class="tracked-recipe"><b>${esc(tracked.name)}</b> ${Object.entries(tracked.cost).map(([k,v])=>`${NAME[k]} ${Math.min(R.resources[k],v)}/${v}`).join(' · ')}${tracked.station&&!this.m.nearStation(tracked.station)?' · Needs '+esc(PIECES[tracked.station]?.name||tracked.station):''}</div>`:''}`;
     if(this.hud.innerHTML!==html)this.hud.innerHTML=html;
     if (!this.panel.classList.contains('hidden')) this.renderPanel();
     if (!this.m.build || anyModal) this.bar.classList.add('hidden');
@@ -61,7 +99,7 @@ export class SurvivalUI {
     row.querySelector('button').onclick=()=>{if(it?.slot!=='weapon')return;const belt=reconcileBelt(this.m.record,this.g),slot=+row.querySelector('select').value,old=belt.slots.indexOf(it.itemInstanceId),displaced=belt.slots[slot];if(old>=0)belt.slots[old]=displaced;belt.slots[slot]=it.itemInstanceId;this.g.save();this.refresh();this.g.ui.toast('Assigned to belt '+(slot+1),it.name,1.2);};
   }
   gather(node,done){if(!this.gatherEl){this.gatherEl=document.createElement('div');this.gatherEl.id='gather-progress';document.getElementById('ui').append(this.gatherEl);}this.gatherEl.hidden=false;this.gatherEl.textContent=node.D.name+' · '+(done?'Gathered':Math.max(0,node.hp)+' / '+node.D.hp+' remaining');this.gatherT=1.6;}
-  tick(dt){if(!this.m.active)return;if(this.wheel?.isOpen)this.wheel.tick(dt);if(this.gatherEl){this.gatherT-=dt;this.gatherEl.hidden=this.gatherT<=0;}this.poll=(this.poll||0)-dt;if(this.poll<=0){this.poll=.25;this.refresh();}const I=this.g.input;if(I.pressed('beltNext')||I.pressed('beltPrev')){const b=reconcileBelt(this.m.record,this.g),current=b.slots.indexOf(this.g.inv.equip.weapon?.itemInstanceId),d=I.pressed('beltNext')?1:-1;for(let n=1;n<=8;n++){const i=(Math.max(0,current)+d*n+80)%8;if(b.slots[i]){selectBelt(this.g,i);break;}}}}
+  tick(dt){if(!this.m.active)return;if(this.wheel?.isOpen)this.wheel.tick(dt);if(this.gatherEl){this.gatherT-=dt;this.gatherEl.hidden=this.gatherT<=0;}this.poll=(this.poll||0)-dt;if(this.poll<=0){this.poll=.25;this.refresh();}const I=this.g.input;if(I.pressed('beltNext'))this.cycleBelt(1);if(I.pressed('beltPrev'))this.cycleBelt(-1);}
   decorate(){
     const ui=this.g.ui,host=document.querySelector('.inv-panel');if(!host)return;
     let nav=document.getElementById('field-tabs');if(!nav){nav=document.createElement('nav');nav.id='field-tabs';nav.setAttribute('aria-label','Survival inventory');host.querySelector('#inv-bag').before(nav);nav.innerHTML=['equipment','materials','craft','build'].map(t=>`<button type="button" data-field="${t}">${{equipment:'Equipment',materials:'Materials',craft:'Crafting',build:'Building'}[t]}</button>`).join('');nav.onclick=e=>{const b=e.target.closest('[data-field]');if(!b)return;if(b.dataset.field==='equipment'){this.closeAll();ui.renderInventory();}else this.openCraft(null,b.dataset.field);};}
@@ -136,12 +174,20 @@ export class SurvivalUI {
           return `
             <button type="button" class="sv-belt-slot ${isEq ? 'selected' : ''}" data-belt-slot="${i}" title="${esc(it ? it.name + ' (Slot ' + (i + 1) + ')' : 'Empty Hotbar Slot ' + (i + 1))}">
               <span class="sv-belt-num">${i + 1}</span>
-              ${it ? `<img src="${itemIconURL(it)}" alt="${esc(it.name)}"><span class="sv-belt-title">${esc(it.name)}</span>` : `<span class="sv-belt-empty">·</span>`}
+              ${it ? `<img class="sv-belt-icon" src="${itemIconURL(it)}" alt="${esc(it.name)}"><span class="sv-belt-title">${esc(it.name)}</span>` : `<span class="sv-belt-empty">·</span>`}
             </button>
           `;
         }).join('')}
       </div>
     `;
+
+    hotbar.onwheel = e => {
+      e.preventDefault();
+      const d = e.deltaY > 0 ? 1 : -1;
+      this.cycleBelt(d);
+      this.refresh();
+      this.g.ui.renderInventory();
+    };
 
     hotbar.querySelectorAll('[data-belt-slot]').forEach(btn => {
       btn.onclick = () => {
