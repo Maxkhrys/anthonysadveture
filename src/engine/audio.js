@@ -66,6 +66,15 @@ const SFX = {
   chainsnap:()=>{tone(1400,.05,{type:'square',vol:.08,slide:.5});noise(.05,{freq:4200,vol:.14,q:3});},
   explode:()=>{noise(.5,{freq:300,vol:.32,slide:.3,type:'lowpass'});tone(60,.4,{slide:.4,vol:.2});},
   // material hits (small) and deaths (fuller)
+  gathertree:()=>{tone(160,.08,{type:'triangle',vol:.14,slide:.6});noise(.065,{freq:1200,vol:.14,q:1});},
+  gatherrock:()=>{tone(730,.06,{type:'triangle',vol:.1,slide:.7});noise(.06,{freq:2700,vol:.12});},
+  gatherore:()=>{tone(1200,.13,{type:'sine',vol:.1,slide:.8});noise(.045,{freq:3400,vol:.1});},
+  gathershrub:()=>noise(.1,{freq:2600,vol:.12,q:.7}),
+  gathercrystal:()=>{tone(1800,.18,{type:'sine',vol:.09});tone(2400,.1,{type:'triangle',vol:.05,delay:.025});},
+  gatherbreakwood:()=>{noise(.22,{freq:650,vol:.19,slide:.5});tone(90,.18,{type:'triangle',vol:.12,slide:.5});},
+  gatherbreakstone:()=>{noise(.25,{freq:1500,vol:.17,slide:.35});tone(210,.13,{type:'triangle',vol:.09,slide:.6});},
+  gatherbreakcrystal:()=>{tone(2100,.3,{type:'sine',vol:.1,slide:1.2});noise(.18,{freq:5300,vol:.1});},
+  gatherpickup:()=>{tone(650,.065,{type:'sine',vol:.075});tone(980,.08,{type:'sine',vol:.06,delay:.035});},
   hitflesh:()=>{noise(.07,{freq:700,vol:.12,q:1.5});tone(140,.06,{slide:.6,vol:.07});},
   hitplant:()=>{noise(.08,{freq:1800,vol:.1,q:2});tone(300,.05,{type:'triangle',vol:.05,slide:.7});},
   hitstone:()=>{tone(900,.08,{type:'triangle',vol:.1,slide:.7});noise(.05,{freq:3200,vol:.1});},
@@ -170,7 +179,7 @@ const SFX = {
 const played=new Map();
 // Repetition gaps per sound, and a small voice budget: at most VOICES effects start in any 60 ms,
 // so a crowd of procs cannot bury the player's decisive hit (priority sounds skip the budget).
-const GAPS = {hit:.065,heavyhit:.1,crit:.14,zap:.1,shatter:.2,snap:.09,gunrifle:.075,enemydie:.09,elitewarn:.3,lootbell:1,lash:.09,lash2:.1,chainpull:.15,bolt:.1,ember:.1,
+const GAPS = {gathertree:.12,gatherrock:.12,gatherore:.12,gathershrub:.12,gathercrystal:.12,gatherbreakwood:.2,gatherbreakstone:.2,gatherbreakcrystal:.2,gatherpickup:.09,hit:.065,heavyhit:.1,crit:.14,zap:.1,shatter:.2,snap:.09,gunrifle:.075,enemydie:.09,elitewarn:.3,lootbell:1,lash:.09,lash2:.1,chainpull:.15,bolt:.1,ember:.1,
   castfire:.12,hitfire:.1,castfrost:.12,hitfrost:.09,castlightning:.1,hitlightning:.12,casthex:.15,hithex:.12,soulrelease:.25,chainsnap:.1,explode:.18,hitflesh:.08,hitplant:.08,hitstone:.08,hitshell:.08,hitspirit:.1,diestone:.12,dieshatter:.15,diespirit:.2,droprare:.4,droplegend:.8,dropprism:1};
 const PRIORITY = new Set(['hurt','parry','crit','heavyhit','levelbell','skillpoint','droplegend','dropprism','bossdie','fanfare','elitewarn','error','select']);
 const VOICES = 7; let voiceT = 0, voiceN = 0;

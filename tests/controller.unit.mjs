@@ -1,0 +1,9 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {deadzone,readPad,padActions} from '../src/engine/controller.js';
+import {reconcileBelt,selectBelt} from '../src/survival/fieldkit.js';
+const pad=(ids=[],axes=[0,0,0,0])=>readPad({axes,buttons:Array.from({length:17},(_,i)=>({pressed:ids.includes(i),value:ids.includes(i)?1:0}))});
+test('radial deadzone removes drift and caps diagonal motion',()=>{assert.deepEqual(deadzone(.1,.1),[0,0]);assert.ok(Math.abs(Math.hypot(...deadzone(1,1))-1)<1e-9);assert.ok(deadzone(.5,0)[0]>0);});
+test('standard layout exposes combat, reload, belt and menu without collisions',()=>{for(const [id,key]of [[0,'interact'],[1,'roll'],[2,'attack'],[3,'reload'],[4,'shield'],[5,'beltNext'],[7,'secondary'],[8,'inventory'],[9,'pause'],[10,'item'],[11,'surge'],[12,'potion'],[13,'craft'],[14,'beltPrev'],[15,'beltNext']])assert.equal(padActions(pad([id]))[key],true);});
+test('LT layer suppresses ordinary actions and exposes six abilities',()=>{[2,3,1,0,4,5].forEach((id,i)=>{const s=padActions(pad([6,id]));assert.equal(s['ab'+(i+1)],true);for(const k of ['attack','roll','reload','shield','beltNext','interact'])assert.ok(!s[k]);});});
+test('belt validates saved references, deduplicates and never modifies item rolls',()=>{const a={slot:'weapon',itemInstanceId:'a',stats:{dmg:19}},b={slot:'weapon',itemInstanceId:'b'},g={inv:{equip:{weapon:a},bag:[b]}};const before=JSON.stringify(g.inv),r={fieldKit:{slots:['a','a','missing'],selected:999}};const belt=reconcileBelt(r,g);assert.equal(belt.slots.length,8);assert.deepEqual(belt.slots.slice(0,2),['a','b']);assert.equal(belt.selected,7);assert.equal(JSON.stringify(g.inv),before);});
+test('belt rejects busy weapon switches without equipment changes',()=>{const g={survival:{active:true,ui:{open:false}},ui:{invOpen:false,toast(){}},locked:()=>false,player:{state:'move',reload:{}},inv:{}};assert.equal(selectBelt(g,0),false);});

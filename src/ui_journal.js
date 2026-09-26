@@ -86,6 +86,7 @@ export function installJournalUI(UI) {
     hotbar.call(this);
     (this._slots || []).forEach((el,i) => {
       const S = SKILLS[this.g.inv.loadout[i]];
+      const key=el.querySelector('b');if(key)key.textContent=glyph('ab'+(i+1));
       el.title = S ? `${glyph('ab'+(i+1))} · ${S.name}\n${S.desc}\n${costLabel(this.g.inv.cls, S.cost)} · ${S.cd}s cooldown\nClick to edit loadout` : `Slot ${i+1} · Click to assign an ability`;
       el.tabIndex = 0; el.setAttribute('role','button'); el.setAttribute('aria-label', el.title);
       el.onclick = () => { this.treeSlot = i; if (S) this.treeSel = this.g.inv.loadout[i]; this.navigate?.('skills'); };
@@ -103,6 +104,10 @@ export function installJournalUI(UI) {
       $('slot-potion').title = `Tonic (${glyph('potion')})`;
       $('title').querySelector('.foot').textContent = 'WASD move · Mouse aim / attack · Q guard · Space dodge · F interact · H tonic · E inventory · K skills · J journal · M map';
     }
+    $('slot-potion').querySelector('b').textContent=glyph('potion');
+    $('slot-item').querySelector('b').textContent=glyph('item');
+    $('surge').querySelector('span').textContent=glyph('surge');
+    for(const [page,action]of [['bag','inventory'],['skills','skills'],['quests','journal'],['map','map']]){$('hud-links').querySelector(`[data-page="${page}"] kbd`).textContent=glyph(action);}
     const inv = this.g.inv, C = CLASSES[inv.cls], plaque = $('hero-plaque');
     // the profile portrait is the player's own character (redrawn when the look or headgear changes)
     const eq = inv.equip || {}, pk = [inv.cls, JSON.stringify(inv.appearance || {}), eq.helm?.base || eq.head?.base || '', eq.armor?.base || eq.chest?.base || ''].join('|');

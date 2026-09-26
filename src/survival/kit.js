@@ -133,6 +133,12 @@ function stairParts(rise) {
   P.push(B(1.8, 0.08, 0.08, 0, rise + 0.9, -0.94, TIMBER), B(1.8, 0.06, 0.06, 0, rise + 0.45, -0.94, TIMBER_D));
   return P;
 }
+// the raw box list of a kit piece (for thumbnails and other views of the same model)
+export function kitParts(type, variant) {
+  if (type === 'timber_gable') return gableParts(variant || 'up');
+  if (type === 'timber_stairs') return stairParts(variant ?? (STOREY + FLOOR_T));
+  return (PARTS[type === 'timber_door' ? 'timber_doorway' : type] || (() => []))();
+}
 export function doorLeafGeo() { return cached('doorleaf', () => [B(0.94, 1.58, 0.08, 0.47, 0.02, 0, DOOR), B(0.04, 1.5, 0.1, 0.25, 0.06, 0, TIMBER_D), B(0.04, 1.5, 0.1, 0.7, 0.06, 0, TIMBER_D), B(0.9, 0.08, 0.1, 0.47, 0.4, 0, TIMBER_D), B(0.9, 0.08, 0.1, 0.47, 1.3, 0, TIMBER_D), B(0.06, 0.06, 0.14, 0.82, 0.8, 0, 0xd8b050)]); }
 export function kitGeo(type, variant) {
   if (type === 'timber_gable') return cached('gable:' + (variant || 'up'), () => gableParts(variant || 'up'));

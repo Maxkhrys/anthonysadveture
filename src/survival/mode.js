@@ -232,18 +232,21 @@ export class SurvivalMode {
   }
   has(cost) { return Object.entries(cost).every(([k, v]) => (this.record.resources[k] || 0) >= v); }
   nearStation(type, r = 4.5) { const p = this.g.player; return this.g.entities.some(e => e.isStructure && e.type === type && !e.dead && Math.hypot(e.x - p.x, e.z - p.z) < r); }
-  canCraft(id) {
+  canCraft(id, count = 1) {
+    if(!Number.isInteger(count)||count<1||count>99)return {ok:false,why:"Choose 1–99 crafts."};
     const r = RECIPES.find(x => x.id === id); if (!r) return { ok: false, why: 'Unknown recipe.' };
     if (r.station && !this.nearStation(r.station)) return { ok: false, why: 'Needs a ' + PIECES[r.station].name.toLowerCase() + ' nearby.' };
-    if (!this.has(r.cost)) return { ok: false, why: 'Not enough: ' + Object.entries(r.cost).filter(([k, v]) => this.record.resources[k] < v).map(([k, v]) => (v - this.record.resources[k]) + ' more ' + k).join(', ') + '.' };
+    if(r.gives==='tonic'&&this.g.inv.potions+count*(r.qty||1)>this.g.inv.maxPotions)return {ok:false,why:'No room for that many tonics.'};
+    const total=Object.fromEntries(Object.entries(r.cost).map(([k,v])=>[k,v*count]));
+    if (!this.has(total)) return { ok: false, why: 'Not enough: ' + Object.entries(total).filter(([k, v]) => this.record.resources[k] < v).map(([k, v]) => (v - this.record.resources[k]) + ' more ' + k).join(', ') + '.' };
     return { ok: true, why: '' };
   }
-  craft(id) {
-    const c = this.canCraft(id); if (!c.ok) { sfx('error'); return c; }
+  craft(id, count = 1) {
+    const c = this.canCraft(id,count); if (!c.ok) { sfx('error'); return c; }
     const r = RECIPES.find(x => x.id === id), R = this.record;
-    for (const [k, v] of Object.entries(r.cost)) R.resources[k] -= v;
-    if (r.gives === 'tonic') { this.g.inv.potions = Math.min(this.g.inv.maxPotions, this.g.inv.potions + 1); this.g.hudDirty = true; }
-    else { R.kits = R.kits || {}; R.kits[r.gives] = (R.kits[r.gives] || 0) + (r.qty || 1); }
+    for (const [k, v] of Object.entries(r.cost)) R.resources[k] -= v*count;
+    if (r.gives === 'tonic') { this.g.inv.potions = Math.min(this.g.inv.maxPotions, this.g.inv.potions + count*(r.qty||1)); this.g.hudDirty = true; }
+    else { R.kits = R.kits || {}; R.kits[r.gives] = (R.kits[r.gives] || 0) + count*(r.qty || 1); }
     sfx('forge'); this.g.ui.toast('Crafted: ' + r.name, r.gives === 'tonic' ? 'A tonic, ready to drink (H).' : 'Place it from the Build list.', 2);
     this.ui && this.ui.refresh(); this.hintCheck(); this.g.save();
     return { ok: true };

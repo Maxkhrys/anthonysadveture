@@ -147,3 +147,13 @@ export function heroPortraitURL(cls, appearance, equip = {}) {
   portraitCache.set(key, url);
   return url;
 }
+
+// Real building geometry, rendered once per registry entry using the shared icon context.
+export function structureIconURL(key,parts){
+ const k='structure:'+key;if(cache.has(k))return cache.get(k);
+ const r=renderer(),scene=new THREE.Scene();lights(scene);const geometry=geo(parts),obj=new THREE.Mesh(geometry,MAT);scene.add(obj);
+ geometry.computeBoundingBox();const box=geometry.boundingBox,center=box.getCenter(new THREE.Vector3()),span=box.getSize(new THREE.Vector3()),size=Math.max(span.x,span.y,span.z)*.85;
+ const cam=new THREE.OrthographicCamera(-size,size,size,-size,.01,30);cam.position.copy(center).add(new THREE.Vector3(3,2.4,4));cam.lookAt(center);
+ r.setRenderTarget(iconRT);r.setClearColor(0,0);r.clear();r.render(scene,cam);const px=new Uint8Array(64*64*4);r.readRenderTargetPixels(iconRT,0,0,64,64,px);r.setRenderTarget(null);
+ const cv=document.createElement('canvas');cv.width=cv.height=64;const ctx=cv.getContext('2d'),im=ctx.createImageData(64,64);for(let y=0;y<64;y++)im.data.set(px.subarray((63-y)*256,(64-y)*256),y*256);ctx.putImageData(im,0,0);geometry.dispose();const url=cv.toDataURL();cache.set(k,url);return url;
+}
