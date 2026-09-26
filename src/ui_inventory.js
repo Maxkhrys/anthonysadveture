@@ -1,4 +1,5 @@
 import {RARITY} from './rpg/items.js';
+import {rarityOf} from './item_info.js';
 const $=id=>document.getElementById(id);
 export function polishInventory(ui){
  const panel=document.querySelector('.inv-panel'),normal=ui.invTab==='bag'&&!ui.creativeActive;
@@ -34,12 +35,15 @@ export function polishInventory(ui){
  // Rarity is communicated in text as well as colour; tiles show the actual item names.
  $('baggrid').querySelectorAll('.cell[data-i]').forEach(el=>{
   const item=ui.g.inv.bag[+el.dataset.i];if(!item)return;
-  const rarity=item.prismatic?'Prismatic':RARITY[item.r].name,color=item.prismatic?'#9edfff':RARITY[item.r].color;
-  el.style.setProperty('--item-color',color);el.dataset.rarity=rarity;
+  const R=rarityOf(item),rarity=R.name,color=R.color;
+  el.style.setProperty('--item-color',color);el.dataset.rarity=rarity;el.dataset.r=R.index;
+  // rarity in words and shape as well as colour
+  const tag=document.createElement('span');tag.className='cell-rar';tag.textContent=R.mark+' '+rarity.replace(' · Set','').replace(' signature','');el.append(tag);
   const name=document.createElement('span');name.className='cell-name';name.textContent=item.name;el.append(name);
   el.classList.toggle('welcome-kit',!!item.welcomeGift&&ui.g.onboarding?.step==='equip');
   el.setAttribute('aria-label',item.name+', '+rarity);el.title=item.name+' · '+rarity+(ui.g.isLocked(item)?' · Protected':'');
  });
+ document.querySelectorAll('#paperdoll .slotbox[data-eq]').forEach(el=>{const d=ui.dollSlots()[+el.dataset.eq],it=d&&ui.g.inv.equip[d.key];if(it){const R=rarityOf(it);el.style.setProperty('--item-color',R.color);el.dataset.r=R.index;el.title=it.name+' · '+R.name;}else{el.style.removeProperty('--item-color');delete el.dataset.r;}});
  let empty=$('bag-empty');if(!empty){empty=document.createElement('div');empty.id='bag-empty';$('baggrid').after(empty);}
  empty.hidden=count>0;empty.textContent=owned?'No matching items. Change your filters or reset.':'Your bag is empty. Explore, defeat enemies and open treasure chests.';
  const keys=document.querySelector('.inv-keys');if(keys.parentNode!==bag)bag.append(keys);

@@ -12,6 +12,7 @@ import { FAMILY, weaponFamily, CLASS_FAMILIES, OFFCLASS_SCALING, SET_PIECES } fr
 import { AFFIX_RARITY_TIERS } from './rpg/affixes.js';
 import { recipeById, MATS } from './rpg/crafting.js';
 import { DollPreview, itemIconURL, itemIconHTML } from './preview.js';
+import { compactHtml, detailsHtml, compareHtml as compareTable } from './item_info.js';
 
 const $ = id => document.getElementById(id);
 const AB_ICON = { quickdraw:abilityIcon('quickdraw'),powdergrenade:abilityIcon('powdergrenade'),sentryturret:abilityIcon('sentryturret'), iaido: '💨', tempest: '🌀', oni: '👹', multishot: '🎯', snare: '🪤', rain: '🌧️', nova: '❄️', chain: '⚡', familiar: '🐈‍⬛', soulhook: '🪝', veilshift: '🌫️', kindred: '🏮' };
@@ -171,6 +172,12 @@ export function installRpgUI(UI) {
     h += `<div class="sub" style="margin-top:4px">Salvage: ${Math.max(1, Math.round(it.value * 0.35))} pips · Power ${itemPower(it)}</div>`;
     return `<div class="tt rarb${it.r}">${h}</div>`;
   };
+  // hover labels on drops, the codex and loot inspection use the same compact card and comparison
+  P.itemHtmlLegacy = P.itemHtml;
+  P.itemHtml = function (it, cmp) {
+    if (!it) return '<div class="ii ii-empty">Empty slot</div>';
+    return compactHtml(it, this.g, this.icon(it)) + (cmp !== undefined && cmp ? compareTable(it, cmp, this.g) : '');
+  };
   P.renderInventory = function () {
     const g = this.g, inv = g.inv;
     document.querySelectorAll('#inventory .tabs span[data-itab]').forEach(s => s.classList.toggle('on', s.dataset.itab === this.invTab));
@@ -208,7 +215,11 @@ export function installRpgUI(UI) {
     const so = $('baggrid').querySelector('[data-s]'); so.style.pointerEvents = 'auto'; so.onclick = () => this.cycleSort();
     const sel = this.invSel >= 0 ? inv.bag[this.invSel] : inv.equip[(slots[-1 - this.invSel] || {}).key];
     const cmp = sel && this.invSel >= 0 ? inv.equip[sel.slot === 'ring' ? (this.compareRing || 'ring1') : sel.slot] || null : undefined;
-    $('tooltip').innerHTML = this.itemHtml(sel, cmp) + (sel && this.invSel >= 0 ? `<div class="cmp"><div class="sub">Currently equipped:</div>${cmp ? this.itemHtml(cmp) : '<div class="tt">—</div>'}</div>` : '');
+    // one shared description: compact by default, full details on demand (button, keyboard or touch)
+    const card = sel ? (this.itemDetails ? detailsHtml(sel, g, this.icon(sel)) : compactHtml(sel, g, this.icon(sel))) : '<div class="ii ii-empty">Select an item to inspect it.</div>';
+    $('tooltip').innerHTML = `<div class="ii-toolbar"><span>Selected item</span>${sel ? `<button type="button" data-act="ii-details" aria-pressed="${!!this.itemDetails}">${this.itemDetails ? 'Compact view' : 'Details'}</button>` : ''}</div>` + card
+      + (sel && this.invSel >= 0 ? (cmp ? compareTable(sel, cmp, g) + `<details class="ii-equipped"><summary>Currently equipped: ${cmp.name.replace(/[&<>"]/g, '')}</summary>${compactHtml(cmp, g, this.icon(cmp))}</details>` : '<div class="ii-compare"><h5>Compared with equipped</h5><p>Nothing equipped in this slot.</p></div>') : '');
+    const dt = $('tooltip').querySelector('[data-act="ii-details"]'); if (dt) dt.onclick = () => { this.itemDetails = !this.itemDetails; sfx('select'); this.renderInventory(); $('tooltip').querySelector('[data-act="ii-details"]')?.focus(); };
     $('baggrid').querySelectorAll('.cell').forEach(c => {
       const i = +c.dataset.i;
       if (i < 0) return;
