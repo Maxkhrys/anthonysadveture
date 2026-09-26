@@ -1443,7 +1443,9 @@ export class Game {
     } else {
       const a = this.area;
       const halfW = this.pr.rw * this.pr.unitsPerPx / 2;
-      x = clamp(x, halfW, a.w - halfW); z = clamp(z, 7, a.h - 5);
+      x = clamp(x, halfW, a.w - halfW);
+      if (a.region7) { const halfD = this.pr.viewHeight / Math.sin(PITCH) / 2; z = clamp(z, halfD - 1, a.h - halfD - 2); } // regions: never show the void past the map edge
+      else z = clamp(z, 7, a.h - 5);
     }
     return { x, z };
   }

@@ -1,4 +1,4 @@
-# World expansion (work in progress)
+# World expansion
 
 Branch `feat/world-discovery-expansion`, based on `feat/class-combat-rework` @ `09189fc`.
 
@@ -51,9 +51,25 @@ Branch `feat/world-discovery-expansion`, based on `feat/class-combat-rework` @ `
   - `index.html`: the stylesheet link.
 - **Save migration:** `LAYOUT_VERSION` 3 is idempotent. A death drop that lies inside the rebuilt town moves to the Bell Tree square. The fog grid size is unchanged, and new state lives in `sig:w7:*` flags and `w7:waypoint`.
 
-## Known limitations (to finish)
+## Verification
 
-- The Dev Lab handoff file (`docs/world-expansion-devlab.json`), a before/after capture set and dedicated region tests are still to come.
-- Full playthroughs of both quests have not yet been automated. So far only the builders, loading, discovery and the migration have been verified.
-- In region areas the camera can show empty space past the map edge near the entrance lawn.
-- The old "west road reaches Rootwell Hollow" check fails on the baseline too.
+- **Quest playthroughs:** `tests/world7.test.mjs` (23 checks) plays both regions through the real game:
+  - the ways in and out, and the discovery card (once per character, and it respects the setting);
+  - both side quests start to finish, the bell puzzle, the three shortcuts (Mainspring Gate, wicket, Root Lift) and the Undercroft exit;
+  - the waypoint and the journal;
+  - everything survives a reload.
+- **Unit tests:** `tests/world.unit.mjs` covers the builders, reachability, mini-dungeon exits and the idempotent layout-3 migration.
+- **Dev Lab handoff:** `docs/world-expansion-devlab.json` has stable ids and sandbox-only recipes for the arrival tour, each entrance and its landmarks, both quests, the secrets, both mini-dungeons, discovery re-entry and an old-save migration.
+- **Captures:** `docs/screens/world7/` holds Thimblewick before and after, the Clockwork Garden, the Rootlight Caverns and the discovery card. Recreate them with `OUT=docs/screens/world7 TAG=after node tests/run.mjs zshots_w7`.
+
+## Fixes after the first preview
+
+- Region camera: in region areas the camera now stops at the map edge, so the entrance lawn no longer shows empty sky.
+- The Glowroot chasm has crystals glowing from below.
+- Discovery card: its resting state is fully visible, so it can never get stuck invisible if an animation does not run. It also sits a little lower, clear of the "Found:" note.
+
+## Known limitations
+
+- Two older checks fail on this branch, and both fail on the baseline too (so not caused by this work):
+  - **World suite, "west road reaches Rootwell Hollow":** also fails on `09189fc`.
+  - **Chapter suite (samurai run):** also fails on `09189fc` and on `686a64b`, the commit before the combat rework.

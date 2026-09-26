@@ -297,6 +297,7 @@ export function buildRootlight() {
   K.blob(56, 29, 17, 16, floor(), 0.22, 7); K.place(40, 12, 73, 47, P.hall);
   K.blob(56, 30, 9, 3.2, (x, y) => g.set(x, y, T.PIT), 0.2, 8);               // the chasm
   K.path([[41, 13], [48, 22], [56, 30], [63, 38], [66, 46]], T.CAVE, 1);    // the visible route across
+  for (const [x, y, sc] of [[50, 29, 1.4], [53, 31, 1.1], [60, 29, 1.5], [62, 31, 1], [57, 32, 1.2]]) if (g.get(x, y) === T.PIT) K.def({ type: 'landmark', model: 'crystalcluster', x: x + 0.5, z: y + 0.5, w: 1, d: 1, s: sc, y: -2.6 }); // the chasm glows from below
   for (let x = 44; x <= 68; x++) for (let y = 20; y <= 42; y++) if (g.get(x, y) === T.BRIDGE) K.E(x, y, 0.05);
   K.landmark('rl-hall', 'The Glowroot Hall', 'bigshroom', 48, 34, 3, 3, { big: true, major: true });
   for (const [x, y, s] of [[64, 20, 1], [62, 44, 0], [47, 42, 1], [69, 30, 0]]) { K.rect(x - 1, y - 1, x, y, T.PROP); K.def({ type: 'deco', model: 'bigshroom', x, z: y, w: 2, d: 2, big: !!s }); }

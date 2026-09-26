@@ -1,0 +1,142 @@
+{
+  "schema": {
+    "version": 1,
+    "about": "Test recipes for the world pass (new Thimblewick, the Clockwork Garden, the Rootlight Caverns). A recipe is a list of steps the Dev Lab can run against a SANDBOX character. Nothing here may run against an adventure save.",
+    "fields": {
+      "id": "stable recipe id (never renamed; add new ids instead)",
+      "sandboxOnly": "always true: run on a throwaway character and discard it afterwards",
+      "setup": "character to create: class, level, story stage and any flags/signals to preset",
+      "steps": "ordered actions: warp {area, spawn} | teleport {x, z} | interact {entity id or def type+id} | talk {npc id} | ring {bell group, order} | wait {seconds} | setSetting {key, value} | reload | migrate {save fixture}",
+      "expect": "checks read from the live game after the steps (JS expressions on `g` = window.__game)",
+      "tools": "universal Dev Lab tools the recipe needs (god mode, clear enemies, reset discovery, ...)"
+    },
+    "coordinates": "Area-local tile units. Overworld (Lanternreach) coordinates already include the Heartland offset (+90, +70).",
+    "signals": "Puzzle and quest state is stored as persistent signals: g.signal(name) reads flags['sig:' + name]. Quest stage is g.flags.q_clock / g.flags.q_bloom (0 none, 1 active, 2 done)."
+  },
+  "ids": {
+    "areas": {
+      "overworld": { "spawns": ["start", "arrival", "village", "rootlift", "clockgate", "rootmouth"], "landmarks": ["clockgate", "rootmouth"] },
+      "clockwork": { "spawns": ["gate", "entrance", "gearhouse", "undercroft", "court"], "landmarks": ["cg-lawn", "cg-clockface", "cg-fallenhand", "cg-wheelworks", "cg-belfry", "cg-maze", "cg-gearhouse", "cg-undercroft", "cg-pocket (hidden)", "cg-alcove (hidden)"], "bellstone": "clockwork:gearhouse", "npc": "pim" },
+      "rootlight": { "spawns": ["mouth", "entrance", "refuge", "lift", "lumenburrow", "hall"], "landmarks": ["rl-hall", "rl-seam", "rl-burrow", "rl-underlake", "rl-refuge", "rl-roots", "rl-geode (hidden)", "rl-islet (hidden)"], "bellstone": "rootlight:refuge", "npc": "mira" },
+      "undercroft": { "spawns": ["entrance"], "exit": "clockwork:undercroft", "puzzle": { "plates": "uc.plates", "needs": 2 } },
+      "lumenburrow": { "spawns": ["entrance"], "exit": "rootlight:lumenburrow", "puzzle": { "bells": "lb.chimes", "order": [1, 2, 0] } }
+    },
+    "regions": ["clockwork", "rootlight"],
+    "quests": { "q_clock": "Wind the Old Clock (pim)", "q_bloom": "Wake the Glowcaps (mira)" },
+    "signals": {
+      "w7:cg.lever.A": "Wheelworks lever", "w7:cg.lever.B": "Belfry lever", "w7:cg.lever.C": "Maze lever",
+      "w7:cg.wound": "Great Clock wound; opens door cg-mainspring (shortcut)",
+      "w7:cg.bells": "belfry bells rung in order [2,0,1]; opens door cg-bellcage",
+      "w7:cg.wicket": "wicket latch lifted; opens door cg-wicket (shortcut)",
+      "w7:cg.alcove": "maze alcove switch under the leaf pile; opens door cg-alcove (secret)",
+      "w7:rl.bloom.hall": "bloom", "w7:rl.bloom.seam": "bloom", "w7:rl.bloom.lake": "bloom",
+      "w7:rl.lit": "all blooms awake; opens door rl-curtain",
+      "w7:rootlift": "Root Lift unlocked from below (shortcut to Thimblewick)"
+    },
+    "encounters": { "cg-wheel": "arena7, 2 waves, guards lever A", "rl-warden": "arena7, 2 waves, elite treant" },
+    "chests": ["tw-herbnook", "cg-pocket", "cg-alcove-chest", "rl-geode-chest", "rl-islet", "md-uc-weights", "md-lb-chimes"],
+    "lootchests": ["cg-lc-court", "cg-lc-wheel", "cg-lc-belfry", "rl-lc-hall", "rl-lc-lake"],
+    "flags": { "waypoint": "w7:waypoint = {area, x, z, name} or null" },
+    "settings": { "discovery": ["full", "subtle", "off"] },
+    "save": { "layout": 3, "migration": "migrateWorldLayout (src/persistence/model.js): 1->2 shift, 2->3 moves an in-town death drop to (148.5, 131.4) with relocated 'w7-town'. Idempotent." }
+  },
+  "tools": ["newSandboxCharacter", "godMode", "clearEnemies", "warp", "teleport", "resetDiscovery", "resetSignals(prefix)", "setSetting", "saveAndReload", "loadSaveFixture"],
+  "recipes": [
+    {
+      "id": "w7.arrival-tour", "sandboxOnly": true, "title": "New arrival and hub tour",
+      "setup": { "class": "any", "level": 1, "stage": 0, "newGame": true },
+      "steps": [
+        { "warp": { "area": "overworld", "spawn": "arrival" } },
+        { "teleport": { "x": 148.5, "z": 145.6 }, "note": "the footbridge over the brook" },
+        { "teleport": { "x": 148.5, "z": 131.5 }, "note": "the plaza under the bell tree" },
+        { "teleport": { "x": 135.5, "z": 141.4 }, "note": "the Hedge Garden and the Root Lift cage" },
+        { "interact": { "chest": "tw-herbnook" } }
+      ],
+      "expect": ["g.area.placeAt(g.player.x, g.player.z).name === 'Thimblewick'", "g.flags['chest:tw-herbnook'] === true", "!g.signal('w7:rootlift')"]
+    },
+    {
+      "id": "w7.clockwork-entrance", "sandboxOnly": true, "title": "Clockwork Garden entrance, reveal and return",
+      "setup": { "class": "any", "level": 6, "stage": 3 }, "tools": ["resetDiscovery", "godMode"],
+      "steps": [{ "warp": { "area": "overworld", "spawn": "clockgate" } }, { "teleport": { "x": 186.5, "z": 117.6 } }, { "wait": 3 }],
+      "expect": ["g.area.id === 'clockwork'", "g.world6.discovery.regions.includes('clockwork')", "document.getElementById('region-reveal').className.includes('show')", "g.area.defs.some(d => d.type === 'warp' && d.to === 'overworld' && d.spawn === 'clockgate')"]
+    },
+    {
+      "id": "w7.rootlight-entrance", "sandboxOnly": true, "title": "Rootlight Caverns entrance, reveal and return",
+      "setup": { "class": "any", "level": 9, "stage": 3 }, "tools": ["resetDiscovery", "godMode"],
+      "steps": [{ "warp": { "area": "overworld", "spawn": "rootmouth" } }, { "teleport": { "x": 46.5, "z": 138.5 } }, { "wait": 3 }],
+      "expect": ["g.area.id === 'rootlight'", "g.world6.discovery.regions.includes('rootlight')"]
+    },
+    {
+      "id": "w7.clockwork-landmarks", "sandboxOnly": true, "title": "Clockwork landmark reveals",
+      "setup": { "class": "any", "level": 7, "stage": 3 }, "tools": ["godMode", "clearEnemies", "resetDiscovery"],
+      "steps": [{ "warp": { "area": "clockwork", "spawn": "gate" } }, { "teleport": { "x": 44.5, "z": 37.5 } }, { "teleport": { "x": 8.5, "z": 21 } }, { "teleport": { "x": 78.5, "z": 17 } }, { "teleport": { "x": 17.5, "z": 58.5 } }, { "teleport": { "x": 71.5, "z": 53 } }],
+      "expect": ["['cg-clockface','cg-wheelworks','cg-belfry','cg-maze','cg-gearhouse'].every(id => g.world6.discovery.landmarks.includes(id))"]
+    },
+    {
+      "id": "w7.quest-clock", "sandboxOnly": true, "title": "Wind the Old Clock, start to finish",
+      "setup": { "class": "any", "level": 7, "stage": 3 }, "tools": ["godMode", "clearEnemies"],
+      "steps": [
+        { "warp": { "area": "clockwork", "spawn": "gearhouse" } }, { "talk": "pim" },
+        { "ring": { "group": "cg.bells", "order": [2, 0, 1] } }, { "wait": 1 },
+        { "interact": { "gearlever": "A" } }, { "interact": { "gearlever": "B" } }, { "interact": { "gearlever": "C" } }, { "wait": 2 },
+        { "interact": { "wicket7": "cg-wicket" } }, { "talk": "pim" }
+      ],
+      "expect": ["g.flags.q_clock === 2", "g.signal('w7:cg.wound')", "g.entities.find(e => e.id === 'cg-mainspring').isOpen()", "g.signal('w7:cg.wicket')"]
+    },
+    {
+      "id": "w7.quest-bloom", "sandboxOnly": true, "title": "Wake the Glowcaps, start to finish, and the Root Lift",
+      "setup": { "class": "any", "level": 9, "stage": 3 }, "tools": ["godMode", "clearEnemies"],
+      "steps": [
+        { "warp": { "area": "rootlight", "spawn": "refuge" } }, { "talk": "mira" },
+        { "interact": { "glowbloom": "hall" } }, { "interact": { "glowbloom": "seam" } }, { "interact": { "glowbloom": "lake" } }, { "wait": 1 },
+        { "talk": "mira" }, { "interact": { "rootlift": "w7-rootlift-below" } }
+      ],
+      "expect": ["g.flags.q_bloom === 2", "g.signal('w7:rl.lit')", "g.signal('w7:rootlift')", "g.area.id === 'overworld'", "g.area.placeAt(g.player.x, g.player.z).name === 'Thimblewick'"]
+    },
+    {
+      "id": "w7.secrets", "sandboxOnly": true, "title": "The four secrets",
+      "setup": { "class": "any", "level": 9, "stage": 3 }, "tools": ["godMode", "clearEnemies"],
+      "steps": [
+        { "warp": { "area": "clockwork", "spawn": "court" } }, { "note": "cut the tangle at (24.5, 40.5), open chest cg-pocket" },
+        { "note": "clear the leaf pile at (4.5, 64.5) in the maze, stand on the switch; door cg-alcove opens; chest cg-alcove-chest" },
+        { "warp": { "area": "rootlight", "spawn": "hall" } }, { "note": "break the cracked crystal (mdsecret rl-geode) at (86.5, 10.5); chest rl-geode-chest" },
+        { "note": "push block rl-lakeblock south into the water gap; chest rl-islet" }
+      ],
+      "expect": ["g.signal('w7:cg.alcove')", "['cg-pocket','cg-alcove-chest','rl-geode-chest','rl-islet'].every(id => g.flags['chest:' + id])"]
+    },
+    {
+      "id": "w7.minidungeon-undercroft", "sandboxOnly": true, "title": "The Clockwork Undercroft",
+      "setup": { "class": "any", "level": 7, "stage": 3 }, "tools": ["godMode"],
+      "steps": [{ "warp": { "area": "undercroft", "spawn": "entrance" } }, { "note": "put two weights on the plates in the Weight Room" }],
+      "expect": ["g.signal('uc.plates')", "g.area.defs.some(d => d.type === 'warp' && d.to === 'clockwork' && d.spawn === 'undercroft')"]
+    },
+    {
+      "id": "w7.minidungeon-lumenburrow", "sandboxOnly": true, "title": "The Lumen Burrow",
+      "setup": { "class": "any", "level": 9, "stage": 3 }, "tools": ["godMode"],
+      "steps": [{ "warp": { "area": "lumenburrow", "spawn": "entrance" } }, { "ring": { "group": "lb.chimes", "order": [1, 2, 0] } }, { "wait": 1 }],
+      "expect": ["g.signal('lb.chimes')", "g.area.defs.some(d => d.type === 'warp' && d.to === 'rootlight' && d.spawn === 'lumenburrow')"]
+    },
+    {
+      "id": "w7.discovery-reentry", "sandboxOnly": true, "title": "Discovery: once per character, respects the setting",
+      "setup": { "class": "any", "level": 6, "stage": 3 }, "tools": ["resetDiscovery", "setSetting", "saveAndReload"],
+      "steps": [
+        { "setSetting": { "discovery": "subtle" } }, { "warp": { "area": "rootlight", "spawn": "mouth" } }, { "wait": 3 },
+        { "setSetting": { "discovery": "full" } }, { "warp": { "area": "clockwork", "spawn": "gate" } }, { "wait": 3 },
+        { "reload": true }, { "warp": { "area": "clockwork", "spawn": "gate" } }, { "wait": 3 }
+      ],
+      "expect": ["g.world6.discovery.regions.includes('rootlight') && g.world6.discovery.regions.includes('clockwork')", "(g.revealQ || []).length === 0", "!document.getElementById('region-reveal').className.includes('show')"]
+    },
+    {
+      "id": "w7.migrate-old-save", "sandboxOnly": true, "title": "A layout-2 save with a death drop in the old town",
+      "setup": { "fixture": { "world": { "layout": 2, "flags": { "deathDrop": { "area": "overworld", "x": 148, "z": 130, "coins": 40 } } } } }, "tools": ["loadSaveFixture"],
+      "steps": [{ "migrate": "fixture" }, { "migrate": "result again (idempotence)" }],
+      "expect": ["result.layout === 3", "result.flags.deathDrop.relocated === 'w7-town'", "Math.abs(result.flags.deathDrop.z - 131.4) < 0.01", "result.flags.deathDrop.coins === 40", "second pass is identical to the first"]
+    }
+  ],
+  "integration": [
+    "Recipes are data only; nothing in the game depends on the Dev Lab to be playable.",
+    "The browser suite tests/world7.test.mjs runs w7.quest-clock, w7.quest-bloom, w7.discovery-reentry and the entrances end to end; tests/world.unit.mjs covers w7.migrate-old-save.",
+    "Register these once the Dev Lab (feat/devlab-inventory-vfx) has its sandbox character, so a recipe can never write to an adventure save.",
+    "Entity lookups: gearlever/glowbloom/rootlift entities keep their def on e.d (e.d.type, e.d.id); doors, chests and NPCs use e.id."
+  ]
+}
