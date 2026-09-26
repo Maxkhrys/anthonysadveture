@@ -12,7 +12,7 @@ const LOOKS = [
 
 export default async function (page, R) {
   // 1. the character creator, one class each
-  await page.getByText('New Character', { exact: true }).click();
+  await page.getByText('Play Story', { exact: true }).click(); await page.getByText('New Character', { exact: true }).click();
   await page.waitForTimeout(400);
   const root = page.locator('#character-creator');
   for (const [i, c] of CLS.entries()) {

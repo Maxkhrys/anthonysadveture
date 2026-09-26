@@ -1,5 +1,5 @@
 export default async function(page,R) {
-  await page.getByText('New Character',{exact:true}).click();
+  await page.getByText('Play Story',{exact:true}).click();await page.getByText('New Character',{exact:true}).click();
   R.ok(await page.locator('#character-creator canvas').count()===1,'new character opens live creator');
   R.ok(await page.locator('#character-creator canvas').getAttribute('data-renderer')==='gameplay','creator uses shared gameplay pixel pipeline');
   R.ok(await page.evaluate(()=>Math.abs(Number(document.querySelector('#character-creator canvas').dataset.texelDensity)*2-window.__game.pr.unitsPerPx)<1e-6),'preview is exactly twice the gameplay texel density (portrait detail)');
@@ -43,11 +43,11 @@ export default async function(page,R) {
   const gear=await page.evaluate(async()=>{const g=window.__game;const before=JSON.stringify(g.inv.appearance);g.player.m.setGear({...g.inv.equip,head:{base:'kabuto',r:2}});g.player.m.setGear(g.inv.equip);g.ui.openInventory();g.ui.doll.frame(.016);const same=JSON.stringify(g.inv.appearance)===before&&g.ui.doll.hero.frame.scale.y===1.12;g.ui.closeInventory();return same;});
   R.ok(gear,'equipment swap and inventory preview retain cosmetics');
   await page.reload();await page.waitForFunction(()=>window.__game&&!document.getElementById('loading'));
-  await page.getByText('Willow · soulbound · Lv 1',{exact:true}).click();await page.waitForFunction(()=>window.__game.profile?.name==='Willow');
+  await page.getByText('Play Story',{exact:true}).click();await page.getByText('Willow · soulbound · Lv 1',{exact:true}).click();await page.waitForFunction(()=>window.__game.profile?.name==='Willow');
   R.ok(await page.evaluate(s=>JSON.stringify(window.__game.inv.appearance)===s,saved),'appearance survives actual save and reload');
   R.ok(await page.locator('#character-creator').count()===0,'continuing bypasses creator');
   await page.reload();await page.waitForFunction(()=>window.__game&&!document.getElementById('loading'));
-  await page.getByText('New Character',{exact:true}).click();
+  await page.getByText('Play Story',{exact:true}).click();await page.getByText('New Character',{exact:true}).click();
   await page.setViewportSize({width:390,height:844});
   await page.locator('[data-category="Hair"]').click();
   await page.screenshot({path:'/tmp/creator-mobile-hair.png'});

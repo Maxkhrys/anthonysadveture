@@ -29,7 +29,7 @@ export default async function(page,R){
  await page.screenshot({path:'/tmp/mossling-alpha8.jpg'});
  const savePath=await save.path();const exported=JSON.parse(await readFile(savePath,'utf8'));
  await page.reload();await page.waitForFunction(()=>window.__game&&!document.getElementById('loading'));
- const [chooser]=await Promise.all([page.waitForEvent('filechooser'),page.getByText('Import adventures…',{exact:true}).click()]);
+ const [chooser]=await Promise.all([page.waitForEvent('filechooser'),page.getByText('Saves & recovery',{exact:true}).click().then(()=>page.getByText('Import adventures…',{exact:true}).click())]);
  await chooser.setFiles(savePath);await page.getByText('Import copies',{exact:true}).click();
  R.ok(await page.evaluate(n=>window.__game.saveProvider.read().characters.length===n*2,exported.characters.length),'title import creates copies while retaining original adventures');
 

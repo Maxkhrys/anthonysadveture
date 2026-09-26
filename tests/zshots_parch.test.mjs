@@ -5,7 +5,7 @@ const OUT = process.env.OUT || '/tmp';
 export default async function (page, R) {
   await page.waitForTimeout(600);
   await page.screenshot({ path: `${OUT}/p_title.jpg`, type: 'jpeg', quality: 85 });
-  await page.getByText('New Character', { exact: true }).click(); await page.waitForTimeout(700);
+  await page.getByText('Play Story', { exact: true }).click(); await page.getByText('New Character', { exact: true }).click(); await page.waitForTimeout(700);
   await page.screenshot({ path: `${OUT}/p_creator.jpg`, type: 'jpeg', quality: 85 });
   await page.keyboard.press('Escape'); await page.waitForTimeout(200); await page.keyboard.press('Escape');
   await fresh(page, 'witch', { stage: 3, level: 6 }); await toSquare(page);

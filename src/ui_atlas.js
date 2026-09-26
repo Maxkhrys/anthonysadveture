@@ -124,7 +124,7 @@ export function installAtlasUI(UI){
   x.fillStyle=INK;x.font='bold 13px Mossling';x.textAlign='center';x.fillText('N',W-22,20);x.beginPath();x.moveTo(W-22,28);x.lineTo(W-26,36);x.lineTo(W-18,36);x.closePath();x.fill();x.textAlign='left';
   const units=sc<2?50:sc<5?20:10,len=units*sc;x.strokeStyle=INK;x.lineWidth=2;x.beginPath();x.moveTo(14,H-20);x.lineTo(14+len,H-20);x.stroke();x.font='10px Tahoma';x.fillText(units+' tiles',14,H-31);
   $('atlas-zoom').textContent=Math.round(sc/this.atlasFit*100)+'%';$('atlas-location').textContent=a.placeAt?.(g.player.x,g.player.z)?.name||a.name;
-  $('atlas-heading').querySelector('h2').textContent=a.dungeon?a.name+' map':'Lanternreach atlas';
+  $('atlas-heading').querySelector('h2').textContent=a.survival?a.name+' map':a.dungeon?a.name+' map':'Lanternreach atlas';
   const regionKey=a.id+':'+discovered.join(',');if(this.atlasOptions!==regionKey){this.atlasOptions=regionKey;$('atlas-region').innerHTML='<option value="local">Around you</option><option value="world">Whole map</option>'+ (this.atlasRegions||[]).filter(r=>discovered.includes(r.id)).map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('');}
   const region=a.placeAt?.(v.cx,v.cz)?.id;$('atlas-region').value=sc<=this.atlasFit*1.01?'world':region&&discovered.includes(region)?region:'local';
   const visible=points.filter(p=>Math.abs(p.x-v.cx)<W/sc/2&&Math.abs(p.z-v.cz)<H/sc/2);

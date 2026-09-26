@@ -116,6 +116,23 @@ export default async function (page, R) {
   const old = await page.evaluate(async () => { const M = await import('./src/survival/store.js'); const w = M.normalizeWorld({ id: 'wold', seed: 99, name: 'Old', character: { cls: 'archer' }, removed: { 'n:1,1': true } }); return { gen: w.genVersion, res: w.resources.wood, removed: w.removed['n:1,1'], hints: w.hints.step }; });
   R.ok(old.gen === 1 && old.res === 0 && old.removed === true && old.hints === 0, 'an older survival record without newer fields loads with safe defaults and keeps its changes', JSON.stringify(old));
 
+  // ---------------------------------------------------------------- every class gathers and fights here
+  const classes = await page.evaluate(async () => {
+    const g = window.__game, M = g.survivalMode, st = M.store, out = {}; g.noRender = true;
+    for (const cls of ['samurai', 'archer', 'witch', 'soulbound', 'gunslinger']) {
+      const w = st.create({ name: cls, cls, seed: 777 }); if (M.active) { M.stop(); M.start(w); } else await window.__startSurvival(w.id); g.noRender = true; window.__sim(5);
+      const p = g.player, t = g.entities.filter(e => e.isNode && e.type === 'tree').sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z))[0];
+      p.x = t.x; p.z = t.z - 1.3; p.facing = 0; p.aimSrc = 'keys'; g.input.aimSrc = 'keys'; g.godMode = true;
+      let f = 0; while (!t.dead && f < 900) { window.__sim(cls === 'archer' ? 20 : 4, ['KeyC']); window.__sim(6); f += cls === 'archer' ? 26 : 10; }
+      window.__sim(60);
+      out[cls] = { felled: t.dead, seconds: Math.round(f / 3) / 10, wood: M.record.resources.wood, cls: g.inv.cls };
+      st.delete(w.id);
+    }
+    M.stop(); g.noRender = false; return out;
+  });
+  R.ok(Object.values(classes).every(c => c.felled && c.wood >= 3) && Object.entries(classes).every(([k, c]) => c.cls === k), 'all five classes start a world and fell a tree with their own weapon', JSON.stringify(classes));
+  await boot(page);
+
   // ---------------------------------------------------------------- story mode still loads and plays
   await page.getByText('Play Story', { exact: true }).click(); await page.waitForTimeout(150);
   await page.locator('#title-menu div').filter({ hasText: / · samurai · Lv / }).first().click();

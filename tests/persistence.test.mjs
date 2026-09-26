@@ -3,6 +3,9 @@ export default async function (page, R) {
   const reload = async () => {
     await page.reload();
     await page.waitForFunction(() => window.__game && !document.getElementById('loading'));
+    // story characters are listed under Play Story on the reworked title menu
+    await page.waitForFunction(() => [...document.querySelectorAll('#title-menu div')].some(d => d.textContent === 'Play Story'));
+    await page.getByText('Play Story', { exact: true }).click(); await page.waitForTimeout(150);
   };
   await page.evaluate(async () => {
     const { defaultInventory } = await import('/src/persistence/model.js');
