@@ -175,6 +175,7 @@ export class Player extends Entity {
   hurt(h) {
     const g = this.g;
     if (this.invuln > 0 || this.state === 'dead' || this.state === 'fall' || g.cutscene) return false;
+    if (g.sameLevel && h.src && !g.sameLevel(h.src, this)) return false; // Survival houses: nothing reaches through a floor
     if (this.state === 'roll' && this.st < this.rollIframes) { this.perfectDodge(h); return false; }
     // Warden Spirits: one of them takes the blow and answers it.
     if (this.wards) { this.wards = this.wards.filter(w => !w.dead); const w = this.wards.shift(); if (w) { w.answer(h.src); this.invuln = Math.max(this.invuln, 0.35); return 'block'; } }

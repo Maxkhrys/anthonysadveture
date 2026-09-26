@@ -15,7 +15,11 @@ export class Entity {
   }
   attach() { this.g.world.add(this.obj); this.sync(); }
   // gy: the ground's height under the entity (Pass 6 terraces and stairs; 0 on flat land)
-  sync() { this.gy = this.g.groundAt ? this.g.groundAt(this.x, this.z) : 0; this.obj.position.set(this.x, this.y + this.gy, this.z); }
+  // fy: support height above the ground (Survival houses: floors, stairs); walkers update it here
+  sync() {
+    if (this.g.support && (this.isPlayer || this.isEnemy)) this.g.support(this);
+    this.gy = (this.g.groundAt ? this.g.groundAt(this.x, this.z) : 0) + (this.fy || 0); this.obj.position.set(this.x, this.y + this.gy, this.z);
+  }
   remove() { this.dead = true; if (this.obj.parent) this.obj.parent.remove(this.obj); }
   update() {}
   dist(o) { return Math.hypot(o.x - this.x, o.z - this.z); }

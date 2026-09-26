@@ -411,6 +411,7 @@ export class Game {
   playerHit(e, o) {
     if(e.trainingTarget) return e.onHit(o);
     if (e.dead) return;
+    if (this.sameLevel && !this.sameLevel(o && o.arpgProjectile || this.player, e)) return; // Survival houses: never through a floor
     const arpg = itemCombat(this);
     o = { ...o, element: arpg.elementFor(o) };
     const ps = this.pstats, p = this.player, inv = this.inv, U = ps.uniques;
@@ -845,6 +846,7 @@ export class Game {
     return e;
   }
   spawn(e) {
+    if (this.onSpawn) this.onSpawn(e); // Survival houses: new entities start on the floor they appear on
     if (!e.obj.parent) e.attach();
     this.entities.push(e);
     return e;
@@ -1164,6 +1166,7 @@ export class Game {
     for (const e of this.entities) {
       if (e === src || e.dead || !e.onHit) continue;
       if (src.hitSet.has(e)) continue;
+      if (this.sameLevel && !this.sameLevel(src, e)) continue; // Survival houses: storeys are separate
       const dx = e.x - x, dz = e.z - z;
       const d = Math.hypot(dx, dz) - (e.r ?? 0.3);
       if (d > range) continue;
@@ -1194,10 +1197,14 @@ export class Game {
     }
     return max;
   }
-  solidAt(x, z, r) {
+  solidAt(x, z, r, who) {
     for (const s of this.solids) {
       if (s.dead || !s.solid || s.isEnemy || s.isPlayer || s.passShots) continue;
-      if (Math.abs(s.x - x) < s.hw + r && Math.abs(s.z - z) < s.hd + r) return s;
+      if (Math.abs(s.x - x) < s.hw + r && Math.abs(s.z - z) < s.hd + r) {
+        // storey-aware solids (Survival houses) block only at the height of whoever is asking
+        if (s.solidFor) { const p = this.player, w = who || { fy: p && Math.hypot(p.x - x, p.z - z) < 1.5 ? p.fy : 0 }; if (!s.solidFor(w)) continue; }
+        return s;
+      }
     }
     return null;
   }
@@ -1274,6 +1281,7 @@ export class Game {
     let best = null, bd = 1.5;
     for (const e of this.entities) {
       if (!e.interactable || e.dead || !e.prompt) continue;
+      if (this.sameLevel && !this.sameLevel(p, e)) continue;
       const dx = e.x - p.x, dz = e.z - p.z;
       const d = Math.hypot(Math.max(0, Math.abs(dx) - (e.hw ?? 0.3)), Math.max(0, Math.abs(dz) - (e.hd ?? 0.3)));
       if (d > 0.95) continue;
