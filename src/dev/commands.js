@@ -63,6 +63,7 @@ export const COMMAND_CATEGORIES = [
 ];
 
 export const COMMAND_DEFINITIONS = {
+  devlab:{name:'devlab',category:'WORLD',desc:'Open the persistent MOSSDEV sandbox lab. Enables developer mode; adventure saves stay separate.',usage:'/devlab',aliases:['mossdev','lab']},
   arpgbuild: { name:'arpgbuild',category:'LOOT',desc:'List or create an ARPG build weapon for your current class.',usage:'/arpgbuild [list|unique_id]' },
   // ---------------------------------------------------------------- CHARACTER
   help: {
@@ -581,13 +582,20 @@ export class DevCommands {
     }
 
     try {
-      DevCommands.handlers[matchedCmd](game, args, log);
+      const result=DevCommands.handlers[matchedCmd](game, args, log);
+      if(result?.catch)return result.catch(err=>log(`Error running /${cmdName}: ${err.message}`,'error'));
+      return result;
     } catch (err) {
       log(`Error running /${cmdName}: ${err.message}`, 'error');
     }
   }
 
   static handlers = {
+    async devlab(game,args,log){
+      if(typeof game.openDevLab!=='function'){log('The lab is not ready yet. Finish loading the game first.','error');return;}
+      await game.openDevLab();
+      log('MOSSDEV opened. Return to Adventure / Survival keeps your original save unchanged.','green');
+    },
     arpgbuild(game,args,log) {
       const id=args[0];
       if(!id || id==='list') { for(const [key,d] of Object.entries({...LEGENDARY_DEFS,...PRISMATIC_DEFS})) log(key+' — '+d.name+' ('+d.element+')','green'); return; }

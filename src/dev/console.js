@@ -39,6 +39,7 @@ export class DevConsole {
         <span class="dev-hint">Press \` or Esc to close · /help for categories</span>
       </div>
       <div class="dev-toolbar">
+        <button type="button" class="dev-btn" data-cmd="/devlab">MOSSDEV Lab</button>
         <button type="button" class="dev-btn" data-cmd="/devroom">⚡ Dev Room</button>
         <button type="button" class="dev-btn" data-cmd="/god">🛡️ God Mode</button>
         <button type="button" class="dev-btn" data-cmd="/noclip">👻 NoClip</button>
@@ -65,7 +66,7 @@ export class DevConsole {
       <div class="dev-autocomplete hidden" id="dev-console-auto"></div>
       <div class="dev-input-row">
         <span class="dev-prompt">/</span>
-        <input type="text" id="dev-console-input" class="dev-input" autocomplete="off" spellcheck="false" placeholder="Type dev command (e.g. help, god, devroom, rollweapon, tp)..." />
+        <input type="text" id="dev-console-input" class="dev-input" autocomplete="off" spellcheck="false" placeholder="Type dev command (devlab, help, god, devroom…)" />
         <button type="button" class="dev-send" id="dev-console-send">Run</button>
       </div>
     `;

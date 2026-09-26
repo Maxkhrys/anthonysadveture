@@ -1,9 +1,6 @@
 // Unified keyboard / mouse / gamepad input with edge detection.
 import { KEYMAP } from './actions.js';
-const PAD = { attack: 2, roll: 0, interact: 1, item: 3, shield: [4], secondary: [7], surge: [5], pause: 9, potion: 8 };
-// Holding LT (button 6) switches the face and shoulder buttons to the six ability slots:
-// X/Y/B/A = slots 1-4, LB/RB = slots 5-6. Release LT for normal controls.
-const PAD_LAYER = { ab1: 2, ab2: 3, ab3: 1, ab4: 0, ab5: 4, ab6: 5 };
+import {readPad,padActions} from './controller.js';
 
 export class Input {
   constructor() {
@@ -24,6 +21,8 @@ export class Input {
         if (e.code !== 'Escape') return;
         e.target.blur();
       }
+      // Native control activation must not also become an attack/equip command.
+      if(['Enter','Space'].includes(e.code)&&e.target.closest?.('button,[role=button],a'))return;
       if (e.code === 'Tab') {
         const dialog = document.querySelector('#dialog:not(.hidden)');
         const screen = dialog || document.querySelector('.screen:not(.hidden):not(#title)');
@@ -34,17 +33,18 @@ export class Input {
         }
       }
       if (['Tab', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
-      this.keys.add(e.code); this.taps.add(e.code); this.usingPad = false;
+      this.keys.add(e.code); this.taps.add(e.code); this.usingPad = false; this.padDisconnected=false;
       // attacking from the keyboard (C) is an intentional switch to keyboard aiming
       if (e.code === 'KeyC' && this.aimPref !== 'mouse') this.aimSrc = 'keys';
     });
     addEventListener('keyup', e => { if (!this.paused) this.keys.delete(e.code); });
     addEventListener('blur', () => { this.keys.clear(); this.taps.clear(); this.mouse.clear(); this.mtaps.clear(); });
     const cv = document.getElementById('game');
-    cv.addEventListener('mousedown', e => { if (this.paused) return; this.mouse.add(e.button); this.mtaps.add(e.button); this.mouseAt(e); if (this.aimPref !== 'keys') this.aimSrc = 'mouse'; e.preventDefault(); });
+    cv.addEventListener('mousedown', e => { if (this.paused) return; this.mouse.add(e.button); this.mtaps.add(e.button); this.mouseAt(e); this.usingPad=false; if (this.aimPref !== 'keys') this.aimSrc = 'mouse'; e.preventDefault(); });
     addEventListener('mousemove', e => {
       const moved = Math.hypot(e.clientX - this.mouseX, e.clientY - this.mouseY);
       this.mouseAt(e);
+      if(moved>3)this.usingPad=false;
       if (moved > 3 && this.aimPref !== 'keys') this.aimSrc = 'mouse';
     });
     cv.addEventListener('mouseleave', () => { this.onCanvas = false; });
@@ -55,6 +55,13 @@ export class Input {
   mouseAt(e) { this.mouseX = e.clientX; this.mouseY = e.clientY; this.onCanvas = true; }
   get mouseAim() { return this.aimSrc === 'mouse' && this.aimPref !== 'keys'; }
   update() {
+    const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(p=>p?.connected!==false&&p?.mapping==='standard') : [];
+    const pad = pads.find(p=>readPad(p).active)||pads.find(p=>p.index===this.padIndex)||pads[0];
+    this.padDisconnected=!!this.padConnected&&!pad;this.padConnected=!!pad;this.padIndex=pad?.index;
+    this.padRaw=pad?readPad(pad):null;this.padLayer=!!this.padRaw?.buttons[6];
+    if(this.padRaw?.active)this.usingPad=true;
+    if(!pad){this.padAim=null;this.padLayer=false;}
+
     if (this.paused) {
       this.keys.clear(); this.taps.clear(); this.mouse.clear(); this.mtaps.clear();
       this.prev = this.state || {}; this.state = {}; this.mx = 0; this.mz = 0;
@@ -69,25 +76,13 @@ export class Input {
     // a tap that was already released counts as pressed this frame, released the next
     this.taps.clear(); this.mtaps.clear();
     let mx = (s.right ? 1 : 0) - (s.left ? 1 : 0), mz = (s.down ? 1 : 0) - (s.up ? 1 : 0);
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     this.padAim = null;
-    for (const p of pads) {
-      if (!p) continue;
-      const rx = p.axes[2] || 0, rz = p.axes[3] || 0, rl = Math.hypot(rx, rz);
-      if (rl > 0.35) { this.padAim = { x: rx / rl, z: rz / rl }; this.aimSrc = 'pad'; this.usingPad = true; }
-      const ax = p.axes[0] || 0, az = p.axes[1] || 0;
-      if (Math.hypot(ax, az) > 0.25) { mx = ax; mz = az; this.usingPad = true; }
-      const b = i => p.buttons[i] && p.buttons[i].pressed;
-      if (b(12)) { mz = -1; s.up = true; } if (b(13)) { mz = 1; s.down = true; }
-      if (b(14)) { mx = -1; s.left = true; } if (b(15)) { mx = 1; s.right = true; }
-      if (az < -0.5) s.up = true; if (az > 0.5) s.down = true;
-      const layer = b(6);
-      this.padLayer = layer;
-      if (layer) { for (const k in PAD_LAYER) if (b(PAD_LAYER[k])) { s[k] = true; this.usingPad = true; } if (b(9)) s.pause = true; if (b(8)) s.potion = true; }
-      else for (const k in PAD) {
-        const v = PAD[k];
-        if (Array.isArray(v) ? v.some(b) : b(v)) { s[k] = true; this.usingPad = true; }
-      }
+    if(this.padRaw){
+      const raw=this.padRaw, [ax,az]=raw.move,[rx,rz]=raw.aim;
+      if(ax||az){mx=ax;mz=az;this.usingPad=true;}
+      if(rx||rz){const n=Math.hypot(rx,rz);this.padAim={x:rx/n,z:rz/n};this.aimSrc='pad';}
+      if(!raw.buttons.some(Boolean))this.suppressPadUntilRelease=false;
+      const actions=this.suppressPadUntilRelease?{}:padActions(raw);for(const k in actions)if(actions[k])s[k]=true;
     }
     const len = Math.hypot(mx, mz);
     if (len > 1) { mx /= len; mz /= len; }
