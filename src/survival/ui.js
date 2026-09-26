@@ -6,6 +6,7 @@ import {itemIconURL,structureIconURL} from '../preview.js';
 import {reconcileBelt,selectBelt,availableItems} from './fieldkit.js';
 import { PIECES, pieceParts } from './entities.js';
 import { RESOURCES } from './store.js';
+import { BuildWheel } from './wheel.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SVG={wood:'<path fill="#b98854" d="M3 8 20 3 28 9 28 22 11 28 3 22Z"/><path fill="#704a2e" d="m3 8 8 6 17-5v4l-17 6-8-6Z"/><path fill="#dfbf82" d="M5 17h4v6H5Z"/>',stone:'<path fill="#939e98" d="m3 19 6-12 13-3 8 15-10 10-13-3Z"/><path fill="#c2c5ae" d="m9 7 13-3 4 9-14 5Z"/>',fibre:'<path fill="#7bac66" d="M15 29V15L5 9l-3-7 13 6 3 8 4-12 8-3-2 12-10 8v8Z"/>',ore:'<path fill="#828e87" d="m2 20 7-14 14-2 7 17-12 8Z"/><path fill="#dc9355" d="M9 9h7v8H9Zm12 7h6v8h-6Z"/>',crystal:'<path fill="#b9b1e9" d="m16 1 10 9-4 17-8 4-7-12Z"/><path fill="#e1dbff" d="m16 1 3 12-5 18-7-12Z"/>'};
@@ -20,22 +21,31 @@ export class SurvivalUI {
     this.hud = el('sv-hud'); this.bar = el('sv-build'); this.panel = el('sv-panel', 'sv-sheet'); this.chest = el('sv-chest', 'sv-sheet');
     this.panel.setAttribute('role', 'dialog'); this.panel.setAttribute('aria-label', 'Crafting and building');
     this.chest.setAttribute('role', 'dialog'); this.chest.setAttribute('aria-label', 'Storage chest');
+    this.wheel = new BuildWheel(mode);
     this.panel.addEventListener('click', e => this.onPanel(e)); this.chest.addEventListener('click', e => this.onChest(e));
-    this.hud.addEventListener('click',e=>{const b=e.target.closest('[data-belt]');if(b)selectBelt(this.g,+b.dataset.belt);if(e.target.closest('[data-act="craft"]'))this.openCraft();});
+    this.hud.addEventListener('click',e=>{
+      const b=e.target.closest('[data-belt]');if(b)selectBelt(this.g,+b.dataset.belt);
+      if(e.target.closest('[data-act="craft"]'))this.openCraft();
+      if(e.target.closest('[data-act="buildwheel"]'))this.openBuildWheel();
+    });
     this.panel.addEventListener('change',e=>{if(e.target.matches('[data-quantity]')){this.quantity=Math.max(1,Math.min(99,Math.floor(+e.target.value)||1));this.renderPanel();}});
   }
   get open() { return !this.panel.classList.contains('hidden') || !this.chest.classList.contains('hidden'); }
   show() { this.hud.classList.remove('hidden'); this.refresh(); }
-  hide() { if(this.gatherEl)this.gatherEl.hidden=true;for (const e of [this.hud, this.bar, this.panel, this.chest]) e.classList.add('hidden'); }
+  hide() { if(this.gatherEl)this.gatherEl.hidden=true;if(this.wheel)this.wheel.close();for (const e of [this.hud, this.bar, this.panel, this.chest]) e.classList.add('hidden'); }
   refresh() {
     const R = this.m.record; if (!R) return;
     const anyModal = this.open || this.g.ui?.invOpen || !document.getElementById('pause')?.classList.contains('hidden') || !document.getElementById('inventory')?.classList.contains('hidden') || !document.getElementById('shop')?.classList.contains('hidden') || !document.getElementById('craft')?.classList.contains('hidden') || this.g.mode === 'pause';
     this.hud.classList.toggle('hidden', anyModal);
     const belt=reconcileBelt(R,this.g),items=availableItems(this.g),tracked=RECIPES.find(r=>r.id===R.trackedRecipe);
-    const html=`<div class="field-belt" role="toolbar" aria-label="Quick weapon belt">${belt.slots.map((id,i)=>{const it=items.find(x=>x.itemInstanceId===id);return `<button type="button" data-belt="${i}" ${it?'':'disabled'} class="${it===this.g.inv.equip.weapon?'selected':''}" aria-label="${esc(it?it.name:'Empty belt slot '+(i+1))}" aria-pressed="${it===this.g.inv.equip.weapon}" title="${esc(it?.name||'New weapons fill empty slots')}"><small>${i+1}</small>${it?`<img src="${itemIconURL(it)}" alt="">`:'<span>·</span>'}</button>`;}).join('')}<button type="button" data-act="craft">Craft<br><kbd>${this.g.input.usingPad?'↓':'G'}</kbd></button></div><div class="belt-caption">${esc(this.g.inv.equip.weapon?.name||'Field belt')} · ${this.g.input.usingPad?'← / → or RB':'[ / ]'} switch</div>${tracked?`<div class="tracked-recipe"><b>${esc(tracked.name)}</b> ${Object.entries(tracked.cost).map(([k,v])=>`${NAME[k]} ${Math.min(R.resources[k],v)}/${v}`).join(' · ')}${tracked.station&&!this.m.nearStation(tracked.station)?' · Needs '+esc(PIECES[tracked.station]?.name||tracked.station):''}</div>`:''}`;
+    const html=`<div class="field-belt" role="toolbar" aria-label="Quick weapon belt">${belt.slots.map((id,i)=>{const it=items.find(x=>x.itemInstanceId===id);return `<button type="button" data-belt="${i}" ${it?'':'disabled'} class="${it===this.g.inv.equip.weapon?'selected':''}" aria-label="${esc(it?it.name:'Empty belt slot '+(i+1))}" aria-pressed="${it===this.g.inv.equip.weapon}" title="${esc(it?.name||'New weapons fill empty slots')}"><small>${i+1}</small>${it?`<img src="${itemIconURL(it)}" alt="">`:'<span>·</span>'}</button>`;}).join('')}<button type="button" class="belt-action-btn" data-act="buildwheel" title="Radial Build Wheel (B)"><span class="belt-btn-icon">🔨</span><span>Build</span><kbd>B</kbd></button><button type="button" class="belt-action-btn" data-act="craft" title="Crafting Workshop (G)"><span class="belt-btn-icon">⚒️</span><span>Craft</span><kbd>${this.g.input.usingPad?'↓':'G'}</kbd></button></div><div class="belt-caption">${esc(this.g.inv.equip.weapon?.name||'Field belt')} · ${this.g.input.usingPad?'← / → or RB':'[ / ]'} switch</div>${tracked?`<div class="tracked-recipe"><b>${esc(tracked.name)}</b> ${Object.entries(tracked.cost).map(([k,v])=>`${NAME[k]} ${Math.min(R.resources[k],v)}/${v}`).join(' · ')}${tracked.station&&!this.m.nearStation(tracked.station)?' · Needs '+esc(PIECES[tracked.station]?.name||tracked.station):''}</div>`:''}`;
     if(this.hud.innerHTML!==html)this.hud.innerHTML=html;
     if (!this.panel.classList.contains('hidden')) this.renderPanel();
     if (!this.m.build || anyModal) this.bar.classList.add('hidden');
+  }
+  openBuildWheel() {
+    if (this.g.locked() || this.g.ui?.invOpen || this.open) return;
+    if (!this.wheel.isOpen) this.wheel.open();
   }
   buildStatus(b) {
     this.bar.classList.remove('hidden');
@@ -51,7 +61,7 @@ export class SurvivalUI {
     row.querySelector('button').onclick=()=>{if(it?.slot!=='weapon')return;const belt=reconcileBelt(this.m.record,this.g),slot=+row.querySelector('select').value,old=belt.slots.indexOf(it.itemInstanceId),displaced=belt.slots[slot];if(old>=0)belt.slots[old]=displaced;belt.slots[slot]=it.itemInstanceId;this.g.save();this.refresh();this.g.ui.toast('Assigned to belt '+(slot+1),it.name,1.2);};
   }
   gather(node,done){if(!this.gatherEl){this.gatherEl=document.createElement('div');this.gatherEl.id='gather-progress';document.getElementById('ui').append(this.gatherEl);}this.gatherEl.hidden=false;this.gatherEl.textContent=node.D.name+' · '+(done?'Gathered':Math.max(0,node.hp)+' / '+node.D.hp+' remaining');this.gatherT=1.6;}
-  tick(dt){if(!this.m.active)return;if(this.gatherEl){this.gatherT-=dt;this.gatherEl.hidden=this.gatherT<=0;}this.poll=(this.poll||0)-dt;if(this.poll<=0){this.poll=.25;this.refresh();}const I=this.g.input;if(I.pressed('beltNext')||I.pressed('beltPrev')){const b=reconcileBelt(this.m.record,this.g),current=b.slots.indexOf(this.g.inv.equip.weapon?.itemInstanceId),d=I.pressed('beltNext')?1:-1;for(let n=1;n<=8;n++){const i=(Math.max(0,current)+d*n+80)%8;if(b.slots[i]){selectBelt(this.g,i);break;}}}}
+  tick(dt){if(!this.m.active)return;if(this.wheel?.isOpen)this.wheel.tick(dt);if(this.gatherEl){this.gatherT-=dt;this.gatherEl.hidden=this.gatherT<=0;}this.poll=(this.poll||0)-dt;if(this.poll<=0){this.poll=.25;this.refresh();}const I=this.g.input;if(I.pressed('beltNext')||I.pressed('beltPrev')){const b=reconcileBelt(this.m.record,this.g),current=b.slots.indexOf(this.g.inv.equip.weapon?.itemInstanceId),d=I.pressed('beltNext')?1:-1;for(let n=1;n<=8;n++){const i=(Math.max(0,current)+d*n+80)%8;if(b.slots[i]){selectBelt(this.g,i);break;}}}}
   decorate(){
     const ui=this.g.ui,host=document.querySelector('.inv-panel');if(!host)return;
     let nav=document.getElementById('field-tabs');if(!nav){nav=document.createElement('nav');nav.id='field-tabs';nav.setAttribute('aria-label','Survival inventory');host.querySelector('#inv-bag').before(nav);nav.innerHTML=['equipment','materials','craft','build'].map(t=>`<button type="button" data-field="${t}">${{equipment:'Equipment',materials:'Materials',craft:'Crafting',build:'Building'}[t]}</button>`).join('');nav.onclick=e=>{const b=e.target.closest('[data-field]');if(!b)return;if(b.dataset.field==='equipment'){this.closeAll();ui.renderInventory();}else this.openCraft(null,b.dataset.field);};}
@@ -60,10 +70,178 @@ export class SurvivalUI {
     if(!this.m.active||ui.invTab!=='bag')this.closeAll();
     const open=!this.panel.classList.contains('hidden');document.getElementById('inv-bag').classList.toggle('hidden',open||ui.invTab!=='bag');
     for(const b of nav.children)b.setAttribute('aria-pressed',String(b.dataset.field===(open?this.tab:'equipment')));
+    this.decorateSurvivalBag();
+  }
+  decorateSurvivalBag() {
+    const invBag = document.getElementById('inv-bag');
+    if (!invBag || !this.m.active || this.g.ui.invTab !== 'bag' || this.g.ui.creativeActive) {
+      document.getElementById('sv-resource-bar')?.remove();
+      document.getElementById('sv-inv-hotbar')?.remove();
+      document.getElementById('sv-quick-craft')?.remove();
+      return;
+    }
+    const right = invBag.querySelector('.inv-right');
+    if (!right) return;
+    const R = this.m.record || {};
+    const res = R.resources || {};
+
+    // 1. Resource Bar (Wood, Stone, Fibre, Ore, Crystal)
+    let resBar = document.getElementById('sv-resource-bar');
+    if (!resBar) {
+      resBar = document.createElement('div');
+      resBar.id = 'sv-resource-bar';
+      const filters = document.getElementById('inventory-filters') || document.getElementById('baggrid');
+      right.insertBefore(resBar, filters);
+    }
+    resBar.innerHTML = `
+      <div class="sv-res-chips">
+        <span class="sv-res-chip wood" title="Wood: gathered by chopping trees">${ICON.wood} <b>${res.wood || 0}</b> Wood</span>
+        <span class="sv-res-chip stone" title="Stone: gathered by breaking rocks">${ICON.stone} <b>${res.stone || 0}</b> Stone</span>
+        <span class="sv-res-chip fibre" title="Fibre: gathered by cutting foliage and trees">${ICON.fibre} <b>${res.fibre || 0}</b> Fibre</span>
+        <span class="sv-res-chip ore" title="Ore: mined from underground veins">${ICON.ore} <b>${res.ore || 0}</b> Ore</span>
+        <span class="sv-res-chip crystal" title="Crystal: harvested in deep caves">${ICON.crystal} <b>${res.crystal || 0}</b> Crystal</span>
+      </div>
+      <div class="sv-res-actions">
+        <button type="button" class="sv-quickstack-btn" data-act="quickstack" title="Quick stack matching materials to nearby storage chests">⚡ Quick Stack</button>
+      </div>
+    `;
+    const qsBtn = resBar.querySelector('.sv-quickstack-btn');
+    if (qsBtn) qsBtn.onclick = () => {
+      this.m.quickStack();
+      this.refresh();
+      this.decorateSurvivalBag();
+    };
+
+    // 2. Hotbar Row (Slots 1–8) directly above baggrid
+    let hotbar = document.getElementById('sv-inv-hotbar');
+    if (!hotbar) {
+      hotbar = document.createElement('div');
+      hotbar.id = 'sv-inv-hotbar';
+      const grid = document.getElementById('baggrid');
+      right.insertBefore(hotbar, grid);
+    }
+    const belt = reconcileBelt(R, this.g);
+    const items = availableItems(this.g);
+    const activeWeapon = this.g.inv.equip.weapon;
+
+    hotbar.innerHTML = `
+      <div class="sv-hotbar-header">
+        <span><b>HOTBAR BELT (1–8)</b></span>
+        <small>Click to equip · Select bag item to assign to slot</small>
+      </div>
+      <div class="sv-hotbar-slots">
+        ${belt.slots.map((id, i) => {
+          const it = items.find(x => x.itemInstanceId === id);
+          const isEq = it && it.itemInstanceId === activeWeapon?.itemInstanceId;
+          return `
+            <button type="button" class="sv-belt-slot ${isEq ? 'selected' : ''}" data-belt-slot="${i}" title="${esc(it ? it.name + ' (Slot ' + (i + 1) + ')' : 'Empty Hotbar Slot ' + (i + 1))}">
+              <span class="sv-belt-num">${i + 1}</span>
+              ${it ? `<img src="${itemIconURL(it)}" alt="${esc(it.name)}"><span class="sv-belt-title">${esc(it.name)}</span>` : `<span class="sv-belt-empty">·</span>`}
+            </button>
+          `;
+        }).join('')}
+      </div>
+    `;
+
+    hotbar.querySelectorAll('[data-belt-slot]').forEach(btn => {
+      btn.onclick = () => {
+        const slot = +btn.dataset.beltSlot;
+        const ui = this.g.ui;
+        const selectedBagItem = ui.invSel >= 0 ? this.g.inv.bag[ui.invSel] : null;
+        if (selectedBagItem && selectedBagItem.slot === 'weapon') {
+          const old = belt.slots.indexOf(selectedBagItem.itemInstanceId);
+          const displaced = belt.slots[slot];
+          if (old >= 0) belt.slots[old] = displaced;
+          belt.slots[slot] = selectedBagItem.itemInstanceId;
+          this.g.save();
+          this.refresh();
+          ui.renderInventory();
+          ui.toast('Assigned to slot ' + (slot + 1), selectedBagItem.name, 1.2);
+        } else {
+          selectBelt(this.g, slot);
+          this.refresh();
+          ui.renderInventory();
+        }
+      };
+    });
+
+    // 3. Terraria-Style Quick Crafting Strip
+    let quickCraft = document.getElementById('sv-quick-craft');
+    if (!quickCraft) {
+      quickCraft = document.createElement('div');
+      quickCraft.id = 'sv-quick-craft';
+      const grid = document.getElementById('baggrid');
+      grid.after(quickCraft);
+    }
+    const kits = R.kits || {};
+    const craftable = RECIPES.filter(r => this.m.canCraft(r.id, 1).ok);
+    const displayRecipes = craftable.length > 0 ? craftable : RECIPES.slice(0, 6);
+
+    quickCraft.innerHTML = `
+      <div class="sv-craft-header">
+        <div>
+          <b>FIELD CRAFTING</b>
+          <small>Craft & place directly from inventory</small>
+        </div>
+        <button type="button" class="sv-open-workshop-btn">Camp Workshop (G) →</button>
+      </div>
+      <div class="sv-quick-recipes">
+        ${displayRecipes.map(r => {
+          const c = this.m.canCraft(r.id, 1);
+          const isPiece = !!PIECES[r.gives];
+          const readyCount = kits[r.gives] || 0;
+          return `
+            <div class="sv-recipe-card ${c.ok ? 'can-craft' : 'cannot-craft'}">
+              <div class="sv-rc-left">
+                ${this.icon(r.gives)}
+                <div class="sv-rc-text">
+                  <b>${esc(r.name)}</b>
+                  <small>${Object.entries(r.cost).map(([k, v]) => `${NAME[k]} ×${v}`).join(' · ')}</small>
+                </div>
+              </div>
+              <div class="sv-rc-btns">
+                <button type="button" class="sv-rc-craft" data-craft-id="${r.id}" ${c.ok ? '' : 'disabled'}>Craft</button>
+                ${isPiece ? `<button type="button" class="sv-rc-place" data-place-id="${r.gives}" ${readyCount > 0 || c.ok ? '' : 'disabled'}>${readyCount > 0 ? 'Place (' + readyCount + ')' : 'Craft & Place'}</button>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+
+    const wsBtn = quickCraft.querySelector('.sv-open-workshop-btn');
+    if (wsBtn) wsBtn.onclick = () => this.openCraft();
+
+    quickCraft.querySelectorAll('.sv-rc-craft').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.dataset.craftId;
+        const res = this.m.craft(id, 1);
+        if (res.ok) {
+          this.refresh();
+          this.g.ui.renderInventory();
+        }
+      };
+    });
+
+    quickCraft.querySelectorAll('.sv-rc-place').forEach(btn => {
+      btn.onclick = () => {
+        const type = btn.dataset.placeId;
+        if ((kits[type] || 0) > 0) {
+          this.g.ui.closeInventory();
+          this.m.startBuild(type);
+        } else {
+          const res = this.m.craft(type, 1);
+          if (res.ok) {
+            this.g.ui.closeInventory();
+            this.m.startBuild(type);
+          }
+        }
+      };
+    });
   }
   toggleCraft(){this.panel.classList.contains('hidden')?this.openCraft():this.g.ui.closeInventory();}
   openCraft(station,tab='craft') {this.closeAll();this.tab=tab;this.quantity=this.quantity||1;this.g.ui.invTab='bag';this.g.ui.openInventory();this.panel.classList.remove('hidden');this.decorate();this.renderPanel();this.g.input.keys.clear();}
-  closeAll(){this.panel.classList.add('hidden');this.chest.classList.add('hidden');this.chestFor=null;document.getElementById('inv-bag')?.classList.toggle('hidden',this.g.ui.invTab!=='bag');const nav=document.getElementById('field-tabs');if(nav)for(const b of nav.children)b.setAttribute('aria-pressed',String(b.dataset.field==='equipment'));}
+  closeAll(){if(this.wheel)this.wheel.close();this.panel.classList.add('hidden');this.chest.classList.add('hidden');this.chestFor=null;document.getElementById('inv-bag')?.classList.toggle('hidden',this.g.ui.invTab!=='bag');const nav=document.getElementById('field-tabs');if(nav)for(const b of nav.children)b.setAttribute('aria-pressed',String(b.dataset.field==='equipment'));}
   icon(id){
     if (PIECES[id]) return `<img class="craft-model" src="${structureIconURL(id,pieceParts(id))}" alt="">`;
     if (id === 'pouch') return '<span class="craft-tonic" aria-hidden="true">🎒</span>';

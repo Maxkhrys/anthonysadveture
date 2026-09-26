@@ -408,6 +408,7 @@ export class SurvivalMode {
       this.ui && this.ui.buildStatus(b);
     }
     if (inp.pressed('craft') && !g.locked()) this.ui && this.ui.toggleCraft();
+    if (inp.pressed('buildWheel') && !g.locked() && !g.ui?.invOpen) this.ui && this.ui.openBuildWheel();
   }
   // the save: the character and everything the world remembers (never story data)
   capture() {

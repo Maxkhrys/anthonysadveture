@@ -20,10 +20,21 @@ export const CREATIVE_ITEMS = [
  {id:'heart',name:'Heart Vessel',category:'Supplies',hint:'Increase maximum health',give(g){g.gainHeartContainer(true);}},
  {id:'score',name:"Bellwright's Score",category:'Quest items',hint:'For Elder Tamsin',give(g){g.flags.bellscore=true;}},
  {id:'tongs',name:"Brakka's Tongs",category:'Quest items',hint:'For Brakka in Cinderpeak',give(g){g.flags.tongs=true;}},
- ...['verdant','ember'].map(id=>({id:'chime:'+id,name:id[0].toUpperCase()+id.slice(1)+' Chime',category:'Quest items',hint:'Adventure quest reward',give(g){if(!g.inv.chimes.includes(id))g.inv.chimes.push(id);}})),
+  ...['wood', 'stone', 'fibre', 'ore', 'crystal'].map(res => ({
+    id: 'sv:' + res,
+    name: res[0].toUpperCase() + res.slice(1) + ' (Field material)',
+    category: 'Materials',
+    hint: 'Directly add ' + res + ' to your survival resources.',
+    stack: true,
+    give(g, n) {
+      if (g.survival) g.survival.addResource(res, n);
+      else gainMat(g, res, n);
+    }
+  })),
+  ...['verdant','ember'].map(id=>({id:'chime:'+id,name:id[0].toUpperCase()+id.slice(1)+' Chime',category:'Quest items',hint:'Adventure quest reward',give(g){if(!g.inv.chimes.includes(id))g.inv.chimes.push(id);}})),
 ];
 export function grantCreative(g,id,quantity=1){
- if(g.area?.id!=='devroom')return false;
+ if(g.area?.id!=='devroom' && !g.flags?.allitems && !g.flags?.creativeMode && !g.settings?.devMode)return false;
  const item=CREATIVE_ITEMS.find(x=>x.id===id);if(!item)return false;
  const n=item.stack&&[1,10,64].includes(quantity)?quantity:1;
  if(item.give(g,n)===false)return false;
@@ -38,7 +49,7 @@ export function creativeIcon(item){
 export function renderCreative(ui){
  const grid=document.getElementById('baggrid'),panel=document.querySelector('.inv-panel');
  let host=document.getElementById('creative-inventory');
- const available=ui.g.area?.id==='devroom'&&ui.invTab==='bag';
+ const available=(ui.g.area?.id==='devroom' || ui.g.flags?.allitems || ui.g.flags?.creativeMode || (ui.g.settings?.devMode && ui.creativeActive)) && ui.invTab==='bag';
  if(!available){host?.remove();panel.classList.remove('creative-mode');grid.style.removeProperty('display');document.querySelector('.bag-search')?.style.removeProperty('display');ui.creativeActive=false;return;}
  if(!host){
   host=document.createElement('section');host.id='creative-inventory';
@@ -93,7 +104,7 @@ export function renderCreative(ui){
   list.scrollTop=scroll;
   host.querySelector('.creative-count').textContent=found.length+' of '+CREATIVE_ITEMS.length+' items';
   host.querySelector('.creative-capacity').textContent='Bag '+ui.g.inv.bag.length+' / '+ui.g.bagCapacity()+' · Level '+ui.g.inv.level;
-  host.querySelector('.creative-status').textContent=ui.creativeNotice||'Devroom only. Select an item to see its details.';
+  host.querySelector('.creative-status').textContent=ui.creativeNotice||(ui.g.flags?.allitems||ui.g.flags?.creativeMode?'All-items creative catalogue active. Select an item to add it to your bag.':'Devroom only. Select an item to see its details.');
   inspect(found.find(x=>x.id===ui.creativeSelected)||found[0]);
  }
  display();draw();

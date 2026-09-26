@@ -141,4 +141,79 @@ export default async function(page, R) {
   R.ok(hudCheck.hiddenInPause && hudCheck.settingsTabActive, 'hotbar hidden when pause / settings menu is open');
   R.ok(hudCheck.hiddenInInventory && hudCheck.inventoryOpen, 'hotbar hidden when inventory is open');
   R.ok(hudCheck.visibleAfterResume, 'hotbar restored when resuming gameplay');
+
+  // 7. Radial Build Wheel (Key B)
+  const wheelCheck = await page.evaluate(() => {
+    const g = __game;
+    const m = g.survival;
+    m.ui.openBuildWheel();
+    const wheelEl = document.getElementById('sv-wheel');
+    const isOpen = !wheelEl.classList.contains('hidden');
+    const sliceCount = wheelEl.querySelectorAll('.wheel-slice-path').length;
+    const hasDemolish = !!wheelEl.querySelector('.slice-demolish');
+
+    // Simulate selecting first slice
+    const firstSlice = m.ui.wheel.slices[0];
+    m.ui.wheel.hoverIndex = 0;
+    m.ui.wheel.activateHovered();
+    const wheelClosed = wheelEl.classList.contains('hidden');
+    const inBuildMode = m.build !== null && (m.build.type === firstSlice.id || m.build.type === 'demolish');
+    m.endBuild();
+
+    return { isOpen, sliceCount, hasDemolish, wheelClosed, inBuildMode };
+  });
+
+  R.ok(wheelCheck.isOpen && wheelCheck.sliceCount > 0, 'radial build wheel opens with dynamic pie slices');
+  R.ok(wheelCheck.hasDemolish, 'radial build wheel includes demolish slice');
+  R.ok(wheelCheck.wheelClosed && wheelCheck.inBuildMode, 'activating wheel slice enters placement mode and closes wheel');
+
+  // 8. In-Inventory Extensions (Resource bar, Hotbar row, Terraria quick craft)
+  const invCheck = await page.evaluate(() => {
+    const g = __game;
+    const m = g.survival;
+    m.record.resources.wood = 42;
+    m.record.resources.stone = 18;
+    g.ui.navigate('bag');
+
+    const resBar = document.getElementById('sv-resource-bar');
+    const resVisible = resBar && !resBar.classList.contains('hidden');
+    const woodText = resBar?.textContent.includes('42 Wood');
+    const stoneText = resBar?.textContent.includes('18 Stone');
+
+    const hotbar = document.getElementById('sv-inv-hotbar');
+    const hotbarVisible = hotbar && !hotbar.classList.contains('hidden');
+    const hotbarSlotsCount = hotbar?.querySelectorAll('.sv-belt-slot').length;
+
+    const quickCraft = document.getElementById('sv-quick-craft');
+    const quickCraftVisible = quickCraft && !quickCraft.classList.contains('hidden');
+    const hasRecipes = quickCraft?.querySelectorAll('.sv-recipe-card').length > 0;
+
+    g.ui.navigate('resume');
+    return { resVisible, woodText, stoneText, hotbarVisible, hotbarSlotsCount, quickCraftVisible, hasRecipes };
+  });
+
+  R.ok(invCheck.resVisible && invCheck.woodText && invCheck.stoneText, 'inventory displays resource bar with wood and stone counts');
+  R.ok(invCheck.hotbarVisible && invCheck.hotbarSlotsCount === 8, 'inventory displays top hotbar row with 8 belt slots');
+  R.ok(invCheck.quickCraftVisible && invCheck.hasRecipes, 'inventory displays terraria-style quick crafting list');
+
+  // 9. All-Items Creative Cheat (/allitems)
+  const allitemsCheck = await page.evaluate(async () => {
+    const g = __game;
+    const beforeCount = g.inv.bag.length;
+    const { DevCommands } = await import('/src/dev/commands.js');
+    DevCommands.execute(g, '/allitems on');
+
+    const creativeOpen = !document.getElementById('creative-inventory')?.classList.contains('hidden');
+    const { grantCreative } = await import('/src/dev/creative.js');
+    const granted = grantCreative(g, 'gear:heavensdivide', 1);
+    const addedToBag = g.inv.bag.length === beforeCount + 1;
+
+    DevCommands.execute(g, '/allitems off');
+    g.ui.navigate('resume');
+
+    return { creativeOpen, granted, addedToBag };
+  });
+
+  R.ok(allitemsCheck.creativeOpen, '/allitems unlocks creative armoury catalogue in bag');
+  R.ok(allitemsCheck.granted && allitemsCheck.addedToBag, 'creative cheat allows pulling items into inventory bag');
 }
