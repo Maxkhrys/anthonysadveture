@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { Entity } from '../entities/entity.js';
 import { geo, B, MAT, MAT_GLOW } from '../models.js';
+import {gatherFeedback} from './gathering.js';
 import { sfx } from '../engine/audio.js';
 import { hash2 } from '../engine/util.js';
 
@@ -53,7 +54,7 @@ export class ResourceNode extends Entity {
     const g = this.g; if (this.dead || this.cool > 0) return;
     this.cool = HIT_COOLDOWN; this.hp -= n; this.shake = 1; this.dir = dir;
     this.owner.damage[this.id] = this.D.hp - Math.max(0, this.hp);
-    sfx(this.D.sound); g.fx.burst(this.x, 0.6, this.z, 5, this.D.chips, 2.2, { life: 0.4, size: 0.06 });
+    gatherFeedback(this);
     g.stats.gatherHits = (g.stats.gatherHits || 0) + 1;
     this.applyDamageLook();
     if (this.hp <= 0) this.fell();
@@ -61,8 +62,9 @@ export class ResourceNode extends Entity {
   applyDamageLook() { this.k = Math.max(0, this.hp) / this.D.hp; this.look(); } // chopped and cracked down as it takes work
   look() { const k = this.k; if (this.m) { this.m.scale.set(0.8 + 0.2 * k, 0.75 + 0.25 * k, 0.8 + 0.2 * k); this.m.rotation.z = this.tilt; } else if (this.batch) this.batch.set(this.slot, this, 0.8 + 0.2 * k, 0.75 + 0.25 * k); }
   fell() {
+    if(this.dead)return;
     const g = this.g;
-    sfx(this.type === 'tree' ? 'push' : 'thud'); g.fx.burst(this.x, 0.5, this.z, 14, this.D.chips, 3, { life: 0.6, size: 0.08 });
+    gatherFeedback(this,true);
     const drops = [...this.D.drop]; if (this.D.bonus && Math.random() < this.D.bonus[2]) drops.push([this.D.bonus[0], this.D.bonus[1]]);
     for (const [res, n] of drops) g.spawn(new Pickup(g, this.x, this.z, res, n));
     this.owner.removeNode(this);
@@ -107,7 +109,7 @@ export class Pickup extends Entity {
     if (this.y > 0.05 || this.vy > 0) { this.vy -= 12 * dt; this.y = Math.max(0.05, this.y + this.vy * dt); this.x += this.vx * dt; this.z += this.vz * dt; if (this.y <= 0.05) this.vy = 0; }
     const d = Math.hypot(p.x - this.x, p.z - this.z);
     if (this.t > 0.35 && (d < 2.4 || this.t > 5)) { const k = Math.min(1, dt * 10); this.x += (p.x - this.x) * k; this.z += (p.z - this.z) * k; }
-    if (this.t > 0.35 && d < 0.5 || this.t > 6) { g.survival?.addResource(this.res, this.n, this.x, this.z); sfx('pip'); this.remove(); }
+    if (this.t > 0.35 && d < 0.5 || this.t > 6) { g.survival?.addResource(this.res, this.n, this.x, this.z); sfx('gatherpickup'); this.remove(); }
     this.obj.rotation.y += dt * 3; this.sync();
   }
 }
@@ -124,8 +126,9 @@ export const PIECES = {
   chest: { name: 'Storage chest', solid: true, desc: 'Keeps resources safe at camp.' },
   torch: { name: 'Torch', solid: false, desc: 'A little light at night.' },
 };
-function pieceParts(type) {
+export function pieceParts(type, roofColor=0xc8a050) {
   switch (type) {
+    case 'roof': return [B(1.1,.14,1.1,0,0,0,roofColor),B(.8,.14,.8,0,.14,0,roofColor)];
     case 'floor': return [B(1, 0.08, 1, 0, 0, 0, 0xa8784a), B(0.96, 0.02, 0.05, 0, 0.08, -0.25, 0x8a5e36), B(0.96, 0.02, 0.05, 0, 0.08, 0.25, 0x8a5e36)];
     case 'wall': return [B(1, 1.3, 0.9, 0, 0, 0, 0x9a6a3a), B(1.02, 0.12, 0.94, 0, 1.3, 0, 0x7a5230), B(0.12, 1.3, 0.94, -0.44, 0, 0, 0x7a5230), B(0.12, 1.3, 0.94, 0.44, 0, 0, 0x7a5230)];
     case 'stonewall': return [B(1, 1.3, 0.9, 0, 0, 0, 0xa8a294), B(0.5, 0.28, 0.92, -0.24, 0.3, 0, 0x948e82), B(0.5, 0.28, 0.92, 0.24, 0.75, 0, 0x948e82)];
@@ -142,7 +145,7 @@ export class Structure extends Entity {
     super(g, s.x, s.z); this.s = s; this.id = s.id; this.type = s.type; this.owner = owner; this.P = PIECES[s.type];
     this.solid = this.P.solid; this.hw = this.hd = s.type === 'campfire' || s.type === 'chest' ? 0.42 : 0.5; this.isStructure = true;
     this.interactable = ['campfire', 'workbench', 'chest'].includes(s.type);
-    if (s.type === 'roof') { this.mat = new THREE.MeshLambertMaterial({ color: 0xc8a050, transparent: true, opacity: 1 }); const m = new THREE.Mesh(geo([B(1.1, 0.14, 1.1, 0, 0, 0, 0xffffff), B(0.8, 0.14, 0.8, 0, 0.14, 0, 0xffffff)]), this.mat); m.position.y = 1.45; this.obj.add(m); }
+    if (s.type === 'roof') { this.mat = new THREE.MeshLambertMaterial({ color: 0xc8a050, transparent: true, opacity: 1 }); const m = new THREE.Mesh(geo(pieceParts('roof',0xffffff)), this.mat); m.position.y = 1.45; this.obj.add(m); }
     else { const m = new THREE.Mesh(geo(pieceParts(s.type)), MAT); m.castShadow = true; this.obj.add(m); }
     if (s.type === 'campfire' || s.type === 'torch') {
       this.flame = new THREE.Mesh(geo([B(0.22, 0.3, 0.22, 0, 0, 0, 0xffb347), B(0.12, 0.2, 0.12, 0, 0.24, 0, 0xfff0a0)]), MAT_GLOW, false); this.flame.position.y = s.type === 'torch' ? 1.0 : 0.12; this.obj.add(this.flame);

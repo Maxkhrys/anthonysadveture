@@ -99,7 +99,7 @@ export function installRpgUI(UI) {
     document.querySelectorAll('#inventory .tabs span[data-itab]').forEach(s => s.onclick = () => { this.invTab = s.dataset.itab; this.renderInventory(); });
     this.renderInventory();
   };
-  P.closeInventory = function () { this.invOpen = false; this.show('inventory', false); };
+  P.closeInventory = function () { this.g.survivalUI?.closeAll(); this.invOpen = false; this.show('inventory', false); };
   // ---- presentation helpers (display only; item rules live in game.js / items.js)
   const SLOT_DEFS = [
     { k: 'helm', alts: ['head'], label: 'Head', side: 'L' }, { k: 'charm', alts: ['neck', 'necklace'], label: 'Neck', side: 'L' },

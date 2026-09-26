@@ -1463,6 +1463,11 @@ export class Game {
 
   // ------------------------------------------------ main update
   update(dt) {
+    if(this.devConsole?.isOpen || this.ui.invOpen || this.survivalUI?.open || this.devlab?.overlayOpen){
+      if(!this.devConsole?.isOpen&&!this.survivalUI?.open&&!this.devlab?.overlayOpen)this.ui.updateInventory(this.input);
+      this.render(.0001);return;
+    }
+    this.survivalUI?.tick(dt);
     dt *= this.timeScale ?? 1; // dev capture: freeze / slow motion
     this.time += dt;
     this.devlab?.tick(dt); this.combatFx?.update(dt); this.survival?.tick(dt);
