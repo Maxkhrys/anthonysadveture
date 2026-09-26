@@ -2,6 +2,7 @@ import { CharacterCreator } from './character_creator.js';
 import { HEART } from './world/layout.js';
 import {BUILD,chooseImport} from './alpha.js';
 import { PixelRenderer } from './engine/pixel.js';
+import {ControllerUI} from './engine/controller.js';
 import { Input } from './engine/input.js';
 import { initAudio, playMusic, toggleMusic, sfx } from './engine/audio.js';
 import { Game } from './game.js';
@@ -201,6 +202,14 @@ async function boot() {
   try { provider = new LocalSaveProvider(localStorage); }
   catch { provider = { loadCharacters() { throw new Error('Browser storage unavailable. Enable storage to play with durable saves.'); } }; }
   game = new Game(pr, input, provider);
+  game.controllerUI = new ControllerUI(game);
+  game.openDevLab = async () => {
+    if(!['title','titlesettings','play','pause'].includes(mode))throw new Error('Finish character creation before opening the lab.');
+    if(!game.devlab)throw new Error('MOSSDEV is unavailable in this build.');
+    game.devConsole?.close();game.ui.closeInventory();
+    game.settings.devMode=true;SETTINGS.saveSettings(game.settings);
+    await enterLab();
+  };
   game.ui.navigate = page => {
     if (!['play', 'pause'].includes(mode) || game.dead || game.locked() || game.ui.craftOpen || !$('shop').classList.contains('hidden')) return;
     game.ui.closeInventory(); game.ui.show('pause', false);
@@ -301,14 +310,37 @@ addEventListener('keydown', e => {
   e.preventDefault();
   if (game.devlab.active) game.devlabUI.toggle(); else enterLab();
 });
+// Route menus before gameplay so a confirming button can never also swing a weapon.
+function routeController(dt) {
+  let root=null,back=()=>{};
+  const shown=id=>{const e=$(id);return e&&!e.classList.contains('hidden')?e:null;};
+  if(game.devConsole?.isOpen){root=game.devConsole.el;back=()=>game.devConsole.close();}
+  else if(mode==='creator'){root=creator.el;back=()=>root.querySelector('[data-action="back"]')?.click();}
+  else if(game.devlab?.overlayOpen){root=$('mossdev');back=()=>game.devlabUI.close();}
+  else if(game.survivalUI?.open){root=shown('sv-chest')||$('inventory');back=()=>{game.survivalUI.closeAll();game.ui.closeInventory();};}
+  else if(game.ui.invOpen){root=$('inventory');back=()=>game.ui.closeInventory();}
+  else if(mode==='pause'){root=$('pause');back=()=>{mode='play';game.ui.show('pause',false);};}
+  else if(mode==='titlesettings'){root=$('title-settings');back=()=>titleSettings.onClose?.();}
+  else if(mode==='title'){root=game.ui.talking?null:$('title');back=()=>{if(screen!=='main')buildMenu('main').then(renderMenu);};}
+  else if(mode==='classsel'){root=$('classsel');back=()=>{};}
+  else if(game.ui.talking){root=shown('dialog')?.querySelector('.choices');if(!root?.children.length)root=null;back=()=>{};}
+  // Legacy shop / workbench use action navigation, but do not accept combat bindings.
+  if(!root&&(shown('shop')||game.ui.craftOpen)&&input.usingPad){
+    const r=input.padRaw;if(r){input.state.up=r.buttons[12]||r.move[1]<-.5;input.state.down=r.buttons[13]||r.move[1]>.5;input.state.left=r.buttons[14]||r.move[0]<-.5;input.state.right=r.buttons[15]||r.move[0]>.5;input.state.pause=!!r.buttons[1]||!!r.buttons[9];}
+  }
+  game.controllerUI.update(dt,root,back);
+  if(input.padDisconnected&&mode==='play'&&!root&&!game.dead){mode='pause';game.ui.openPause();}
+}
+window.__routeController=routeController;
 let last = performance.now();
 let titleT = 0;
 function frame(now) {
   requestAnimationFrame(frame);
   let dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  if (mode === 'creator') { creator.frame(dt); return; }
   input.update();
+  routeController(dt);
+  if (mode === 'creator') { creator.frame(dt); return; }
   if (input.pressed('music')) { const on = toggleMusic(); game.ui.toast(on ? 'Music on' : 'Music off', '', 0.8); }
   if (mode === 'title') {
     titleT += dt;
@@ -350,7 +382,7 @@ function frame(now) {
     return;
   }
   if (game.devlabUI) game.devlabUI.tick(dt);
-  if (mode === 'play' && game.survivalUI?.open) { if (input.pressed('pause') || input.pressed('craft')) game.survivalUI.closeAll(); input.keys.clear(); game.render(0.0001); return; } // survival panels pause play
+  if (mode === 'play' && game.survivalUI?.open) { if (input.pressed('pause') || input.pressed('craft')) game.ui.closeInventory(); input.keys.clear(); game.render(0.0001); return; } // survival panels pause play
   if (mode === 'play' && game.devlab?.overlayOpen) { if (input.pressed('pause')) game.devlabUI.close(); input.keys.clear(); game.render(0.0001); return; } // configuration pauses the test
   if (mode === 'play') {
     const shopOpen = !$('shop').classList.contains('hidden');

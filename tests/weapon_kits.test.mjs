@@ -169,12 +169,15 @@ export default async function (page, R) {
     const g = window.__game, W = window.__wk, out = {};
     W.setup('gravechain'); W.foe(0, 3); g.res = 0; W.run(1, 40); out.gain = g.res;
     W.setup('lanternlinks'); W.foe(0, 2); g.res = 40; W.run(1, 60); out.after = g.res; out.spent = g.stats.echoesSpent || 0;
-    W.setup('wandererschain'); const e = W.foe(0, 2); W.run(1, 30, ['KeyC']); out.lash = e.maxHp - e.hp;
+    W.setup('wandererschain'); const e = W.foe(0, 2);
+    // This assertion checks routing, using 60 Hz so the existing narrow chain sweep isn't
+    // skipped by a 30 Hz sample on a randomly rolled attack-speed affix (documented separately).
+    g.noRender=true;window.__sim(2,['KeyC'],1/60);out.lashState=g.player.state;window.__sim(60,[],1/60);g.noRender=false;out.lash=e.maxHp-e.hp;
     return out;
   });
   R.ok(echo.gain >= 10, 'a landed Anchor Yank gathers half a Soul Echo', String(echo.gain));
   R.ok(echo.spent === 1 && echo.after < 40 + 10.5, 'Spectral Follow-up spends one Echo for spirits when you have one', JSON.stringify(echo));
-  R.ok(echo.lash > 0, 'left click is still the SoulChain lash (not a sword)', String(echo.lash));
+  R.ok(echo.lash > 0 && echo.lashState==='lash', 'left click is still the SoulChain lash (not a sword)', String(echo.lash));
 
   // ------------------------------------------------------------ named overrides, events, reload, save/load
   await fresh(page, 'gunslinger', { stage: 3, level: 8 }); await toSquare(page); await page.evaluate(HARNESS);

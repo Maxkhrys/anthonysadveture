@@ -4,6 +4,7 @@ const $=id=>document.getElementById(id);
 export function polishInventory(ui){
  const panel=document.querySelector('.inv-panel'),normal=ui.invTab==='bag'&&!ui.creativeActive;
  panel.classList.toggle('inventory-mode',normal);
+ ui.g.survivalUI?.decorate();
  if(ui.invTab!=='bag')return;
  const bag=document.querySelector('.inv-right'),hero=document.querySelector('.inv-left');
  let detail=$('inventory-detail');
@@ -54,5 +55,6 @@ export function polishInventory(ui){
  let empty=$('bag-empty');if(!empty){empty=document.createElement('div');empty.id='bag-empty';$('baggrid').after(empty);}
  empty.hidden=count>0;empty.textContent=owned?'No matching items. Change your filters or reset.':'Your bag is empty. Explore, defeat enemies and open treasure chests.';
  const keys=document.querySelector('.inv-keys');if(keys.parentNode!==bag)bag.append(keys);
+ ui.g.survivalUI?.pinControl();
  if(normal){panel.setAttribute('aria-label','Inventory and equipment');detail.hidden=false;}else detail.hidden=true;
 }

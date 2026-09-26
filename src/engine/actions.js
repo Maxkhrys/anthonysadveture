@@ -1,6 +1,9 @@
+import {PAD_HELP} from './controller.js';
 // Single PC action registry. Gameplay, prompts and controls all read this contract.
 // Context actions (confirm, favourite, salvage) are deliberately separate from world actions.
 export const ACTIONS = {
+  beltPrev:{keys:['BracketLeft'],label:'Previous field-belt item',glyph:'['},
+  beltNext:{keys:['BracketRight'],label:'Next field-belt item',glyph:']'},
   up: { keys: ['KeyW', 'ArrowUp'], label: 'Move forward', glyph: 'W / ↑' },
   down: { keys: ['KeyS', 'ArrowDown'], label: 'Move backward', glyph: 'S / ↓' },
   left: { keys: ['KeyA', 'ArrowLeft'], label: 'Move left', glyph: 'A / ←' },
@@ -29,9 +32,10 @@ export const ACTIONS = {
   filter: { keys: ['KeyG'], label: 'Filter inventory', glyph: 'G', context: true },
 };
 export const KEYMAP = Object.fromEntries(Object.entries(ACTIONS).map(([id,a]) => [id,a.keys]));
-export const glyph = id => ACTIONS[id]?.glyph || id;
+const PAD_GLYPH={attack:'X',secondary:'RT',shield:'LB',roll:'B',interact:'A',inventory:'View',pause:'B',reload:'Y',potion:'↑',craft:'↓',beltPrev:'←',beltNext:'RB / →',item:'L3',toolCycle:'LT+View',surge:'R3',lock:'Y',salvage:'A',skills:'Menu',map:'Menu',journal:'Menu',...Object.fromEntries(['X','Y','B','A','LB','RB'].map((b,i)=>['ab'+(i+1),'LT+'+b]))};
+export const glyph = id => typeof document!=='undefined'&&document.documentElement.classList.contains('using-controller')?(PAD_GLYPH[id]||ACTIONS[id]?.glyph||id):(ACTIONS[id]?.glyph||id);
 export const prompt = id => `<kbd>${glyph(id)}</kbd>`;
-export const controlsHTML = () => `<div class="controls-grid">${Object.entries(ACTIONS).filter(([id]) => !['down','left','right','ab2','ab3','ab4','ab5','ab6'].includes(id)).map(([id,a]) => `<div class="control-row"><span>${id === 'up' ? 'Move' : id === 'ab1' ? 'Six equipped abilities' : a.label}${a.context ? '<small>In inventory</small>' : ''}</span><kbd>${id === 'up' ? 'WASD / Arrows' : id === 'ab1' ? '1–6' : a.glyph}</kbd></div>`).join('')}</div><p class="setnote">Mouse aims. C attacks in your facing direction. Gamepad: left stick move, right stick aim, RT weapon secondary, LB guard; hold LT + X / Y / B / A / LB / RB for abilities 1–6. Reload binding: <select aria-label="Reload key" data-reload-key>${['KeyZ','KeyN','KeyU'].map(k=>`<option value="${k}" ${KEYMAP.reload[0]===k?'selected':''}>${k.slice(3)}</option>`).join('')}</select>.</p>`;
+export const controlsHTML = () => `<div class="controls-grid">${Object.entries(ACTIONS).filter(([id]) => !['down','left','right','ab2','ab3','ab4','ab5','ab6'].includes(id)).map(([id,a]) => `<div class="control-row"><span>${id === 'up' ? 'Move' : id === 'ab1' ? 'Six equipped abilities' : a.label}${a.context ? '<small>In inventory</small>' : ''}</span><kbd>${id === 'up' ? 'WASD / Arrows' : id === 'ab1' ? '1–6' : a.glyph}</kbd></div>`).join('')}</div><p class="setnote">Mouse aims. C attacks in your facing direction. ${PAD_HELP}. In menus: A select, B back, D-pad/stick navigate, LB/RB cycle controls. A opens a text-entry keyboard. Reload binding: <select aria-label="Reload key" data-reload-key>${['KeyZ','KeyN','KeyU'].map(k=>`<option value="${k}" ${KEYMAP.reload[0]===k?'selected':''}>${k.slice(3)}</option>`).join('')}</select>.</p>`;
 
 export function setReloadKey(code){
  if(!['KeyZ','KeyN','KeyU'].includes(code))return false;
