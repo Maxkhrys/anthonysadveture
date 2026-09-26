@@ -17,6 +17,7 @@ export class WorldStreamer {
   build(cx, cz) {
     const key = cx + ',' + cz;
     if (this.chunks.has(key)) return;
+    if (this.area.ensureChunk) this.area.ensureChunk(cx, cz); // survival: generate on first sight
     const t0 = performance.now();
     const rect = { x0: cx * CHUNK, y0: cz * CHUNK, x1: (cx + 1) * CHUNK, y1: (cz + 1) * CHUNK };
     const grp = new THREE.Group();

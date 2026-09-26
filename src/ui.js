@@ -69,7 +69,7 @@ export class UI {
     const kd = g.area && g.area.id === 'dungeon';
     $('keys').innerHTML = kd ? `🗝 ${inv.keys}${inv.bigkey ? ' · <span style="color:#ffd25e">Thornwood Key</span>' : ''}` : '';
     $('chimes').innerHTML = ['v', 'e', 't'].map((k, i) => `<div class="chime ${k} ${inv.chimes.includes(['verdant', 'ember', 'tide'][i]) ? 'got' : ''}"></div>`).join('');
-    $('objective').textContent = g.story.objective();
+    $('objective').textContent = g.survival ? g.survival.hint() : g.story.objective(); // survival has its own guidance
   }
   areaName(name) {
     const el = $('area-name'); el.textContent = name; el.classList.add('show'); this.areaT = 2.8;

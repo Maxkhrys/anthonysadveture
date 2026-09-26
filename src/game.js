@@ -45,6 +45,7 @@ import { buildDevRoom } from './world/devroom.js';
 import { buildMossLab } from './devlab/arena.js';
 import { DevLab } from './devlab/lab.js';
 import { CombatFx, installCombatFx } from './combat_fx.js';
+import { SurvivalMode } from './survival/mode.js';
 import { buildConservatory } from './world/conservatory.js';
 import { buildMini, MINI_IDS } from './world/minidungeons.js';
 import { HangingBell, BellSequence, CrackedGlass, BossTrigger, TollRack } from './entities/objects5.js';
@@ -92,6 +93,7 @@ export class Game {
     this.fx = new FX(this.scene);
     this.fx.groundAt = (x, z) => this.groundAt(x, z);
     this.combatFx = new CombatFx(this); // combat presentation (listens only; see combat_fx.js)
+    this.survivalMode = new SurvivalMode(this); // idle until a survival world is played
     try { this.devlab = new DevLab(this); } catch (e) { this.devlab = null; } // MOSSDEV (its own storage; idle unless opened)
     this.ui = new UI(this);
     this.critters = new Critters(this); // butterflies over the meadows
@@ -709,7 +711,7 @@ export class Game {
     this.ui.clearFloats && this.ui.clearFloats();
     this.entities = []; this.solids = []; this.sigs = {}; this.tokens = 0; this.fenToad = null;
     this.bossActive = null; this.ui.bossBar(null);
-    const area = id === 'rift' ? buildRift(this.riftFloor || 1, this.riftLevel || 3, Math.floor(Math.random() * 1e9)) : BUILDERS[id]();
+    const area = this.survival?.buildArea(id) || (id === 'rift' ? buildRift(this.riftFloor || 1, this.riftLevel || 3, Math.floor(Math.random() * 1e9)) : BUILDERS[id]());
     this.area = area;
     this.world6Prepare(area); // the character's seeded optional content
     // the ground is streamed in chunks around the camera (see world/stream.js)
@@ -747,6 +749,7 @@ export class Game {
       this.streamDefs = { C, cells, active: new Set(), t: 0 };
       this.streamTick(0, true);
     } else for (const d of area.defs) this.spawnDef(d);
+    if (this.survival) this.survival.onAreaLoaded(area); // survival: stream the world's nodes, landmarks and camp
     for (const e of this.entities) if (e instanceof O.Torch && e.puzzle && !this._tg?.[e.group]) { (this._tg = this._tg || {})[e.group] = true; const tg = new O.TorchGroup(this, e.group); tg.alwaysUpdate = true; this.spawn(tg); }
     this._tg = null;
     this.room = null;
@@ -1079,6 +1082,7 @@ export class Game {
   }
   onEnemyDeath(e) {
     itemCombat(this).kill(e);
+    if (e.packId && this.survival) this.survival.killed.add(e.packId); // wild creatures stay down until the world is reloaded
     if (this.pstats.arpg?.stats.lifeOnKill) this.heal(this.pstats.arpg.stats.lifeOnKill, true);
     const ps = this.pstats;
     if (e.def && this.area.id === 'overworld') { e.def._killed = true; (this.respawnQ || (this.respawnQ = [])).push({ def: e.def, t: this.time + 70 + Math.random() * 40 }); }
@@ -1461,7 +1465,7 @@ export class Game {
   update(dt) {
     dt *= this.timeScale ?? 1; // dev capture: freeze / slow motion
     this.time += dt;
-    this.devlab?.tick(dt); this.combatFx?.update(dt);
+    this.devlab?.tick(dt); this.combatFx?.update(dt); this.survival?.tick(dt);
     this.autosaveT = (this.autosaveT || 0) + dt;
     if (this.autosaveT >= 15) { this.autosaveT = 0; this.save(); }
     windUniform.value = this.time;

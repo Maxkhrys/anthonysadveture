@@ -19,6 +19,7 @@ export class Story {
 
   objective() {
     const f = this.f, g = this.g;
+    if (g.survival) return g.survival.hint(); // survival mode has its own guidance
     if(g.onboarding?.active)return g.onboarding.lesson()[1];
     if (g.area && g.area.rift) return `Hush Rift · Floor ${g.area.floor}: clear each room and defeat the Champion.`;
     if (g.area && g.area.id === 'dungeon' && !f.bossDead) {
@@ -36,6 +37,7 @@ export class Story {
     return '';
   }
   markers() {
+    if (this.g.survival) return this.g.survival.markers();
     const f = this.f, m = [];
     const target=this.g.onboarding?.target(); if(target)m.push({...target,color:'#e8c77e',pulse:true});
     if (this.stage === 1) m.push({ x: hx(17.5), z: hz(29.5), color: '#7fd36a', pulse: true });
@@ -55,6 +57,7 @@ export class Story {
   }
   labels() {
     const g = this.g, a = g.area;
+    if (g.survival) return Object.values(g.survival.record.discovered).filter(d => g.area?.id === 'wilds').map(d => ({ t: d.name, x: d.x, z: d.z + 2 }));
     // Pass 6: region and landmark names appear once discovered (or marked by someone)
     if (a && a.landmarks && g.world6) {
       const D = g.world6.discovery, out = [];
