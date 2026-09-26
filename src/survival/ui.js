@@ -29,11 +29,13 @@ export class SurvivalUI {
   hide() { if(this.gatherEl)this.gatherEl.hidden=true;for (const e of [this.hud, this.bar, this.panel, this.chest]) e.classList.add('hidden'); }
   refresh() {
     const R = this.m.record; if (!R) return;
+    const anyModal = this.open || this.g.ui?.invOpen || !document.getElementById('pause')?.classList.contains('hidden') || !document.getElementById('inventory')?.classList.contains('hidden') || !document.getElementById('shop')?.classList.contains('hidden') || !document.getElementById('craft')?.classList.contains('hidden') || this.g.mode === 'pause';
+    this.hud.classList.toggle('hidden', anyModal);
     const belt=reconcileBelt(R,this.g),items=availableItems(this.g),tracked=RECIPES.find(r=>r.id===R.trackedRecipe);
     const html=`<div class="field-belt" role="toolbar" aria-label="Quick weapon belt">${belt.slots.map((id,i)=>{const it=items.find(x=>x.itemInstanceId===id);return `<button type="button" data-belt="${i}" ${it?'':'disabled'} class="${it===this.g.inv.equip.weapon?'selected':''}" aria-label="${esc(it?it.name:'Empty belt slot '+(i+1))}" aria-pressed="${it===this.g.inv.equip.weapon}" title="${esc(it?.name||'New weapons fill empty slots')}"><small>${i+1}</small>${it?`<img src="${itemIconURL(it)}" alt="">`:'<span>·</span>'}</button>`;}).join('')}<button type="button" data-act="craft">Craft<br><kbd>${this.g.input.usingPad?'↓':'G'}</kbd></button></div><div class="belt-caption">${esc(this.g.inv.equip.weapon?.name||'Field belt')} · ${this.g.input.usingPad?'← / → or RB':'[ / ]'} switch</div>${tracked?`<div class="tracked-recipe"><b>${esc(tracked.name)}</b> ${Object.entries(tracked.cost).map(([k,v])=>`${NAME[k]} ${Math.min(R.resources[k],v)}/${v}`).join(' · ')}${tracked.station&&!this.m.nearStation(tracked.station)?' · Needs '+esc(PIECES[tracked.station]?.name||tracked.station):''}</div>`:''}`;
     if(this.hud.innerHTML!==html)this.hud.innerHTML=html;
     if (!this.panel.classList.contains('hidden')) this.renderPanel();
-    if (!this.m.build) this.bar.classList.add('hidden');
+    if (!this.m.build || anyModal) this.bar.classList.add('hidden');
   }
   buildStatus(b) {
     this.bar.classList.remove('hidden');

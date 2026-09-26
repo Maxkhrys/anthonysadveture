@@ -112,4 +112,33 @@ export default async function(page, R) {
   for (const [k, v] of Object.entries(checks)) {
     R.ok(v, k);
   }
+
+  // 6. Verify hotbar / survival HUD is hidden when Pause menu or Inventory is open
+  const hudCheck = await page.evaluate(() => {
+    const g = __game;
+    const hud = document.getElementById('sv-hud');
+    const wasVisibleBefore = !hud.classList.contains('hidden') && getComputedStyle(hud).display !== 'none';
+
+    // Open Pause (Esc / Journal / Settings / Map)
+    g.ui.openPause();
+    g.ui.tab('settings');
+    const hiddenInPause = hud.classList.contains('hidden') && getComputedStyle(hud).display === 'none';
+    const settingsTabActive = document.querySelector('#tab-settings:not(.hidden)') !== null;
+
+    // Navigate to Inventory
+    g.ui.navigate('bag');
+    const hiddenInInventory = hud.classList.contains('hidden') && getComputedStyle(hud).display === 'none';
+    const inventoryOpen = !document.getElementById('inventory').classList.contains('hidden');
+
+    // Resume gameplay
+    g.ui.navigate('resume');
+    const visibleAfterResume = !hud.classList.contains('hidden') && getComputedStyle(hud).display !== 'none';
+
+    return { wasVisibleBefore, hiddenInPause, settingsTabActive, hiddenInInventory, inventoryOpen, visibleAfterResume };
+  });
+
+  R.ok(hudCheck.wasVisibleBefore, 'hotbar visible during active survival gameplay');
+  R.ok(hudCheck.hiddenInPause && hudCheck.settingsTabActive, 'hotbar hidden when pause / settings menu is open');
+  R.ok(hudCheck.hiddenInInventory && hudCheck.inventoryOpen, 'hotbar hidden when inventory is open');
+  R.ok(hudCheck.visibleAfterResume, 'hotbar restored when resuming gameplay');
 }
