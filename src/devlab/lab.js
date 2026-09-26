@@ -61,9 +61,12 @@ export class DevLab {
     if (g.profile && !g.sandbox) {
       // flush the adventure first; its save is never touched again while the lab is open
       await g.save();
-      this.store.data.returnTo = { characterId: g.profile.id, name: g.profile.name, area: g.area && g.area.id, x: g.player && g.player.x, z: g.player && g.player.z };
+      this.store.data.returnTo = { survivalId: g.survival?.record.id || null, characterId: g.profile.id, name: g.profile.name, area: g.area && g.area.id, x: g.player && g.player.x, z: g.player && g.player.z };
       // the very first visit starts from a copy of the adventure character; after that the lab keeps its own setup
       if (copyAdventure || !this.store.data.seededFrom) this.copyFromAdventure();
+      // Suspend the independent Survival controller before replacing its character/scene.
+      // Its ordinary save resumes cave visits at their wilderness entrance.
+      if (g.survival) { g.survival.endBuild(); g.survival.stop(); }
     }
     if (!this.store.data.seededFrom) this.store.data.seededFrom = 'default';
     this.store.data.active = true; this.store.write();
@@ -82,8 +85,10 @@ export class DevLab {
   // read-only: the adventure's saved record is copied, never written
   async copyAdventureFromSave() {
     const back = this.store.data.returnTo; if (!back?.characterId || !this.g.saveProvider) return false;
-    const all = await this.g.saveProvider.loadCharacters(), p = all.find(x => x.id === back.characterId); if (!p) return false;
-    const inv = p.inventory;
+    const inv = back.survivalId
+      ? this.g.survivalMode.store.get(back.survivalId)?.character.inv
+      : (await this.g.saveProvider.loadCharacters()).find(x => x.id === back.characterId)?.inventory;
+    if (!inv) return false;
     this.store.data.profile = normalizeProfile({ ...this.profile, cls: inv.cls, level: inv.level, equip: Object.fromEntries(EQUIPMENT_SLOTS.map(s => [s, inv.equip[s] ? copy(inv.equip[s]) : null])), tree: copy(inv.tree || {}), loadout: copy(inv.loadout || null), bag: [] });
     this.store.write(); this.clearTest(); this.rebuild(); return true;
   }
@@ -95,6 +100,13 @@ export class DevLab {
     this.store.data.active = false; this.store.write();
     this.active = false; this.overlayOpen = false; g.sandbox = false; g.devSandbox = false; g.godMode = false;
     if (!back || !back.characterId) { g.characterSession = null; g.profile = null; if (this.onTitle) this.onTitle(); return true; }
+    if (back.survivalId) {
+      const record = g.survivalMode.store.get(back.survivalId);
+      this.store.data.returnTo = null; this.store.write();
+      if (record) g.survivalMode.start(record);
+      else { g.characterSession = null; g.profile = null; this.onTitle?.(); }
+      return true;
+    }
     await g.load(back.characterId); // the adventure exactly as saved: nothing from the lab comes along
     g.checkpoint = copy(g.checkpoint);
     const spot = back.area && back.x != null ? { x: back.x, z: back.z } : g.checkpoint.spawn;

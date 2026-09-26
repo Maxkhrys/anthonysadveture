@@ -220,6 +220,9 @@ async function boot() {
   game.render(1 / 60);
   progress(100, 'Ready!'); await tick();
   if (game.devlab) { game.devlabUI = new DevLabUI(game.devlab); game.devlab.onTitle = () => location.reload(); window.__devlab = game.devlab; }
+  // Also available when a persisted lab returns to Survival after a page refresh.
+  game.survivalUI = new SurvivalUI(game.survivalMode);
+  game.survivalMode.onQuit = () => location.reload();
   await buildMenu(); renderMenu();
   mode = 'title';
   // a lab that was open when the page closed comes back exactly as it was set up

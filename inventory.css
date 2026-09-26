@@ -15,3 +15,52 @@ html #paperdoll .slotbox small{color:#3a291b}
 #inventory-detail{display:flex;flex-direction:column;min-height:0}#inventory-detail #tooltip{flex:1;overflow:auto;min-height:0}
 #inventory-detail .item-actions{position:sticky;bottom:0;background:linear-gradient(180deg,transparent,#efdfb8 30%);padding-top:6px;z-index:2}
 .hover-tip .ii,#hover-tip .ii{max-width:320px}
+
+/* The approved charcoal/brass preview, scoped to the live bag only. */
+html #ui .inv-panel.inventory-mode{--ink:#ede3cf;--ink2:#bfb8a5;--parch:#141918;--parch-on:#343021;--edge:#62573f;--book:none;--gold2:#d6b474;background:radial-gradient(ellipse at 50% 50%,#26302a55,transparent 65%),url('dev/inventory-preview/grain.svg'),#0c1110!important;border:1px solid #8b754e!important;border-radius:3px!important;box-shadow:inset 0 0 0 4px #080c0b,inset 0 0 0 5px #343c30,0 15px 60px #000b!important}
+html #ui .inventory-mode .journal-nav{background:#111612!important;border-bottom:1px solid #62573f!important}
+html #ui .inventory-mode .journal-tabs button{border-radius:0!important;background:transparent!important;color:#c9bfa7!important;border:0!important;box-shadow:none!important}
+html #ui .inventory-mode .journal-tabs button.on{background:#403620!important;color:#ffe0a1!important}
+html #ui .inventory-mode :is(.inv-right,.inv-left,#inventory-detail){background:linear-gradient(110deg,#ffffff03,transparent),#141918!important;border:1px solid #62573f!important;padding:12px;box-shadow:inset 0 0 0 3px #0b100e!important;border-radius:2px}
+html #ui .inventory-mode .inv-left{background:radial-gradient(ellipse at 50% 40%,#29362c,#0b1110 75%)!important}
+html #ui .inventory-mode :is(h2,h3,h4,h5){color:#e4c48a!important;font-family:Georgia,serif!important;font-weight:400}
+html #ui .inventory-mode :is(input,select){background:#090f0e!important;color:#ede3cf!important;border:1px solid #625f48!important;border-radius:2px!important}
+html #ui .inventory-mode option{background:#141918;color:#ede3cf}
+html #ui .inventory-mode :is(button,.item-actions button){background:#1a201a!important;color:#e7d7b6!important;border:1px solid #756344!important;border-radius:2px!important;box-shadow:none!important}
+html #ui .inventory-mode button:hover:not(:disabled){background:#383825!important}
+html #ui .inventory-mode .item-actions button[data-act=equip]{background:linear-gradient(#4b3f26,#221e14)!important;border-color:#c6a467!important;color:#ffe0a1!important}
+html #ui .inventory-mode #baggrid{grid-template-columns:repeat(5,minmax(0,1fr));scrollbar-color:#675c42 #101612}
+html #ui .inventory-mode #baggrid .cell[data-i]:not([data-i='-99']){background:linear-gradient(145deg,#242c28,#0b1110 70%)!important;border:1px solid var(--item-color)!important;box-shadow:inset 0 0 8px #0009!important}
+html #ui .inventory-mode #baggrid .cell[data-i='-99']{background:#101612!important;border-color:#353d30!important}
+html #ui .inventory-mode #baggrid .cell.sel{outline:2px solid #e5be75!important;background:linear-gradient(135deg,#554320,#181b14)!important}
+html #ui .inventory-mode #baggrid .cell-rar{color:var(--item-color)!important;background:#080e0be8;font-size:9px}
+html #ui .inventory-mode #baggrid .cell-name{color:#e8dfca!important}
+html #ui .inventory-mode #paperdoll .slotbox{background:#111a14!important;border-color:#696146!important;box-shadow:inset 0 0 8px #0009!important}
+html #ui .inventory-mode #paperdoll .slotbox[data-r]{border-color:var(--item-color)!important}
+html #ui .inventory-mode .slotbox small{background:#101612e8!important}
+html #ui .inventory-mode #tooltip>:is(.tt,.cmp){background:transparent!important;border:0!important;padding:4px;box-shadow:none!important}
+html #ui .inventory-mode #tooltip .ii-toolbar{background:#111612;color:#c8b994;border-bottom:1px solid #514a36;padding-bottom:10px}
+html #ui .inventory-mode #tooltip .ii-unique{color:#eed094!important;border-color:#635038;background:#b58c3010;padding:10px}
+html #ui .inventory-mode #tooltip .ii-props{color:#abd39c!important}
+html #ui .inventory-mode :is(.ii-kind,.ii-note,.ii-more,.ii-details,.ii-kit,.ii-stats,.ii-compare){color:#c9c1ae!important}
+html #ui .inventory-mode .ii-stats b{color:#f2ead6!important}
+html #ui .inventory-mode :is(.up,.mat.ok){color:#add59a!important}
+html #ui .inventory-mode :is(.down,.mat.no){color:#efad98!important}
+html #ui .inventory-mode #inventory-detail .item-actions{background:#111612!important;border-top:1px solid #62573f;padding:10px 0 0}
+html #ui .inventory-mode .portrait-controls{display:flex;justify-content:center;gap:9px;align-items:center;font-size:11px;color:#c9bfa7}
+html #ui .inventory-mode .portrait-controls button{padding:4px 12px;min-height:32px}
+html #ui .inventory-mode :focus-visible{outline:2px solid #ffe0a0!important;outline-offset:3px}
+html #ui .inventory-mode *{scrollbar-color:#675c42 #101612}
+@media(max-width:700px){html #ui .inventory-mode :is(.inv-left,.inv-right,#inventory-detail){padding:10px}html #ui .inventory-mode .item-actions button{min-height:44px}}
+html #ui .inventory-mode #paperdoll{position:relative;isolation:isolate;overflow:hidden;flex-shrink:0}
+html #ui .inventory-mode .portrait-controls{position:relative;z-index:2;flex-shrink:0}
+
+html #ui .inventory-mode .ii{background:transparent!important;color:#ede3cf!important;border:0!important;box-shadow:none!important;padding:3px 0}
+html #ui .inventory-mode .ii-icon{background:#0d140f!important;border-width:1px;border-radius:2px}
+html #ui .inventory-mode :is(.ii-meta p,.ii-equipped summary,.ii-compare td,.ii-compare th){color:#c9c1ae!important}
+html #ui .inventory-mode .ii-compare :is(th,td){border-color:#424734;background:transparent}
+html #ui .inventory-mode .ii-kind .other{color:#e9b581!important}
+html #ui .inventory-mode .ii-details h5{border-color:#62573f}
+/* World notices and the Survival HUD must sit behind an open inventory. */
+#inventory{z-index:60}
+@media(max-width:1100px){html #ui .inventory-mode #inventory-detail{height:490px;min-height:490px;max-height:490px;flex:0 0 490px}}

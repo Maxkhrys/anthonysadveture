@@ -59,7 +59,7 @@ export class DevLabUI {
     const L = this.lab, P = L.profile, C = CLASSES[P.cls];
     this.root.querySelectorAll('[data-tab]').forEach(b => { b.classList.toggle('on', b.dataset.tab === this.tab); b.setAttribute('aria-selected', b.dataset.tab === this.tab); });
     this.root.querySelector('.md-status').innerHTML = `<span>${esc(C.name)} · level ${P.level}</span><span>${esc(ARENA_NAMES[P.arena])}</span>${L.store.data.returnTo ? `<span>from ${esc(L.store.data.returnTo.name || 'adventure')}</span>` : '<span>no adventure open</span>'}`;
-    this.root.querySelector('[data-act="return"]').textContent = L.store.data.returnTo ? 'Return to adventure' : 'Leave lab';
+    this.root.querySelector('[data-act="return"]').textContent = L.store.data.returnTo?.survivalId ? 'Return to Survival' : L.store.data.returnTo ? 'Return to adventure' : 'Leave lab';
     const body = this.root.querySelector('.md-body');
     body.innerHTML = this['s_' + this.tab]();
     this.renderNotice();

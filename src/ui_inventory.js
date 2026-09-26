@@ -13,6 +13,13 @@ export function polishInventory(ui){
  const actions=document.querySelector('.item-actions');if(actions&&actions.parentNode!==detail)detail.append(actions);
  let title=hero.querySelector('.equipment-heading');
  if(!title){title=document.createElement('div');title.className='equipment-heading';title.innerHTML='<h2>Equipment</h2><span>Drag to rotate · scroll to zoom</span>';hero.prepend(title);}
+ let controls=hero.querySelector('.portrait-controls');
+ if(!controls){
+  controls=document.createElement('div');controls.className='portrait-controls';
+  controls.innerHTML='<button type="button" aria-label="Rotate character left">↶</button><span>Rotate character</span><button type="button" aria-label="Rotate character right">↷</button>';
+  $('paperdoll').after(controls);
+  controls.querySelectorAll('button').forEach((button,i)=>button.onclick=()=>{if(ui.doll)ui.doll.rotY+=(i?1:-1)*Math.PI/6;});
+ }
  let filters=$('inventory-filters');
  if(!filters){
   filters=document.createElement('div');filters.id='inventory-filters';
