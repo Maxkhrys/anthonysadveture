@@ -33,7 +33,7 @@ export default async function (page, R) {
   await page.waitForFunction(() => window.__game.survival && window.__game.area?.id === 'wilds', null, { timeout: 20000 });
   await sim(page, 20);
   const made = await page.evaluate(() => { const g = window.__game, w = g.survival.record; return { name: w.name, seed: w.seed, cls: g.inv.cls, gen: w.genVersion, area: g.area.id, hint: document.getElementById('objective')?.textContent || '' }; });
-  R.ok(made.name === 'Test Wilds' && made.seed === 4243 && made.gen === 1, 'the world is created from the menu with its name and seed', JSON.stringify(made));
+  R.ok(made.name === 'Test Wilds' && made.seed === 4243 && made.gen === 2, 'the world is created from the menu with its name and seed (new worlds: generator v2)', JSON.stringify(made));
   R.ok(made.cls === 'witch' && made.area === 'wilds' && /gather wood/i.test(made.hint), 'you spawn as the chosen class in the generated wilderness, with a first hint', JSON.stringify(made));
 
   // ---------------------------------------------------------------- determinism and streaming
@@ -100,7 +100,7 @@ export default async function (page, R) {
   await page.evaluate(id => window.__startSurvival(id), before.id);
   await page.waitForFunction(() => window.__game.survival && window.__game.area?.id === 'wilds', null, { timeout: 20000 }); await sim(page, 10);
   const after = await page.evaluate(ids => {
-    const g = window.__game, S = g.survival, R = S.record; S.goHome(); return new Promise(r => setTimeout(() => { (window.__game.noRender = true, window.__sim)(10); S.stream(); r({ removedKept: ids.every(id => R.removed[id]), backAsNode: g.entities.some(e => e.isNode && ids.includes(e.id)), res: { ...R.resources }, placed: g.entities.filter(e => e.isStructure).map(e => e.type).sort().join(','), n: R.structures.length, cleared: Object.values(R.caves).some(c => c.cleared) }); }, 1200));
+    const g = window.__game, S = g.survival, R = S.record; S.goHome(); return new Promise(r => setTimeout(() => { (window.__game.noRender = true, window.__sim)(10); S.stream(); r({ removedKept: ids.every(id => R.removed[id]), backAsNode: g.entities.some(e => e.isNode && ids.includes(e.id)), res: { ...R.resources }, placed: g.entities.filter(e => e.isStructure && !e.gen).map(e => e.type).sort().join(','), n: R.structures.length, cleared: Object.values(R.caves).some(c => c.cleared) }); }, 1200));
   }, before.tree);
   R.ok(after.removedKept && !after.backAsNode, 'felled trees and broken rocks stay gone after a reload', JSON.stringify(after));
   R.ok(after.n === before.n && after.placed === 'campfire,wall,workbench' && after.res.wood === before.res.wood, 'placed structures and resources come back exactly after a reload', JSON.stringify(after));

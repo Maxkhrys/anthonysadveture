@@ -151,7 +151,7 @@ export function kitBoxes(type, rise = STOREY + FLOOR_T) {
   if (K.solid === 'post') return [{ b: [-0.14, 0.14, -0.14, 0.14], lo: 0, hi: STOREY }];
   if (type === 'timber_stairs') return [ // side rails the whole way up, the underside at the top, a guard at the top storey
     { b: [-1, -0.82, -1, 1], lo: 0, hi: rise + 1 }, { b: [0.82, 1, -1, 1], lo: 0, hi: rise + 1 },
-    { b: [-0.82, 0.82, 0.86, 1.02], lo: -0.1, hi: rise - 0.9 }, { b: [-0.82, 0.82, -1.02, -0.88], lo: rise - 0.4, hi: rise + 1 },
+    { b: [-0.82, 0.82, 0.86, 1.02], lo: -0.1, hi: rise - 0.9 }, { b: [-0.82, 0.82, -1.02, -0.88], lo: rise + 0.95, hi: rise + 2 }, // only walkers standing at the top storey
   ];
   return [];
 }

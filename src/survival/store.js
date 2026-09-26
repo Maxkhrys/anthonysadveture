@@ -63,7 +63,7 @@ export function normalizeWorld(w) {
   if (out.kits && typeof out.kits === 'object') for (const k of Object.keys(out.kits)) out.kits[k] = Math.max(0, Math.floor(+out.kits[k] || 0));
   if (out.pos && out.pos.fy !== undefined) out.pos = { ...out.pos, fy: Math.max(0, Math.min(8, +out.pos.fy || 0)) };
   if (!Array.isArray(out.explored)) out.explored = [];
-  out.genVersion ??= 1; // older than versioning: the first generator
+  out.genVersion = Number.isInteger(w.genVersion) ? w.genVersion : 1; // older than versioning: the first generator (never the current one)
   return out;
 }
 

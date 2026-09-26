@@ -189,7 +189,7 @@ export function gableShape(grid, s) {
 export function placeWhy(grid, env, s) {
   const K = KIT[s.type], L = locate(s), lv = L.lv;
   if (!K) return furnitureWhy(grid, env, s);
-  if (lv < K.levels[0] || lv > K.levels[1]) return lv > K.levels[1] ? `${K.name}: no higher than level ${K.levels[1]}.` : `${K.name} only goes on the ground.`;
+  if (lv < K.levels[0] || lv > K.levels[1]) return K.levels[1] === 0 ? `${K.name} only goes on the ground.` : `${K.name}: no higher than level ${K.levels[1]}.`;
   const held = grid.get(slotKey(s)); if (held) return K.layer === 'gable' || KIT[held.type]?.layer === 'gable' ? 'That wall space is already taken.' : 'Something is already built here.';
   if (lv === 0 && K.layer !== 'roof' && K.layer !== 'gable') { const [x0, z0, x1, z1] = footprint(s); const w = env.groundWhy(x0, z0, x1, z1, s); if (w) return w; }
   // storey conflicts

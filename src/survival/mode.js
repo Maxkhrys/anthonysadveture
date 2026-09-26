@@ -88,10 +88,18 @@ export class SurvivalMode {
   }
   // new entities start on the floor they appear on (shots and drops from upstairs stay upstairs)
   onSpawn(e) {
+    // statuses (burn, chill, root...) from the player's effects never cross a floor either
+    if (e.isEnemy && e.applyStatus && !e._lvStatus) { const a = e.applyStatus.bind(e); e._lvStatus = true; e.applyStatus = (...args) => { const p = this.g.player; if (this.g.sameLevel && p && !sameLevel(p, e)) return; return a(...args); }; }
     if (e.fy !== undefined || e.isCollider) return;
+    // the shooter is whoever it appears next to: the player first (your shots and drops start
+    // within a step of you), otherwise the nearest creature
     const g = this.g, p = g.player; let ref = 0, bd = 2.2;
-    if (p && !p.dead) { const d = Math.hypot(e.x - p.x, e.z - p.z); if (d < bd) { bd = d; ref = p.fy || 0; } }
-    if (this.grid.slots.size) for (const o of g.entities) if (o.isEnemy && !o.dead && o.fy) { const d = Math.hypot(e.x - o.x, e.z - o.z); if (d < bd) { bd = d; ref = o.fy; } }
+    const dp = p && !p.dead ? Math.hypot(e.x - p.x, e.z - p.z) : 1e9;
+    if (dp < 1.3) ref = p.fy || 0;
+    else {
+      if (dp < bd) { bd = dp; ref = p.fy || 0; }
+      if (this.grid.slots.size) for (const o of g.entities) if (o.isEnemy && !o.dead && o !== e) { const d = Math.hypot(e.x - o.x, e.z - o.z); if (d < bd) { bd = d; ref = o.fy || 0; } }
+    }
     e.fy = ref ? supportHeight(this.grid, e.x, e.z, ref) : 0;
     if (e.fy && e.gy0 !== undefined) e.gy0 += e.fy; // projectiles fly level from where they were loosed
   }

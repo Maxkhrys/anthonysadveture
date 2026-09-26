@@ -103,6 +103,7 @@ export class Projectile extends Entity {
     for (const e of g.entities) {
       if (!e.isEnemy || e.dead || this.hit.has(e)) continue;
       if (e.moveMode === 'fly' && e.alt > 1.6) continue;
+      if (g.sameLevel && !g.sameLevel(this, e)) continue; // Survival houses: a shot stays on its storey
       const t = segT(x0, z0, this.x, this.z, e.x, e.z);
       if (t.d > (e.r || 0.3) + this.r) continue;
       hits.push([t.t, e]);
