@@ -26,6 +26,8 @@ export const ACTIONS = {
   music: { keys: ['F8'], label: 'Toggle music', glyph: 'F8' },
   craft: { keys: ['KeyG'], label: 'Crafting and building (Survival)', glyph: 'G' },
   // Survival build mode only (attacks and the inventory are closed while building)
+  build: { keys: ['KeyV'], label: 'Build mode (Survival): pieces on 1–6, 0 takes down', glyph: 'V' },
+  buildRemove: { keys: ['Digit0', 'Numpad0'], label: 'Take down a piece', glyph: '0', build: true },
   buildRotate: { keys: ['KeyT'], label: 'Rotate the piece', glyph: 'T / Wheel', build: true },
   buildUp: { keys: ['BracketRight', 'PageUp'], label: 'Build one level up', glyph: ']', build: true },
   buildDown: { keys: ['BracketLeft', 'PageDown'], label: 'Build one level down', glyph: '[', build: true },

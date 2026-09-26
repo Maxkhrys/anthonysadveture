@@ -35,10 +35,21 @@ export class SurvivalUI {
     if (!this.panel.classList.contains('hidden')) this.renderPanel();
     if (!this.m.build) this.bar.classList.add('hidden');
   }
+  // build mode's quick bar: six groups on keys 1-6 (press again to cycle), 0 takes down
+  quickBar(q) {
+    if (!this.quick) { this.quick = document.createElement('div'); this.quick.id = 'sv-quick'; this.quick.setAttribute('aria-label', 'Build quick bar'); (document.getElementById('ui') || document.body).appendChild(this.quick);
+      this.quick.addEventListener('click', e => { const t = e.target.closest('[data-q]'); if (!t) return; if (t.dataset.q === 'remove') this.m.startBuild('demolish'); else if (t.dataset.id) this.m.startBuild(t.dataset.id); else this.m.quickSelect(+t.dataset.q); }); }
+    if (!q) { if (!this.quick.hidden) this.quick.hidden = true; return; }
+    const html = q.groups.map((gr, i) => { const on = gr.items.find(x => x.on), show = on || gr.items.find(x => x.kits || x.craft) || gr.items[0], ready = gr.items.some(x => x.kits || x.craft);
+      return `<button type="button" data-q="${i}" class="${on ? 'on' : ''} ${ready ? '' : 'dim'}" title="${esc(gr.items.map(x => x.name + (x.kits ? ' ×' + x.kits : x.craft ? ' (crafts: ' + x.cost + ')' : '')).join(' · '))}"><kbd>${gr.key}</kbd><img src="${structureIconURL(show.id, modelParts(show.id))}" alt=""><span>${esc(show.name)}</span><small>${show.kits ? '×' + show.kits : show.craft ? show.cost : '—'}</small>${gr.items.length > 1 ? `<i>${gr.items.indexOf(show) + 1}/${gr.items.length}</i>` : ''}</button>`; }).join('') + `<button type="button" data-q="remove" class="${q.removing ? 'on' : ''}"><kbd>0</kbd><span>Take down</span><small>refunds</small></button>`;
+    if (this.quick.dataset.h !== html) { this.quick.dataset.h = html; this.quick.innerHTML = html; }
+    this.quick.hidden = false;
+  }
   buildStatus(b) {
     this.bar.classList.remove('hidden');
-    const name = b.type === 'demolish' ? 'Take down' : PIECES[b.type].name, left = b.type === 'demolish' ? '' : ` · ${(this.m.record.kits || {})[b.type] || 0} left`;
-    const html = `<b>${esc(name)}</b>${left}${b.info ? ' · ' + esc(b.info) : ''} — ${b.ok ? '<span class="ok">click or C to ' + (b.type === 'demolish' ? 'take it down (you keep the piece)' : 'place') + '</span>' : '<span class="no">' + esc(b.why) + '</span>'} · right click or X to stop`;
+    const kits = (this.m.record.kits || {})[b.type] || 0;
+    const name = b.type === 'demolish' ? 'Take down' : PIECES[b.type].name, left = b.type === 'demolish' ? '' : kits ? ` · ${kits} left` : ` · crafts on place (${this.m.costText(b.type)})`;
+    const html = `<b>${esc(name)}</b>${left}${b.info ? ' · ' + esc(b.info) : ''} — ${b.ok ? '<span class="ok">click or C to ' + (b.type === 'demolish' ? 'take it down (you keep the piece)' : 'place') + '</span>' : '<span class="no">' + esc(b.why) + '</span>'} · right click, X or V to stop`;
     if (this.bar.innerHTML !== html) this.bar.innerHTML = html;
   }
   pinControl(){
@@ -49,7 +60,7 @@ export class SurvivalUI {
     row.querySelector('button').onclick=()=>{if(it?.slot!=='weapon')return;const belt=reconcileBelt(this.m.record,this.g),slot=+row.querySelector('select').value,old=belt.slots.indexOf(it.itemInstanceId),displaced=belt.slots[slot];if(old>=0)belt.slots[old]=displaced;belt.slots[slot]=it.itemInstanceId;this.g.save();this.refresh();this.g.ui.toast('Assigned to belt '+(slot+1),it.name,1.2);};
   }
   gather(node,done){if(!this.gatherEl){this.gatherEl=document.createElement('div');this.gatherEl.id='gather-progress';document.getElementById('ui').append(this.gatherEl);}this.gatherEl.hidden=false;this.gatherEl.textContent=node.D.name+' · '+(done?'Gathered':Math.max(0,node.hp)+' / '+node.D.hp+' remaining');this.gatherT=1.6;}
-  tick(dt){if(!this.m.active)return;if(this.gatherEl){this.gatherT-=dt;this.gatherEl.hidden=this.gatherT<=0;}this.poll=(this.poll||0)-dt;if(this.poll<=0){this.poll=.25;this.refresh();}const I=this.g.input;if(I.pressed('beltNext')||I.pressed('beltPrev')){const b=reconcileBelt(this.m.record,this.g),current=b.slots.indexOf(this.g.inv.equip.weapon?.itemInstanceId),d=I.pressed('beltNext')?1:-1;for(let n=1;n<=8;n++){const i=(Math.max(0,current)+d*n+80)%8;if(b.slots[i]){selectBelt(this.g,i);break;}}}}
+  tick(dt){if(!this.m.active)return;if(this.gatherEl){this.gatherT-=dt;this.gatherEl.hidden=this.gatherT<=0;}this.poll=(this.poll||0)-dt;if(this.poll<=0){this.poll=.25;this.refresh();}const I=this.g.input;if(!this.m.build&&(I.pressed('beltNext')||I.pressed('beltPrev'))){ /* while building, [ ] change level instead */const b=reconcileBelt(this.m.record,this.g),current=b.slots.indexOf(this.g.inv.equip.weapon?.itemInstanceId),d=I.pressed('beltNext')?1:-1;for(let n=1;n<=8;n++){const i=(Math.max(0,current)+d*n+80)%8;if(b.slots[i]){selectBelt(this.g,i);break;}}}}
   decorate(){
     const ui=this.g.ui,host=document.querySelector('.inv-panel');if(!host)return;
     let nav=document.getElementById('field-tabs');if(!nav){nav=document.createElement('nav');nav.id='field-tabs';nav.setAttribute('aria-label','Survival inventory');host.querySelector('#inv-bag').before(nav);nav.innerHTML=['equipment','materials','craft','build'].map(t=>`<button type="button" data-field="${t}">${{equipment:'Equipment',materials:'Materials',craft:'Crafting',build:'Building'}[t]}</button>`).join('');nav.onclick=e=>{const b=e.target.closest('[data-field]');if(!b)return;if(b.dataset.field==='equipment'){this.closeAll();ui.renderInventory();}else this.openCraft(null,b.dataset.field);};}

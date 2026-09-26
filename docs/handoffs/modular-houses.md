@@ -7,13 +7,33 @@
 - **Scope:** this branch owns modular structures, placement, collision and support, doors, interiors, stairs and upper floors, roof and wall visibility, structure persistence and generated house templates.
 - **Not touched:** inventory or crafting screen design, gathering effects and audio.
 
+## Merge with fieldcraft (feat/survival-ui-gathering @ 33d80e9)
+
+- Merged in `bf5c0b3`.
+- **Conflicts resolved:**
+  - `actions.js`: the belt and the build actions both stay; `[` `]` mean level only in build mode.
+  - `entities.js`: `pieceParts(type, roofColor)` keeps the rotation of the tile pieces.
+  - `ui.js`: the fieldcraft workshop is kept, with legacy recipes and pieces hidden.
+- **Thumbnails** now use `modelParts(id)` (in `entities.js`). It is the authoritative box list: `kitParts` from `kit.js` for kit pieces and `pieceParts` for furniture. This follows the fieldcraft handoff: no magenta fallbacks.
+- **The belt** does not switch while `survival.build` is active. Their `ui.tick` runs before the Survival tick, so it is gated there.
+- **Build-mode additions after the merge:**
+  - `QUICK` groups;
+  - `quickSelect(i)`, `quickStep(d)`, `quickState()`;
+  - `canAutoCraft(type)`, `autoCraft(type)`, `costText(type)`;
+  - `AUTO_CRAFT_RANGE = 12`;
+  - `ui.quickBar(state)` (`#sv-quick`);
+  - actions `build` (V) and `buildRemove` (0).
+  - Controller build mapping uses `input.usingPad`: beltNext/beltPrev cycle, potion/craft change level, shield rotates. These are suppressed for combat while building.
+
 ## Commits
 
 1. `c6363d0`: modular kit registry and placement.
 2. `e953530`: storey heights, stairs and floor-separated combat.
 3. `fcc30e9`: generated houses from the same kit (generator v2).
 4. `2b43015`: storey-aware shots and statuses, the stair guard and save-version fixes, and the tests.
-5. (this commit) screenshots, patch notes and this handoff.
+5. `1ec890b`: screenshots, patch notes and handoff.
+6. `bf5c0b3`: the merge of fieldcraft.
+7. (this commit) the build quick bar, V, auto-craft, controller build mapping, tests and docs.
 
 ## Files
 
@@ -136,7 +156,7 @@ All on `game.survival` (a `SurvivalMode`):
 
 ## Tests run and results (on this branch)
 
-- `houses`: 62/62.
+- `houses`: 66/66 after the merge (the four new checks cover V, the quick bar, auto-craft, and 0 / V leaving build mode).
   - Covers the registry, crafting spend, a full two-storey build, 11 placement refusals, no spend on refusal, and the ghost's rotation and level.
   - Real keys (T, `]`, X) and a DOM wheel event.
   - The real Build panel with a mouse click at the cursor.
@@ -149,6 +169,7 @@ All on `game.survival` (a `SurvivalMode`):
   - Entering a generated cottage and climbing it; generated changes persisting with no regrowth.
   - Streaming three times; caves; old-save defaults; MOSSDEV round trip and refresh; the Story save unchanged.
 - `houses_classes`: 26/26. For every class: the door, the stairs up, rolls and the first ability against walls and floors, the stairs down, and attacks through a floor (plus a same-floor control).
+- **After the merge:** `fieldcraft` 22/22, `devlab_command` 6/6, `controller.unit` 5/5, `inventory_clarity` 13/13, `gunslinger_combat` 21/21, `combat_fx` 12/12, `weapon_kits` 88/88 (on rerun; one first-run proc flake).
 - **Regressions:**
   - `survival`: 21/21. Updated for generator v2 and to count only the player's own pieces after a reload.
   - `survival_inventory`: 15/15.

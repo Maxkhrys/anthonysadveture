@@ -27,6 +27,17 @@ const LAYER_ORDER = { floor: 0, post: 1, wall: 2, stairs: 3, roof: 4, gable: 5 }
 const byLayer = (a, b) => (LAYER_ORDER[KIT[a.type]?.layer] ?? 6) - (LAYER_ORDER[KIT[b.type]?.layer] ?? 6) || (a.lv | 0) - (b.lv | 0);
 const LEVEL_NAME = lv => lv === 0 ? 'ground floor' : lv === 1 ? 'upper floor' : 'level ' + lv;
 const FACING = ['south', 'east', 'north', 'west'];
+// Build mode's quick bar: keys 1-6 pick a group, pressing again cycles within it; 0 takes down
+export const QUICK = [
+  { name: 'Floors', ids: ['stone_foundation', 'timber_floor'] },
+  { name: 'Walls', ids: ['timber_wall', 'timber_window', 'stone_wall'] },
+  { name: 'Doors', ids: ['timber_door', 'timber_doorway'] },
+  { name: 'Stairs', ids: ['timber_stairs', 'timber_post'] },
+  { name: 'Roofs', ids: ['thatch_roof', 'thatch_ridge', 'timber_gable'] },
+  { name: 'Furniture', ids: ['chest', 'workbench', 'torch', 'campfire'] },
+];
+const QUICK_ALL = QUICK.flatMap(q => q.ids);
+export const AUTO_CRAFT_RANGE = 12; // building within this of a workbench crafts station pieces as you place them
 import { sfx } from '../engine/audio.js';
 
 export const HINTS = [
@@ -256,7 +267,7 @@ export class SurvivalMode {
   // Click / C places (hold and sweep to lay rows), right click / X stops, T or the wheel rotates,
   // [ and ] change level. Nothing is spent until a placement succeeds.
   startBuild(type) {
-    if (type !== 'demolish' && !((this.record.kits || {})[type] > 0)) { sfx('error'); return false; }
+    if (type !== 'demolish' && !((this.record.kits || {})[type] > 0) && !this.canAutoCraft(type).ok) { sfx('error'); return false; }
     const keep = this.build; this.endBuild();
     const g = this.g, mat = new THREE.MeshBasicMaterial({ color: 0x7fd36a, transparent: true, opacity: 0.45, depthWrite: false });
     const ghost = new THREE.Group(); g.scene.add(ghost);
@@ -265,15 +276,29 @@ export class SurvivalMode {
     this.ui && this.ui.refresh();
     return true;
   }
+  // quick bar: group i (pressing the same group again cycles through it)
+  pickQuick(i, resume) {
+    const ids = QUICK[i]?.ids || [], cur = this.build && ids.indexOf(this.build.type), R = this.record;
+    const usable = id => (R.kits?.[id] > 0) || this.canAutoCraft(id).ok;
+    if (resume && this.lastPiece && usable(this.lastPiece)) return this.lastPiece;
+    for (let n = 1; n <= ids.length; n++) { const id = ids[((cur >= 0 ? cur : -1) + n) % ids.length]; if (usable(id)) return id; }
+    return null;
+  }
+  quickSelect(i) { const id = this.pickQuick(i); if (!id) { sfx('error'); this.g.ui.toast('Nothing to build there yet', 'Gather materials, or stand near a workbench for walls, doors, stairs and roofs.', 1.8); return false; } this.lastQuick = i; return this.startBuild(id); }
+  quickStep(d) { const cur = QUICK_ALL.indexOf(this.build?.type), R = this.record; for (let n = 1; n <= QUICK_ALL.length; n++) { const id = QUICK_ALL[((cur < 0 ? 0 : cur) + d * n + QUICK_ALL.length * 4) % QUICK_ALL.length]; if (R.kits?.[id] > 0 || this.canAutoCraft(id).ok) return this.startBuild(id); } return false; }
+  quickState() {
+    const b = this.build, R = this.record;
+    return { current: b?.type, groups: QUICK.map((q, i) => ({ key: i + 1, name: q.name, items: q.ids.map(id => ({ id, name: PIECES[id].name, kits: R.kits?.[id] || 0, craft: !(R.kits?.[id] > 0) && this.canAutoCraft(id).ok, cost: this.costText(id), on: b?.type === id })) })), removing: b?.type === 'demolish' };
+  }
   endBuild() {
-    const b = this.build; if (!b) return;
+    const b = this.build; if (!b) return; if (b.type !== 'demolish') this.lastPiece = b.type;
     this.g.scene.remove(b.ghost); b.mat.dispose(); for (const gm of this.ghostGeo || []) gm.dispose(); this.ghostGeo = [];
     this.build = null; this.ui && this.ui.refresh();
   }
   target() {
     const g = this.g, p = g.player, inp = g.input, lv = this.build ? this.build.lv : 0;
     let x = p.x + Math.sin(p.facing) * 1.6, z = p.z + Math.cos(p.facing) * 1.6;
-    if (p.aimSrc === 'mouse' && inp.onCanvas) { const q = g.pr.screenToWorld(inp.mouseX, inp.mouseY, levelY(lv) + 0.1); if (Math.hypot(q.x - p.x, q.z - p.z) < 7) { x = q.x; z = q.z; } }
+    if (p.aimSrc === 'mouse' && inp.onCanvas) { const q = g.pr.screenToWorld(inp.mouseX, inp.mouseY, levelY(lv) + 0.1); if (Math.hypot(q.x - p.x, q.z - p.z) < 9) { x = q.x; z = q.z; } }
     return { x, z, tx: Math.floor(x), tz: Math.floor(z) };
   }
   // the record a build of this type would place at (x, z)
@@ -347,14 +372,30 @@ export class SurvivalMode {
     this.hintCheck(); g.save();
     return { ok: true, why: '', id: s.id, piece: s };
   }
+  // Placing without a kit crafts one on the spot when you have the materials (station pieces
+  // need a workbench within AUTO_CRAFT_RANGE). Same recipe, same cost, spent only on success.
+  canAutoCraft(type) {
+    const r = RECIPES.find(x => x.gives === type && !x.legacy); if (!r) return { ok: false, why: 'Nothing crafts this piece.' };
+    if (r.station && !this.nearStation(r.station, AUTO_CRAFT_RANGE)) return { ok: false, why: 'Craft it near a ' + PIECES[r.station].name.toLowerCase() + ' (or bring a kit).' };
+    if (!this.has(r.cost)) return { ok: false, why: 'Not enough: ' + Object.entries(r.cost).filter(([k, v]) => (this.record.resources[k] || 0) < v).map(([k, v]) => (v - (this.record.resources[k] || 0)) + ' more ' + k).join(', ') + '.' };
+    return { ok: true, why: '', recipe: r };
+  }
+  autoCraft(type) {
+    const c = this.canAutoCraft(type); if (!c.ok) return false; const R = this.record, r = c.recipe;
+    for (const [k, v] of Object.entries(r.cost)) R.resources[k] -= v;
+    R.kits = R.kits || {}; R.kits[type] = (R.kits[type] || 0) + (r.qty || 1); return true;
+  }
+  costText(type) { const r = RECIPES.find(x => x.gives === type && !x.legacy); return r ? Object.entries(r.cost).map(([k, v]) => v + ' ' + k).join(' + ') : ''; }
   place() {
     const b = this.build; if (!b) return false; const g = this.g;
     if (b.type === 'demolish') { const t = b.target || this.pickTarget(b.tx + 0.5, b.tz + 0.5, b.lv); return t ? this.removePiece(t.s.id).ok : (sfx('error'), false); }
     const rec = b.rec && b.recAt === b.tx + ',' + b.tz ? b.rec : this.recFor(b.type, b.tx + 0.5, b.tz + 0.5, b.lv, b.r);
+    // out of kits: craft one on the spot, but only once the spot itself is known to be fine
+    if (!(this.record.kits?.[b.type] > 0)) { const why = this.checkPiece(rec) || (!this.canAutoCraft(b.type).ok && this.canAutoCraft(b.type).why); if (why) { sfx('error'); g.ui.toast('Cannot build here', why, 1.4); return false; } this.autoCraft(b.type); }
     const res = this.placePiece(rec);
     if (!res.ok) { sfx('error'); g.ui.toast('Cannot build here', res.why, 1.4); return false; }
     b.lastKey = slotKey(res.piece);
-    if (!(this.record.kits[b.type] > 0)) this.endBuild(); else this.ui && this.ui.refresh();
+    if (!(this.record.kits[b.type] > 0) && !this.canAutoCraft(b.type).ok) this.endBuild(); else this.ui && this.ui.refresh();
     return true;
   }
   // the built piece under the aim on a level: furniture, then walls, posts, stairs, roof, floor
@@ -492,8 +533,22 @@ export class SurvivalMode {
     // a cave whose creatures are all down stays cleared
     if (g.area?.id === 'cave' && this.caveFoes && this.caveFoes.length && this.caveFoes.every(e => e.dead)) { const C = this.caveState(this.caveId); if (!C.cleared) { C.cleared = true; sfx('fanfare'); g.ui.banner && g.ui.banner('CAVE CLEARED', 'It stays quiet now', 2); g.save(); } this.caveFoes = []; }
     // building: the ghost follows the aim; click / C places, right click / X leaves build mode
-    const b = this.build, wheel = inp.wheel || 0; inp.wheel = 0;
+    let wheel = inp.wheel || 0; inp.wheel = 0;
+    // V: in and out of build mode from anywhere in the wilds (resumes the last piece)
+    if (inp.pressed('build') && !g.locked() && g.area?.id === 'wilds') { if (this.build) this.endBuild(); else this.startBuild(this.pickQuick(this.lastQuick ?? 0, true) || 'timber_floor') || this.startBuild('demolish'); }
+    const b = this.build;
     if (b) {
+      const pad = inp.usingPad;
+      for (let i = 0; i < 6; i++) if (inp.pressed('ab' + (i + 1))) this.quickSelect(i);
+      if (inp.pressed('buildRemove')) { this.startBuild('demolish'); }
+      if (pad && (inp.pressed('beltNext') || inp.pressed('beltPrev'))) this.quickStep(inp.pressed('beltNext') ? 1 : -1);
+      if (pad && inp.pressed('potion') && this.build) this.build.lv = Math.min(this.build.type === 'demolish' ? 3 : (PIECES[this.build.type]?.levels || [0, 2])[1], this.build.lv + 1);
+      if (pad && inp.pressed('craft') && this.build) this.build.lv = Math.max(0, this.build.lv - 1);
+      if (pad && inp.pressed('shield')) wheel += 1;
+      // while building: no abilities, belt switching, tonics, crafting menu or guard from these keys
+      for (const k of ['ab1', 'ab2', 'ab3', 'ab4', 'ab5', 'ab6', 'beltNext', 'beltPrev', 'shield', ...(pad ? ['potion', 'craft'] : [])]) { inp.state[k] = false; if (inp.prev) inp.prev[k] = true; }
+    }
+    if (this.build) { const b = this.build;
       const P = PIECES[b.type], range = P?.levels || [0, 2];
       // rotation: cells and furniture turn; walls flip which way a door swings
       const turn = (inp.pressed('buildRotate') ? 1 : 0) + wheel;
@@ -503,7 +558,7 @@ export class SurvivalMode {
       const t = this.target(); b.tx = t.tx; b.tz = t.tz;
       let why;
       if (b.type === 'demolish') { b.target = this.pickTarget(t.x, t.z, b.lv); why = b.target ? this.canRemove(b.target.s.id) : 'Nothing built here on the ' + LEVEL_NAME(b.lv) + '.'; }
-      else { b.rec = this.recFor(b.type, t.x, t.z, b.lv, b.r); b.recAt = t.tx + ',' + t.tz; why = this.checkPiece(b.rec); }
+      else { b.rec = this.recFor(b.type, t.x, t.z, b.lv, b.r); b.recAt = t.tx + ',' + t.tz; why = this.checkPiece(b.rec); if (!why && !(this.record.kits?.[b.type] > 0)) why = this.canAutoCraft(b.type).why; }
       b.ok = !why; b.why = why;
       b.info = LEVEL_NAME(b.lv) + (b.type !== 'demolish' && P.rotates ? (P.kind === 'edge' ? (b.r >= 2 ? ' · swings in' : ' · swings out') : ' · facing ' + FACING[b.r]) : '') + ' · [ ] level' + (b.type !== 'demolish' && P.rotates ? ' · T / wheel rotate' : '');
       this.updateGhost(b);
@@ -514,7 +569,8 @@ export class SurvivalMode {
       if (this.build && inp.pressed('secondary')) this.endBuild();
       inp.state.attack = false; inp.state.secondary = false; inp.state.surge = false; // no swinging while building
       this.build && this.ui && this.ui.buildStatus(this.build);
-    }
+      this.ui && this.ui.quickBar && this.ui.quickBar(this.quickState());
+    } else this.ui && this.ui.quickBar && this.ui.quickBar(null);
     if (inp.pressed('craft') && !g.locked()) this.ui && this.ui.toggleCraft();
   }
   // the save: the character and everything the world remembers (never story data)

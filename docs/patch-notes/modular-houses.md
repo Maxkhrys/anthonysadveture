@@ -6,6 +6,25 @@ This is the `feat/modular-houses` branch.
 
 ## Player-facing
 
+- **Building without the inventory.**
+  - **V** enters and leaves build mode anywhere in the wilds.
+  - A **quick bar** above the hotbar holds six groups, and pressing the same number again cycles within a group:
+    - **1** floors and foundations;
+    - **2** walls, window walls and stone walls;
+    - **3** doors and doorways;
+    - **4** stairs and posts;
+    - **5** roofs, ridges and gables;
+    - **6** chest, workbench, torch and campfire.
+    - **0** takes a piece down.
+  - Out of kits? Placing **crafts the piece on the spot** for its normal recipe cost, and only when the spot is valid. Pieces that need a workbench auto-craft within 12 tiles of one.
+  - You keep walking while you build, and the mouse reaches up to 9 tiles.
+  - **Controller (build mode only):**
+    - RB / D-pad right and D-pad left cycle pieces;
+    - D-pad up and down change level;
+    - LB rotates;
+    - X places and RT cancels.
+- **Merged the Survival fieldcraft pass** (`feat/survival-ui-gathering`): the inventory workshop (Materials, Crafting, Building tabs), batch crafting and recipe tracking, the eight-slot weapon belt, gathering feedback, controller menus and `/devlab`. While building, `[` `]` change level instead of switching the belt weapon.
+
 - **A building kit.** One module is 2×2 tiles, and one storey is 2 units high. The kit contains:
   - stone foundations and timber floors;
   - timber walls, window walls and stone walls;
@@ -92,6 +111,8 @@ This is the `feat/modular-houses` branch.
 - **Where the details are:** `docs/handoffs/modular-houses.md` has the full list of ids, the API contracts, the save format and the shared-file changes.
 
 ## Known limitations
+
+- `weapon_kits` has one timing-sensitive check (the ember wand's dart pair) that can catch a random extra proc shard. It failed once after the merge and passed 88/88 on the rerun, the same as the fieldcraft pass reported.
 
 - Creatures do not path through doors or up stairs on purpose; they chase in a straight line. A creature below you stays below, and neither of you can hurt the other through the floor.
 - Flying creatures ignore walls, as before.

@@ -156,7 +156,7 @@ export default async function (page, R) {
   // ---------------------------------------------------------------- the real UI: G, Build tab, Place, a mouse click
   await page.evaluate(h => { const H = window.__H, g = window.__game; H.give({ timber_floor: 2 }); H.tp(h.x0 + 3, h.z0 + 8.5, 0); g.noRender = false; g.render(0.016); }, H0);
   await page.keyboard.press('KeyG'); await page.waitForTimeout(150);
-  await page.locator('#sv-panel [data-tab="build"]').click();
+  await page.locator('#field-tabs [data-field="build"]').click();
   await page.locator('#sv-panel [data-act="place"][data-id="timber_floor"]').click(); await page.waitForTimeout(100);
   const aim = await page.evaluate(h => { const g = window.__game, x = h.x0 + 5, z = h.z0 + 7; window.__sim(1); g.render(0.016); const s = g.pr.project({ x, y: 0.1, z }); return { sx: s.x, sy: s.y, cell: [Math.floor(x / 2), Math.floor(z / 2)] }; }, H0);
   await page.mouse.move(aim.sx, aim.sy); await sim(page, 2);
@@ -172,6 +172,27 @@ export default async function (page, R) {
   R.ok(/Timber floor/.test(bar) && /ground floor/.test(bar), 'the build bar names the piece and the level', bar);
   R.ok(uiPlaced, 'Craft & build → Build → Place, then a mouse click, lays a floor exactly under the cursor', JSON.stringify(aim));
   R.ok(/upper floor/.test(upBar) && /wall or post below/.test(upBar) && upRefused, '] switches to the upper floor; an unsupported upper floor shows why and is not placed or paid for', upBar);
+
+  // ---------------------------------------------------------------- build mode from the world: V, quick bar 1-6 / 0, auto-craft
+  await page.evaluate(h => { const H = window.__H, g = window.__game, R = g.survival.record; H.tp(h.x0 + 3, h.z0 + 9, 0); R.kits = {}; Object.assign(R.resources, { wood: 30, stone: 12, fibre: 6 }); g.noRender = true; }, H0);
+  await page.keyboard.press('KeyV'); await sim(page, 1);
+  const q1 = await page.evaluate(() => { const S = window.__game.survival; return { on: !!S.build, type: S.build?.type, bar: !document.getElementById('sv-quick').hidden, n: document.querySelectorAll('#sv-quick button').length }; });
+  await page.keyboard.press('Digit2'); await sim(page, 1); const q2 = await page.evaluate(() => window.__game.survival.build?.type);
+  await page.keyboard.press('Digit2'); await sim(page, 1); const q3 = await page.evaluate(() => window.__game.survival.build?.type);
+  await page.keyboard.press('Digit1'); await sim(page, 1); const q4 = await page.evaluate(() => window.__game.survival.build?.type);
+  const auto = await page.evaluate(h => {
+    const S = window.__game.survival, R = S.record, g = window.__game, b = S.build, spot = window.__H.cell(h.cx + 4, h.cz + 6);
+    b.type = 'timber_floor'; b.lv = 0; const w0 = R.resources.wood; b.tx = Math.floor(spot.x); b.tz = Math.floor(spot.z); b.rec = null;
+    const ok = S.place(), w1 = R.resources.wood, placed = R.structures.some(s => s.type === 'timber_floor' && s.x === spot.x && s.z === spot.z);
+    R.resources.wood = 0; b.tx = Math.floor(spot.x) + 2; b.rec = null; const n0 = R.structures.length, poor = S.place(), n1 = R.structures.length;
+    return { ok, spent: w0 - w1, kits: R.kits.timber_floor || 0, placed, poor, same: n0 === n1 };
+  }, H0);
+  await page.keyboard.press('Digit0'); await sim(page, 1); const q5 = await page.evaluate(() => window.__game.survival.build?.type);
+  await page.keyboard.press('KeyV'); await sim(page, 1); const q6 = await page.evaluate(() => ({ on: !!window.__game.survival.build, bar: document.getElementById('sv-quick').hidden }));
+  R.ok(q1.on && q1.bar && q1.n === 7, 'V enters build mode from the world and shows the quick bar (six groups and Take down)', JSON.stringify(q1));
+  R.ok(q2 === 'timber_wall' && q3 === 'timber_window' && q4 === 'stone_foundation', 'number keys pick a group and pressing again cycles within it (abilities are not cast while building)', JSON.stringify([q2, q3, q4]));
+  R.ok(auto.ok && auto.placed && auto.spent === 4 && auto.kits === 0 && !auto.poor && auto.same, 'with no kit, placing crafts it on the spot for the exact recipe cost; without materials nothing happens', JSON.stringify(auto));
+  R.ok(q5 === 'demolish' && !q6.on && q6.bar, '0 switches to Take down; V leaves build mode and hides the bar', JSON.stringify([q5, q6]));
 
   // ---------------------------------------------------------------- repeated placement and removal stays bounded
   const churn = await page.evaluate(h => {
