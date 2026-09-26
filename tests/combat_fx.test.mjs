@@ -1,7 +1,7 @@
 // Combat presentation: bolts only between real hits, status visuals that end with the status,
 // blood settings by material, one death effect per kill, budgets in a crowd, and all five
 // classes still dealing damage with the presentation layer attached.
-import { sim, fresh } from './lib.mjs';
+import { sim, fresh, toSquare } from './lib.mjs';
 
 export default async function (page, R) {
   await fresh(page, 'witch', { stage: 1, level: 12 });
@@ -78,10 +78,10 @@ export default async function (page, R) {
   // ---------------------------------------------------------------- all five classes still deal damage
   const classes = {};
   for (const cls of ['samurai', 'archer', 'witch', 'soulbound', 'gunslinger']) {
-    await fresh(page, cls, { stage: 1, level: 8 });
-    await page.evaluate(() => { const g = window.__game, p = g.player; p.facing = 0; p.aimSrc = 'keys'; window.__spawnFoes([['knight', 0, 1.6]]); window.__game.godMode = true; });
-    for (let i = 0; i < 12; i++) await sim(page, 4, ['KeyC']);
-    classes[cls] = await page.evaluate(() => { const g = window.__game, e = g.entities.find(x => x.isEnemy); const c = g.combatEvents?.counts || {}; return { dmg: e ? Math.round(e.maxHp - e.hp) : -1, dead: !e || e.dead, impacts: (c['attack.impact'] || 0) + (c['spell.impact'] || 0) }; });
+    await fresh(page, cls, { stage: 1, level: 8 }); await toSquare(page);
+    await page.evaluate(() => { const g = window.__game, p = g.player; p.facing = 0; p.aimSrc = 'keys'; window.__foe = window.__spawnFoes([['blot', 0, 2]])[0]; window.__foe.hp = window.__foe.maxHp = 900; window.__game.godMode = true; });
+    for (let i = 0; i < 12; i++) { await sim(page, cls === 'archer' ? 24 : 4, ['KeyC']); await sim(page, 6); } // bows draw and release; other weapons tap
+    classes[cls] = await page.evaluate(() => { const g = window.__game, e = window.__foe; const c = g.combatEvents?.counts || {}; return { dmg: e ? Math.round(e.maxHp - e.hp) : -1, dead: !e || e.dead, impacts: (c['attack.impact'] || 0) + (c['spell.impact'] || 0) }; });
   }
   R.ok(Object.values(classes).every(c => c.dmg > 0 || c.dead), 'all five classes still land real damage with the presentation layer attached', JSON.stringify(classes));
 }

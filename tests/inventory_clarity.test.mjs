@@ -18,7 +18,7 @@ export default async function (page, R) {
   R.ok(labels.length >= 8 && labels.every(Boolean), 'every bag tile names its real rarity in words (not only colour)', labels.join(','));
 
   const compact = await page.evaluate(() => { const t = document.getElementById('tooltip'); return { unique: t.querySelector('.ii-unique')?.textContent || '', speed: t.querySelector('.ii-stats')?.textContent || '', kit: t.querySelector('.ii-kit')?.textContent || '', rarity: t.querySelector('.ii-rarity')?.textContent || '' }; });
-  R.ok(/split into three/i.test(compact.unique) && /LEGENDARY|Legendary/.test(compact.rarity), 'the compact card shows the rarity and the build-defining unique power in full', compact.unique);
+  R.ok(/split into three/i.test(compact.unique) && /LEGENDARY|Legendary/.test(compact.rarity.toUpperCase()), 'the compact card shows the rarity and the build-defining unique power in full', compact.unique);
   R.ok(/×\d\.\d\d/.test(compact.speed) && /family base rate/.test(compact.speed) && !/per second|\/s/.test(compact.speed), 'attack speed is a labelled multiplier, never mislabelled as attacks per second', compact.speed);
   const kit = await page.evaluate(() => { const g = window.__game, W = window.__weaponKit || null; const it = g.inv.bag[0]; const k = window.__combat && null; return it.name; });
   R.ok(/Ember Bolt/.test(compact.kit) && /Chandler's Blaze/.test(compact.kit), 'left and right attack names match the weapon kit', compact.kit);

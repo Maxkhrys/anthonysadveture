@@ -56,7 +56,7 @@
 .ii{font-family:'Mossling',monospace;color:var(--md-ink);background:linear-gradient(180deg,#fbf3de,#efdfb8);border:2px solid var(--md-edge);border-top:6px solid var(--rc);border-radius:8px;padding:9px 11px;line-height:1.35}
 .ii-head{display:flex;gap:10px;align-items:flex-start}.ii-icon{width:56px;height:56px;flex:none;border:3px solid var(--rc);border-radius:6px;background:#2b251d;display:grid;place-items:center;overflow:hidden}
 .ii-icon img{width:100%;height:100%;image-rendering:pixelated}
-.ii-rarity{display:inline-block;font-size:11px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;color:#fff8e8;background:color-mix(in srgb,var(--rc) 70%,#2b2418);border:1px solid #2b2418;border-radius:3px;padding:1px 6px}
+.ii-rarity{display:inline-block;font-size:11px;letter-spacing:.5px;font-weight:bold;color:#fff8e8;background:color-mix(in srgb,var(--rc) 70%,#2b2418);border:1px solid #2b2418;border-radius:3px;padding:1px 6px}
 .ii h4{margin:3px 0 1px;font-size:17px;color:var(--md-ink)}.ii-kind{font-size:12px;color:#5a4630}.ii-kind .own{color:#3d6a22;font-weight:bold}.ii-kind .other{color:#9a4a1a;font-weight:bold}
 .ii-forced{color:#fff;background:#8a2a1a;padding:0 4px;border-radius:3px}
 .ii-stats{display:flex;gap:6px;margin:8px 0 4px;flex-wrap:wrap}.ii-stats div{background:#2f3a28;color:var(--md-parch);border-radius:5px;padding:4px 8px;display:flex;flex-direction:column;min-width:84px}
