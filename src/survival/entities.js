@@ -125,6 +125,8 @@ export const PIECES = {
   workbench: { name: 'Workbench', solid: true, station: true, desc: 'Unlocks building recipes within a few steps.' },
   chest: { name: 'Storage chest', solid: true, desc: 'Keeps resources safe at camp.' },
   torch: { name: 'Torch', solid: false, desc: 'A little light at night.' },
+  bed: { name: 'Bedroll', solid: false, desc: 'A cosy straw pallet. Sleep at dusk or night to wake at dawn.' },
+  brazier: { name: 'Warding brazier', solid: true, desc: 'A glowing brazier that suppresses hostile creature spawns in camp.' },
 };
 export function pieceParts(type, roofColor=0xc8a050) {
   switch (type) {
@@ -137,26 +139,42 @@ export function pieceParts(type, roofColor=0xc8a050) {
     case 'workbench': return [B(1, 0.12, 0.7, 0, 0.55, 0, 0xb8844e), B(0.1, 0.55, 0.1, -0.42, 0, -0.28, 0x7a5230), B(0.1, 0.55, 0.1, 0.42, 0, -0.28, 0x7a5230), B(0.1, 0.55, 0.1, -0.42, 0, 0.28, 0x7a5230), B(0.1, 0.55, 0.1, 0.42, 0, 0.28, 0x7a5230), B(0.3, 0.12, 0.14, -0.2, 0.67, 0.1, 0x8a8a90), B(0.14, 0.2, 0.14, 0.25, 0.67, -0.1, 0xa8784a)];
     case 'chest': return [B(0.8, 0.5, 0.56, 0, 0, 0, 0x9a6a3a), B(0.84, 0.18, 0.6, 0, 0.5, 0, 0x7a5230), B(0.14, 0.16, 0.06, 0, 0.42, 0.3, 0xd8b050)];
     case 'torch': return [B(0.1, 0.9, 0.1, 0, 0, 0, 0x7a5230), B(0.18, 0.14, 0.18, 0, 0.9, 0, 0x5a3a20)];
+    case 'bed': return [B(1, 0.12, 1.4, 0, 0.06, 0, 0x8a5e36), B(0.96, 0.08, 0.9, 0, 0.14, 0.22, 0x3a5a78), B(0.76, 0.14, 0.36, 0, 0.16, -0.42, 0xe8e0c0), B(0.98, 0.03, 0.06, 0, 0.16, -0.22, 0xd8b050)];
+    case 'brazier': return [B(0.5, 0.5, 0.5, 0, 0.25, 0, 0x7a7468), B(0.64, 0.14, 0.64, 0, 0.55, 0, 0x5a5448), B(0.32, 0.18, 0.32, 0, 0.68, 0, 0x8ae8ff)];
     default: return [B(0.5, 0.5, 0.5, 0, 0, 0, 0xff00ff)];
   }
 }
 export class Structure extends Entity {
   constructor(g, s, owner) {
     super(g, s.x, s.z); this.s = s; this.id = s.id; this.type = s.type; this.owner = owner; this.P = PIECES[s.type];
-    this.solid = this.P.solid; this.hw = this.hd = s.type === 'campfire' || s.type === 'chest' ? 0.42 : 0.5; this.isStructure = true;
-    this.interactable = ['campfire', 'workbench', 'chest'].includes(s.type);
+    this.solid = this.P.solid; this.hw = this.hd = s.type === 'campfire' || s.type === 'chest' || s.type === 'brazier' ? 0.42 : 0.5; this.isStructure = true;
+    this.interactable = ['campfire', 'workbench', 'chest', 'bed'].includes(s.type);
     if (s.type === 'roof') { this.mat = new THREE.MeshLambertMaterial({ color: 0xc8a050, transparent: true, opacity: 1 }); const m = new THREE.Mesh(geo(pieceParts('roof',0xffffff)), this.mat); m.position.y = 1.45; this.obj.add(m); }
     else { const m = new THREE.Mesh(geo(pieceParts(s.type)), MAT); m.castShadow = true; this.obj.add(m); }
-    if (s.type === 'campfire' || s.type === 'torch') {
-      this.flame = new THREE.Mesh(geo([B(0.22, 0.3, 0.22, 0, 0, 0, 0xffb347), B(0.12, 0.2, 0.12, 0, 0.24, 0, 0xfff0a0)]), MAT_GLOW, false); this.flame.position.y = s.type === 'torch' ? 1.0 : 0.12; this.obj.add(this.flame);
-      if (owner.lightsInUse < 6) { owner.lightsInUse++; this.light = new THREE.PointLight(0xffa050, s.type === 'torch' ? 1.4 : 2.4, s.type === 'torch' ? 4 : 6, 1.6); this.light.position.y = 1.2; this.obj.add(this.light); }
+    if (s.type === 'campfire' || s.type === 'torch' || s.type === 'brazier') {
+      const isBrazier = s.type === 'brazier';
+      const col = isBrazier ? 0x8ae8ff : 0xffb347;
+      const lightCol = isBrazier ? 0x8ae8ff : 0xffa050;
+      this.flame = new THREE.Mesh(geo([B(0.22, 0.3, 0.22, 0, 0, 0, col), B(0.12, 0.2, 0.12, 0, 0.24, 0, isBrazier ? 0xdaf8ff : 0xfff0a0)]), MAT_GLOW, false);
+      this.flame.position.y = s.type === 'torch' ? 1.0 : (isBrazier ? 0.72 : 0.12);
+      this.obj.add(this.flame);
+      if (owner.lightsInUse < 6) {
+        owner.lightsInUse++;
+        this.light = new THREE.PointLight(lightCol, s.type === 'torch' ? 1.4 : (isBrazier ? 2.8 : 2.4), s.type === 'torch' ? 4 : (isBrazier ? 7 : 6), 1.6);
+        this.light.position.y = isBrazier ? 1.4 : 1.2;
+        this.obj.add(this.light);
+      }
     }
   }
-  get prompt() { return { campfire: 'Rest · set home here', workbench: 'Craft at the workbench', chest: 'Open storage' }[this.type] || null; }
+  get prompt() { return { campfire: 'Rest · set home here', workbench: 'Craft at the workbench', chest: 'Open storage', bed: 'Rest · sleep until dawn' }[this.type] || null; }
   interact() { this.owner.useStructure(this); }
   remove() { if (this.light) this.owner.lightsInUse--; super.remove(); }
   update(dt) {
-    if (this.flame) { this.flame.scale.y = 0.85 + Math.sin(this.g.time * 12 + this.x) * 0.15; if (Math.random() < 0.15) this.g.fx.add({ x: this.x, y: this.flame.position.y + 0.3, z: this.z, vy: 1, g: -1, color: 0xffb347, life: 0.5, size: 0.04 }); }
+    if (this.flame) {
+      this.flame.scale.y = 0.85 + Math.sin(this.g.time * 12 + this.x) * 0.15;
+      const isBrazier = this.s.type === 'brazier';
+      if (Math.random() < 0.15) this.g.fx.add({ x: this.x, y: this.flame.position.y + 0.3, z: this.z, vy: 1, g: -1, color: isBrazier ? 0x8ae8ff : 0xffb347, life: 0.5, size: 0.04 });
+    }
     if (this.mat) { const p = this.g.player, near = Math.abs(p.x - this.x) < 1.6 && Math.abs(p.z - this.z) < 1.6; this.mat.opacity += ((near ? 0.25 : 1) - this.mat.opacity) * Math.min(1, dt * 8); this.mat.depthWrite = this.mat.opacity > 0.9; }
   }
 }

@@ -62,18 +62,22 @@ export class SurvivalUI {
   toggleCraft(){this.panel.classList.contains('hidden')?this.openCraft():this.g.ui.closeInventory();}
   openCraft(station,tab='craft') {this.closeAll();this.tab=tab;this.quantity=this.quantity||1;this.g.ui.invTab='bag';this.g.ui.openInventory();this.panel.classList.remove('hidden');this.decorate();this.renderPanel();this.g.input.keys.clear();}
   closeAll(){this.panel.classList.add('hidden');this.chest.classList.add('hidden');this.chestFor=null;document.getElementById('inv-bag')?.classList.toggle('hidden',this.g.ui.invTab!=='bag');const nav=document.getElementById('field-tabs');if(nav)for(const b of nav.children)b.setAttribute('aria-pressed',String(b.dataset.field==='equipment'));}
-  icon(id){return PIECES[id]?`<img class="craft-model" src="${structureIconURL(id,pieceParts(id))}" alt="">`:'<span class="craft-tonic" aria-hidden="true">✦</span>';}
+  icon(id){
+    if (PIECES[id]) return `<img class="craft-model" src="${structureIconURL(id,pieceParts(id))}" alt="">`;
+    if (id === 'pouch') return '<span class="craft-tonic" aria-hidden="true">🎒</span>';
+    return '<span class="craft-tonic" aria-hidden="true">✦</span>';
+  }
   renderPanel(){
     const m=this.m,R=m.record,kits=R.kits||{},q=this.quantity||1;
     if(this.tab==='materials'){
       const tips={wood:'Chop trees. Used for furniture and wooden structures.',stone:'Break rocks. Used for campfires and stonework.',fibre:'Cut shrubs; some trees also drop fibre. Used for torches and roofs.',ore:'Mine ore veins. Keep it in a chest for later recipes.',crystal:'Mine cave crystals. Used for crystal tonics.'};
-      this.panel.innerHTML=`<header><div><small>FIELD INVENTORY</small><h2>Materials</h2><p>Shared by all recipes. These do not occupy equipment slots.</p></div><button data-act="close">Close</button></header><div class="material-grid">${RESOURCES.map(k=>`<article><span>${ICON[k]}</span><h3>${NAME[k]} <b>${R.resources[k]}</b></h3><p>${tips[k]}</p></article>`).join('')}</div><footer><button data-act="home">Go home</button><button data-act="unstuck">Unstuck</button><button data-act="quit">Save & quit</button></footer>`;return;
+      this.panel.innerHTML=`<header><div><small>FIELD INVENTORY</small><h2>Materials</h2><p>Shared by all recipes. These do not occupy equipment slots.</p></div><button data-act="close">Close</button></header><div class="material-grid">${RESOURCES.map(k=>`<article><span>${ICON[k]}</span><h3>${NAME[k]} <b>${R.resources[k]}</b></h3><p>${tips[k]}</p></article>`).join('')}</div><footer><button data-act="quickstack">Quick stack to chests</button><button data-act="home">Go home</button><button data-act="unstuck">Unstuck</button><button data-act="quit">Save & quit</button></footer>`;return;
     }
     if(this.tab==='build'){
       this.panel.innerHTML=`<header><div><small>BUILD POUCH</small><h2>Ready to place</h2><p>Crafted pieces stay here until placed. Taking down a piece returns it.</p></div><button data-act="close">Close</button></header><div class="build-grid">${Object.entries(PIECES).map(([k,p])=>`<article>${this.icon(k)}<h3>${esc(p.name)} <b>×${kits[k]||0}</b></h3><p>${esc(p.desc)}</p><button data-act="place" data-id="${k}" ${kits[k]>0?'':'disabled'}>Place</button></article>`).join('')}</div><footer><button data-act="place" data-id="demolish">Take down a piece</button><span>Point with mouse or right stick. Attack places; secondary cancels.</span></footer>`;return;
     }
-    const selected=RECIPES.find(r=>r.id===this.selectedRecipe)||RECIPES[0];this.selectedRecipe=selected.id;const c=m.canCraft(selected.id,q);
-    this.panel.innerHTML=`<header><div><small>CAMP WORKSHOP</small><h2>Craft something useful</h2><p>${m.nearStation('workbench')?'Workbench nearby · station recipes available':'Hand crafting · place a workbench for more recipes'}</p></div><button data-act="close">Close</button></header><div class="craft-layout"><div class="recipe-list" aria-label="Recipes">${RECIPES.map(r=>`<button data-act="recipe" data-id="${r.id}" aria-pressed="${r.id===selected.id}">${this.icon(r.gives)}<span><b>${esc(r.name)}</b><small>${m.canCraft(r.id).ok?'Ready to craft':r.station&&!m.nearStation(r.station)?'Needs '+esc(PIECES[r.station]?.name||r.station):'Gather materials'}</small></span></button>`).join('')}</div><section class="recipe-detail">${this.icon(selected.gives)}<small>${selected.station?esc(PIECES[selected.station]?.name||selected.station):'BY HAND'} · ${selected.qty||1} PER CRAFT</small><h3>${esc(selected.name)}</h3><p>${esc(selected.desc)}</p><dl>${Object.entries(selected.cost).map(([k,v])=>`<div class="${R.resources[k]>=v*q?'ok':'no'}"><dt>${ICON[k]} ${NAME[k]}</dt><dd>${R.resources[k]} / ${v*q} <small>held / needed</small></dd></div>`).join('')}</dl><label>Number of crafts <input type="number" data-quantity min="1" max="99" value="${q}" aria-label="Number of crafts"></label><p class="craft-result">Makes ${q*(selected.qty||1)} · ${selected.gives==='tonic'?'Tonic pouch':`${kits[selected.gives]||0} already in build pouch`}</p><p class="craft-reason" role="status">${esc(c.ok?'Materials ready.':c.why)}</p><div class="craft-actions"><button data-act="craftit" data-id="${selected.id}" ${c.ok?'':'disabled'}>Craft ${q*(selected.qty||1)}</button><button data-act="track" data-id="${selected.id}">${R.trackedRecipe===selected.id?'Untrack':'Track materials'}</button></div></section></div>`;
+    const selected=RECIPES.find(r=>r.id===this.selectedRecipe)||RECIPES[0];this.selectedRecipe=selected.id;const c=m.canCraft(selected.id,q);const avail=m.availableResources(10);
+    this.panel.innerHTML=`<header><div><small>CAMP WORKSHOP</small><h2>Craft something useful</h2><p>${m.nearStation('workbench')?'Workbench nearby · station recipes available':'Hand crafting · place a workbench for more recipes'}</p></div><button data-act="close">Close</button></header><div class="craft-layout"><div class="recipe-list" aria-label="Recipes">${RECIPES.map(r=>`<button data-act="recipe" data-id="${r.id}" aria-pressed="${r.id===selected.id}">${this.icon(r.gives)}<span><b>${esc(r.name)}</b><small>${m.canCraft(r.id).ok?'Ready to craft':r.station&&!m.nearStation(r.station)?'Needs '+esc(PIECES[r.station]?.name||r.station):'Gather materials'}</small></span></button>`).join('')}</div><section class="recipe-detail">${this.icon(selected.gives)}<small>${selected.station?esc(PIECES[selected.station]?.name||selected.station):'BY HAND'} · ${selected.qty||1} PER CRAFT</small><h3>${esc(selected.name)}</h3><p>${esc(selected.desc)}</p><dl>${Object.entries(selected.cost).map(([k,v])=>{const held=R.resources[k]||0;const inChest=(avail[k]||0)-held;const totalAvail=avail[k]||0;const needed=v*q;return `<div class="${totalAvail>=needed?'ok':'no'}"><dt>${ICON[k]} ${NAME[k]}</dt><dd>${held}${inChest>0?` <small>(+${inChest} in chest)</small>`:''} / ${needed} <small>avail / needed</small></dd></div>`;}).join('')}</dl><label>Number of crafts <input type="number" data-quantity min="1" max="99" value="${q}" aria-label="Number of crafts"></label><p class="craft-result">Makes ${q*(selected.qty||1)} · ${selected.gives==='tonic'?'Tonic pouch':selected.gives==='pouch'?`Pouch capacity (${this.g.inv.maxPotions||3}/5)`:`${kits[selected.gives]||0} already in build pouch`}</p><p class="craft-reason" role="status">${esc(c.ok?'Materials ready.':c.why)}</p><div class="craft-actions"><button data-act="craftit" data-id="${selected.id}" ${c.ok?'':'disabled'}>Craft ${q*(selected.qty||1)}</button><button data-act="track" data-id="${selected.id}">${R.trackedRecipe===selected.id?'Untrack':'Track materials'}</button></div></section></div>`;
   }
   onPanel(e){const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const m=this.m;switch(b.dataset.act){
     case 'close':this.g.ui.closeInventory();break;
@@ -81,6 +85,7 @@ export class SurvivalUI {
     case 'track':m.record.trackedRecipe=m.record.trackedRecipe===b.dataset.id?null:b.dataset.id;this.g.save();this.refresh();break;
     case 'craftit':m.craft(b.dataset.id,this.quantity||1);this.renderPanel();break;
     case 'place':if(m.startBuild(b.dataset.id))this.g.ui.closeInventory();break;
+    case 'quickstack':m.quickStack();this.renderPanel();this.refresh();break;
     case 'home':this.g.ui.closeInventory();m.goHome();break;
     case 'unstuck':this.g.ui.closeInventory();m.unstick();break;
     case 'quit':this.g.ui.closeInventory();m.quit();break;
@@ -89,12 +94,18 @@ export class SurvivalUI {
   openChest(s) { this.g.ui.closeInventory(); this.closeAll(); this.chestFor = s; this.chest.classList.remove('hidden'); this.renderChest(); this.g.input.keys.clear(); }
   renderChest() {
     const R = this.m.record, S = R.storage[this.chestFor.id] || {};
-    this.chest.innerHTML = `<header><h2>Storage chest</h2><button type="button" data-act="close" aria-label="Close">✕</button></header>
+    this.chest.innerHTML = `<header><h2>Storage chest</h2><div class="chest-actions"><button type="button" data-act="quickstack" class="quick-stack-btn">Quick stack</button><button type="button" data-act="close" aria-label="Close">✕</button></div></header>
       <table><thead><tr><th></th><th>Carried</th><th></th><th>In chest</th></tr></thead><tbody>${RESOURCES.map(r => `<tr><th>${ICON[r]} ${NAME[r]}</th><td>${R.resources[r]}</td><td class="sv-moves"><button type="button" data-act="in" data-r="${r}" data-n="10">Store 10</button><button type="button" data-act="in" data-r="${r}" data-n="9999">Store all</button><button type="button" data-act="out" data-r="${r}" data-n="10">Take 10</button><button type="button" data-act="out" data-r="${r}" data-n="9999">Take all</button></td><td>${S[r] || 0}</td></tr>`).join('')}</tbody></table>`;
   }
   onChest(e) {
     const b = e.target.closest('[data-act]'); if (!b) return;
     if (b.dataset.act === 'close') return this.closeAll();
+    if (b.dataset.act === 'quickstack') {
+      this.m.quickStack();
+      this.renderChest();
+      this.refresh();
+      return;
+    }
     const n = +b.dataset.n, r = b.dataset.r;
     if (b.dataset.act === 'in') this.m.deposit(this.chestFor, r, n); else this.m.withdraw(this.chestFor, r, n);
     this.renderChest(); this.refresh();
