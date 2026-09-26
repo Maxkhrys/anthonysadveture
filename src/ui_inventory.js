@@ -37,6 +37,19 @@ export function polishInventory(ui){
  let clear=document.querySelector('.bag-search-clear');
  if(!clear){clear=document.createElement('button');clear.className='bag-search-clear';clear.type='button';clear.setAttribute('aria-label','Clear bag search');clear.textContent='×';document.querySelector('.bag-search').append(clear);}
  clear.onclick=()=>{ui.bagSearch='';const input=document.querySelector('.bag-search input');input.value='';ui.renderInventory();input.focus();};
+ let cheatBtn=$('toggle-allitems-cheat');
+ const cheatAllowed=ui.g.flags?.allitems||ui.g.flags?.creativeMode||ui.g.settings?.devMode||ui.g.area?.id==='devroom';
+ if(cheatAllowed){
+  if(!cheatBtn){
+   cheatBtn=document.createElement('button');
+   cheatBtn.id='toggle-allitems-cheat';
+   cheatBtn.type='button';
+   cheatBtn.className='allitems-cheat-btn';
+   filters.querySelector('.inventory-refine').append(cheatBtn);
+  }
+  cheatBtn.textContent=ui.creativeActive?'🎒 My bag':'✨ All items cheat';
+  cheatBtn.onclick=()=>{ui.creativeActive=!ui.creativeActive;ui.renderInventory();};
+ }else{cheatBtn?.remove();}
  document.querySelector('.bag-heading h2').textContent='Inventory';
  document.querySelector('.bag-search input').placeholder='Name, type, rarity or effect…';
  document.querySelector('.bag-search input').value=ui.bagSearch||'';

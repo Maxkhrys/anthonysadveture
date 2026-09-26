@@ -42,7 +42,21 @@ export class UI {
     $('btn-save').onclick = async () => { if (await this.g.save()) this.toast('Saved.', '', 1); };
     $('btn-title').onclick = async () => { if (await this.g.save()) location.reload(); };
   }
-  show(id, on = true) { $(id).classList.toggle('hidden', !on); }
+  show(id, on = true) {
+    const el = $(id);
+    if (!el) return;
+    el.classList.toggle('hidden', !on);
+    if (['pause', 'inventory', 'shop', 'craft', 'title-settings'].includes(id)) {
+      if (on) {
+        this.g.survivalUI?.hud?.classList.add('hidden');
+      } else {
+        const anyModal = this.invOpen || !$('pause')?.classList.contains('hidden') || !$('inventory')?.classList.contains('hidden') || !$('shop')?.classList.contains('hidden') || !$('craft')?.classList.contains('hidden');
+        if (!anyModal) {
+          this.g.survivalUI?.refresh();
+        }
+      }
+    }
+  }
 
   // ---------------- HUD
   hearts(pop) {

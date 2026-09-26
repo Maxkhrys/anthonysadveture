@@ -10,7 +10,7 @@ import { RECIPES } from './craft.js';
 import { WORLD, GEN_VERSION, BIOMES } from './biome.js';
 import { regionPoi } from './gen.js';
 import { T, isSolid, isLiquid } from '../world/tiles.js';
-import { defaultInventory, createProfile, runtimeEquipment, copy } from '../persistence/model.js';
+import { defaultInventory, createProfile, runtimeEquipment, copy, worldPhase } from '../persistence/model.js';
 import { restoreCharacter } from '../persistence/session.js';
 import { starterWeapon } from '../rpg/items.js';
 import { makeEnemy } from '../entities/enemies.js';
@@ -125,7 +125,11 @@ export class SurvivalMode {
       else if (d.type === 'svchest') list.push(g.spawn(new LootCache(g, d, this)));
       else list.push(g.spawn(new Landmark(g, d, this)));
     }
-    for (const m of c.packs) if (!this.killed.has(m.id)) { const e = this.enemy(m.kind, m.x, m.z); if (e) { e.packId = m.id; list.push(e); } }
+    for (const m of c.packs) if (!this.killed.has(m.id)) {
+      const nearBrazier = R.structures.some(s => s.type === 'brazier' && Math.hypot(s.x - m.x, s.z - m.z) < 20);
+      if (nearBrazier) continue;
+      const e = this.enemy(m.kind, m.x, m.z); if (e) { e.packId = m.id; list.push(e); }
+    }
     for (const s of R.structures) if (this.chunkOf(s.x, s.z) === key) list.push(g.spawn(new Structure(g, s, this)));
     this.byChunk.set(key, list);
   }
@@ -154,24 +158,67 @@ export class SurvivalMode {
     R.resources[res] += n; this.g.ui.float && this.g.ui.float(x ?? this.g.player.x, 1.2, z ?? this.g.player.z, '+' + n + ' ' + res, '#e8d6a8', false, true);
     this.ui && this.ui.refresh(); this.hintCheck();
   }
-  has(cost) { return Object.entries(cost).every(([k, v]) => (this.record.resources[k] || 0) >= v); }
+  nearbyChests(r = 10) {
+    const p = this.g.player; if (!p) return [];
+    return this.g.entities.filter(e => e.isStructure && e.type === 'chest' && !e.dead && Math.hypot(e.x - p.x, e.z - p.z) < r);
+  }
+  availableResources(r = 10) {
+    const R = this.record, avail = { ...R.resources };
+    for (const chest of this.nearbyChests(r)) {
+      const S = R.storage[chest.id] || {};
+      for (const [k, v] of Object.entries(S)) avail[k] = (avail[k] || 0) + v;
+    }
+    return avail;
+  }
+  has(cost) {
+    const avail = this.availableResources(10);
+    return Object.entries(cost).every(([k, v]) => (avail[k] || 0) >= v);
+  }
   nearStation(type, r = 4.5) { const p = this.g.player; return this.g.entities.some(e => e.isStructure && e.type === type && !e.dead && Math.hypot(e.x - p.x, e.z - p.z) < r); }
   canCraft(id, count = 1) {
     if(!Number.isInteger(count)||count<1||count>99)return {ok:false,why:"Choose 1–99 crafts."};
     const r = RECIPES.find(x => x.id === id); if (!r) return { ok: false, why: 'Unknown recipe.' };
     if (r.station && !this.nearStation(r.station)) return { ok: false, why: 'Needs a ' + PIECES[r.station].name.toLowerCase() + ' nearby.' };
-    if(r.gives==='tonic'&&this.g.inv.potions+count*(r.qty||1)>this.g.inv.maxPotions)return {ok:false,why:'No room for that many tonics.'};
-    const total=Object.fromEntries(Object.entries(r.cost).map(([k,v])=>[k,v*count]));
-    if (!this.has(total)) return { ok: false, why: 'Not enough: ' + Object.entries(total).filter(([k, v]) => this.record.resources[k] < v).map(([k, v]) => (v - this.record.resources[k]) + ' more ' + k).join(', ') + '.' };
+    if (r.gives === 'tonic' && this.g.inv.potions + count * (r.qty || 1) > (this.g.inv.maxPotions || 3)) return { ok: false, why: 'No room for that many tonics.' };
+    if (r.gives === 'pouch' && (this.g.inv.maxPotions || 3) + count > 5) return { ok: false, why: 'Tonic belt pouch cannot exceed 5.' };
+    const total = Object.fromEntries(Object.entries(r.cost).map(([k, v]) => [k, v * count]));
+    const avail = this.availableResources(10);
+    if (!this.has(total)) return { ok: false, why: 'Not enough: ' + Object.entries(total).filter(([k, v]) => (avail[k] || 0) < v).map(([k, v]) => (v - (avail[k] || 0)) + ' more ' + k).join(', ') + '.' };
     return { ok: true, why: '' };
   }
   craft(id, count = 1) {
-    const c = this.canCraft(id,count); if (!c.ok) { sfx('error'); return c; }
+    const c = this.canCraft(id, count); if (!c.ok) { sfx('error'); return c; }
     const r = RECIPES.find(x => x.id === id), R = this.record;
-    for (const [k, v] of Object.entries(r.cost)) R.resources[k] -= v*count;
-    if (r.gives === 'tonic') { this.g.inv.potions = Math.min(this.g.inv.maxPotions, this.g.inv.potions + count*(r.qty||1)); this.g.hudDirty = true; }
-    else { R.kits = R.kits || {}; R.kits[r.gives] = (R.kits[r.gives] || 0) + count*(r.qty || 1); }
-    sfx('forge'); this.g.ui.toast('Crafted: ' + r.name, r.gives === 'tonic' ? 'A tonic, ready to drink (H).' : 'Place it from the Build list.', 2);
+    for (const [k, v] of Object.entries(r.cost)) {
+      let needed = v * count;
+      const fromHeld = Math.min(needed, R.resources[k] || 0);
+      R.resources[k] -= fromHeld;
+      needed -= fromHeld;
+      if (needed > 0) {
+        for (const chest of this.nearbyChests(10)) {
+          const S = R.storage[chest.id] || {};
+          const fromChest = Math.min(needed, S[k] || 0);
+          S[k] -= fromChest;
+          needed -= fromChest;
+          if (needed <= 0) break;
+        }
+      }
+    }
+    if (r.gives === 'tonic') {
+      this.g.inv.potions = Math.min(this.g.inv.maxPotions || 3, this.g.inv.potions + count * (r.qty || 1));
+      this.g.hudDirty = true;
+    } else if (r.gives === 'pouch') {
+      this.g.inv.maxPotions = Math.min(5, (this.g.inv.maxPotions || 3) + count);
+      this.g.inv.potions = Math.min(this.g.inv.maxPotions, (this.g.inv.potions || 0) + count);
+      this.g.hudDirty = true;
+      this.g.ui.toast && this.g.ui.toast('Belt expanded', 'You can now carry up to ' + this.g.inv.maxPotions + ' tonics.', 2.4);
+    } else {
+      R.kits = R.kits || {}; R.kits[r.gives] = (R.kits[r.gives] || 0) + count * (r.qty || 1);
+    }
+    sfx('forge');
+    if (r.gives !== 'pouch') {
+      this.g.ui.toast && this.g.ui.toast('Crafted: ' + r.name, r.gives === 'tonic' ? 'A tonic, ready to drink (H).' : 'Place it from the Build list.', 2);
+    }
     this.ui && this.ui.refresh(); this.hintCheck(); this.g.save();
     return { ok: true };
   }
@@ -182,7 +229,7 @@ export class SurvivalMode {
     g.scene.add(ghost); this.build = { type, ghost, ok: false, tx: 0, tz: 0 }; this.ui && this.ui.refresh();
     return true;
   }
-  endBuild() { if (this.build) { this.g.scene.remove(this.build.ghost); this.build.ghost.geometry.dispose(); this.build.ghost.material.dispose(); this.build = null; this.ui && this.ui.refresh(); } }
+  endBuild() { if (this.build) { if (this.build.ghost) { this.g.scene.remove(this.build.ghost); this.build.ghost.geometry?.dispose(); this.build.ghost.material?.dispose(); } this.build = null; this.ui && this.ui.refresh(); } }
   target() {
     const g = this.g, p = g.player, inp = g.input;
     let x = p.x + Math.sin(p.facing) * 1.4, z = p.z + Math.cos(p.facing) * 1.4;
@@ -225,8 +272,65 @@ export class SurvivalMode {
   useStructure(s) {
     const g = this.g;
     if (s.type === 'campfire') { this.setHome(s.x, s.z + 1.1); g.inv.hp = g.inv.maxHp; g.inv.potions = Math.max(g.inv.potions, 2); g.res = 100; g.hudDirty = true; sfx('heart'); g.save(); }
+    if (s.type === 'bed') this.sleepInBed(s);
     if (s.type === 'workbench') this.ui && this.ui.openCraft(true);
     if (s.type === 'chest') this.ui && this.ui.openChest(s);
+  }
+  sleepInBed(s) {
+    const g = this.g;
+    if (g.transitioning || (g.player && g.player.combatT > 0)) {
+      g.ui.toast && g.ui.toast('In combat', 'You cannot sleep while in combat!', 1.8);
+      return;
+    }
+    const phase = worldPhase(g.time || 0, g.flags.dayOffset || 0);
+    if (!phase.isNight && phase.fraction < 0.62) {
+      g.ui.toast && g.ui.toast('Not tired yet', 'You can only sleep at dusk or during the night.', 2.0);
+      return;
+    }
+    const currentTotal = (g.time || 0) + (g.flags.dayOffset || 0);
+    const currentFrac = ((currentTotal / 420) + 0.32) % 1;
+    const neededAdvance = ((0.25 - currentFrac) % 1 + 1) % 1;
+    g.flags.dayOffset = (g.flags.dayOffset || 0) + neededAdvance * 420;
+    g.dayT = 0.25;
+    g.atmosphere && g.atmosphere(0.001);
+
+    this.setHome(s.x, s.z + 0.5, true);
+    g.inv.hp = g.inv.maxHp;
+    g.inv.potions = Math.max(g.inv.potions, 2);
+    g.res = 100;
+    g.hudDirty = true;
+    sfx('heart');
+    g.ui.toast && g.ui.toast('Dawn arrives', 'You wake rested at camp as the sun rises. Health restored.', 2.8);
+    g.save();
+  }
+  quickStack(r = 10) {
+    const chests = this.nearbyChests(r);
+    if (!chests.length) {
+      this.g.ui.toast && this.g.ui.toast('No chests nearby', 'Place a storage chest near camp to quick-stack.', 1.8);
+      return { ok: false, count: 0 };
+    }
+    const R = this.record;
+    let total = 0;
+    for (const chest of chests) {
+      const S = R.storage[chest.id] || (R.storage[chest.id] = {});
+      for (const res of RESOURCES) {
+        if ((S[res] || 0) > 0 && (R.resources[res] || 0) > 0) {
+          const amount = R.resources[res];
+          R.resources[res] = 0;
+          S[res] = (S[res] || 0) + amount;
+          total += amount;
+        }
+      }
+    }
+    if (total > 0) {
+      sfx('gatherpickup');
+      this.g.ui.toast && this.g.ui.toast('Quick-stacked', `Deposited ${total} items into nearby chests.`, 2.0);
+      this.ui && this.ui.refresh();
+      this.g.save();
+    } else {
+      this.g.ui.toast && this.g.ui.toast('No matching items', 'Chests only accept items they already hold.', 1.8);
+    }
+    return { ok: total > 0, count: total };
   }
   deposit(chest, res, n) { const R = this.record, S = R.storage[chest.id] || (R.storage[chest.id] = {}); n = Math.min(n, R.resources[res]); if (n <= 0) return 0; R.resources[res] -= n; S[res] = (S[res] || 0) + n; this.g.save(); return n; }
   withdraw(chest, res, n) { const R = this.record, S = R.storage[chest.id] || {}; n = Math.min(n, S[res] || 0); if (n <= 0) return 0; S[res] -= n; R.resources[res] += n; this.g.save(); return n; }
@@ -304,6 +408,7 @@ export class SurvivalMode {
       this.ui && this.ui.buildStatus(b);
     }
     if (inp.pressed('craft') && !g.locked()) this.ui && this.ui.toggleCraft();
+    if (inp.pressed('buildWheel') && !g.locked() && !g.ui?.invOpen) this.ui && this.ui.openBuildWheel();
   }
   // the save: the character and everything the world remembers (never story data)
   capture() {

@@ -51,7 +51,7 @@ body{font-size:14px}button,input,select{font:inherit}button{cursor:pointer}butto
 .inv-panel.creative-mode {width:min(1480px,96vw)}
 .creative-mode .inv-left,.creative-mode .bag-heading,.creative-mode #tooltip,.creative-mode .item-actions,.creative-mode .inv-keys {display:none!important}
 .creative-mode .inv-body,.creative-mode .inv-right {display:block;width:100%;min-width:0}
-#creative-inventory {color:#362619;margin-bottom:14px;min-width:0}
+#creative-inventory {color:#362619;margin-bottom:14px;min-width:0;resize:vertical;overflow:auto;min-height:480px}
 .creative-header {display:flex;gap:24px;align-items:center;justify-content:space-between;margin:0 0 20px}
 .creative-header h2 {font-size:32px;margin:0 0 5px}
 .creative-header p {font-size:13px;color:#6c5134;margin:0;line-height:1.5}

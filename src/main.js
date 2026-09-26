@@ -215,7 +215,7 @@ async function boot() {
     game.ui.closeInventory(); game.ui.show('pause', false);
     input.keys.clear(); input.taps.clear(); input.mouse.clear(); input.mtaps.clear();
     input.state = {}; input.prev = {};
-    if (page === 'resume') { mode = 'play'; return; }
+    if (page === 'resume') { mode = 'play'; game.survivalUI?.refresh(); return; }
     if (page === 'bag' || page === 'skills') {
       mode = 'play'; game.ui.invTab = page; game.ui.openInventory();
     } else { mode = 'pause'; game.ui.openPause(); game.ui.tab(page); }

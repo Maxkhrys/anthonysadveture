@@ -11,5 +11,8 @@ export const RECIPES = [
   { id: 'door', name: 'Doorway', gives: 'door', cost: { wood: 4 }, station: 'workbench', desc: 'An opening you can walk through.' },
   { id: 'roof', name: 'Thatch roof ×2', gives: 'roof', qty: 2, cost: { wood: 1, fibre: 2 }, station: 'workbench', desc: 'Goes over floors, walls and doorways.' },
   { id: 'chest', name: 'Storage chest', gives: 'chest', cost: { wood: 6, stone: 2 }, station: 'workbench', desc: 'Store resources at camp.' },
+  { id: 'bed', name: 'Bedroll', gives: 'bed', cost: { wood: 6, fibre: 4 }, station: 'workbench', desc: 'Rest at dusk or night to skip to dawn and set your home.' },
+  { id: 'brazier', name: 'Warding brazier', gives: 'brazier', cost: { stone: 6, wood: 4, crystal: 1 }, station: 'workbench', desc: 'A warding flame that suppresses hostile creature spawns in camp.' },
+  { id: 'pouch', name: 'Fibre pouch', gives: 'pouch', cost: { fibre: 8, wood: 4 }, station: 'workbench', desc: 'Increases maximum tonic capacity by +1 (up to 5).' },
   { id: 'tonic', name: 'Crystal tonic', gives: 'tonic', cost: { fibre: 3, crystal: 1 }, station: 'workbench', desc: 'Refills one tonic (H).' },
 ];

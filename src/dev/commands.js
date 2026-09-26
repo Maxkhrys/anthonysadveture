@@ -64,6 +64,7 @@ export const COMMAND_CATEGORIES = [
 
 export const COMMAND_DEFINITIONS = {
   devlab:{name:'devlab',category:'WORLD',desc:'Open the persistent MOSSDEV sandbox lab. Enables developer mode; adventure saves stay separate.',usage:'/devlab',aliases:['mossdev','lab']},
+  allitems: { name: 'allitems', category: 'LOOT', desc: 'Toggle the Minecraft-style All-Items Creative Armoury browser in your inventory to pull any item.', usage: '/allitems [on|off]', aliases: ['creative', 'items', 'itembrowser', 'cheat'] },
   arpgbuild: { name:'arpgbuild',category:'LOOT',desc:'List or create an ARPG build weapon for your current class.',usage:'/arpgbuild [list|unique_id]' },
   // ---------------------------------------------------------------- CHARACTER
   help: {
@@ -603,6 +604,19 @@ export class DevCommands {
       if(!it) {log('Unknown build. Use /arpgbuild list.','yellow');return;}
       if(!game.pickupItem(it)) {log('Bag full. Make room first.','yellow');return;}
       game.save();log('Added '+it.name+'. Equip it from Inventory (E).','green');
+    },
+    allitems(game, args, log) {
+      const val = args[0]?.toLowerCase();
+      const enable = val === 'on' ? true : val === 'off' ? false : !game.flags.allitems;
+      game.flags.allitems = enable;
+      game.flags.creativeMode = enable;
+      game.settings.devMode = true;
+      saveSettings(game.settings);
+      game.devConsole?.close();
+      game.ui.invTab = 'bag';
+      game.ui.openInventory();
+      log(`All-Items Creative Browser ${enable ? 'UNLOCKED' : 'LOCKED'}. Pull any weapon, gear, tool, or resource directly from your inventory.`, enable ? 'green' : 'yellow');
+      game.ui.toast && game.ui.toast(enable ? 'All-Items Unlocked' : 'All-Items Locked', enable ? 'Browse & pull any item directly from inventory (E).' : 'Creative catalogue closed.', 2.4);
     },
     // ---------------------------------------------------------------- CHARACTER HANDLERS
     help(game, args, log) {

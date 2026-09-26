@@ -8,6 +8,7 @@ html,body{margin:0;height:100%;background:#0d0a14;overflow:hidden;font-family:va
 #ui{position:fixed;inset:0;pointer-events:none}
 .hidden{display:none!important}
 .screen{position:absolute;inset:0;pointer-events:auto;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.screen:not(#title){z-index:60}
 
 /* HUD */
 #hud{position:absolute;inset:0}
