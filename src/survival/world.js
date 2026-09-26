@@ -19,7 +19,7 @@ export function buildWilds(record, survival) {
       for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
         const x = cx + dx, z = cz + dz, key = x + ',' + z;
         if (x < 0 || z < 0 || x * CH >= W || z * CH >= H || chunks.has(key)) continue;
-        const c = generateChunk(record.seed, x, z, B);
+        const c = generateChunk(record.seed, x, z, B, record.genVersion || 1);
         for (let j = 0; j < CH; j++) { const row = (z * CH + j) * W + x * CH; if (z * CH + j >= H) break; for (let i = 0; i < CH && x * CH + i < W; i++) tiles[row + i] = c.tiles[j * CH + i]; }
         chunks.set(key, c);
         survival && survival.onChunkGenerated(c);

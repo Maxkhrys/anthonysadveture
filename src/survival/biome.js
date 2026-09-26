@@ -1,6 +1,9 @@
 // Survival biome data. The generator reads only these numbers, so a biome is tuned (or a new one
 // added) without touching generation code.
-export const GEN_VERSION = 1; // bump when generation changes; saves keep the version they were made with
+// bump when generation changes; saves keep the version they were made with.
+//   1  the first wilderness (terrain, nodes, caves, ruins, stones)
+//   2  + generated houses from the modular kit (new worlds only; v1 land never changes)
+export const GEN_VERSION = 2;
 
 export const BIOMES = {
   forest: {
@@ -19,6 +22,8 @@ export const BIOMES = {
     // points of interest on a coarse grid (one candidate per region cell)
     region: 48, caveChance: 0.34, ruinChance: 0.24, stonesChance: 0.16,
     clearing: 5,             // radius kept open around every point of interest
+    // generated houses (generator v2): at most one per region cell, on dry open ground
+    houseChance: 0.55, houseMix: [['cabin', 0.45], ['cottage', 0.35], ['ruin', 0.2]], houseMargin: 2,
     // creatures (per region cell, away from the start)
     packs: [['blot', 3], ['beetle', 2], ['seedling', 3], ['puffer', 1], ['brigand', 2], ['mantis', 1]], packChance: 0.55,
     // colours
