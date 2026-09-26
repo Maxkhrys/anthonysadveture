@@ -129,6 +129,7 @@ export default async function (page, R) {
   // ---------------------------------------------------------------- refresh restores the lab setup
   await page.evaluate(() => { const g = window.__game, L = g.devlab; g.cutscene = false; L.runManifest('combat.sundown'); g.save(); });
   const lab0 = await page.evaluate(() => JSON.stringify({ w: window.__game.inv.equip.weapon, cls: window.__game.inv.cls, arena: window.__game.devlab.profile.arena }));
+  await devMode(page); // the test helper fresh() clears storage, settings included
   await boot(page);
   await page.waitForFunction(() => window.__game.devlab.active, null, { timeout: 15000 }); await sim(page, 2);
   const lab1 = await page.evaluate(() => JSON.stringify({ w: window.__game.inv.equip.weapon, cls: window.__game.inv.cls, arena: window.__game.devlab.profile.arena }));

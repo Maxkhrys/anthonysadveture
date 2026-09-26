@@ -80,13 +80,13 @@ export class DevLabUI {
       <h3>Vitals</h3><div class="md-row"><label>Health <input type="range" min="1" max="${g.inv.maxHp}" value="${Math.round(g.inv.hp)}" data-in="hp"></label><label>${esc(resName)} <input type="range" min="0" max="100" value="${Math.round(g.res)}" data-in="res"></label></div>
       <div class="md-row"><button data-act="refill">Refill health and ${esc(resName)}</button><button data-act="cooldowns">Reset cooldowns</button></div></section>
       <section><h3>Sandbox cheats <small>(never reach an adventure)</small></h3>
-      ${this.toggle('god', 'God mode', c.god)}${this.toggle('infRes', 'Infinite ' + resName + (P.cls === 'soulbound' ? ' (five Echoes)' : ''), c.infRes)}${P.cls === 'gunslinger' ? this.toggle('infAmmo', 'Infinite ammunition (cylinder / magazine refills)', c.infAmmo) : ''}
+      ${this.cheatRow('god', 'God mode', c.god)}${this.cheatRow('infRes', 'Infinite ' + resName + (P.cls === 'soulbound' ? ' (five Echoes)' : ''), c.infRes)}${P.cls === 'gunslinger' ? this.cheatRow('infAmmo', 'Infinite ammunition (cylinder / magazine refills)', c.infAmmo) : ''}
       <label class="md-toggle">Movement speed <select data-in="speed">${[1, 1.25, 1.5, 2].map(v => `<option value="${v}" ${c.speed === v ? 'selected' : ''}>×${v}</option>`).join('')}</select></label>
-      ${this.toggle('ignoreRestrictions', 'Rule bypass: equip anything (sandbox only, off by default)', c.ignoreRestrictions, 'md-danger')}
+      ${this.cheatRow('ignoreRestrictions', 'Rule bypass: equip anything (sandbox only, off by default)', c.ignoreRestrictions, 'md-danger')}
       <h3>Character</h3><div class="md-row"><button data-act="copyadv" ${L.store.data.returnTo ? '' : 'disabled'}>Copy my adventure character in</button><button data-act="resetchar">Reset test character</button></div>
       <p class="md-hint">The lab keeps its own character between visits and refreshes. It started as a copy of your adventure the first time you opened it.</p></section></div>`;
   }
-  toggle(k, label, on, cls = '') { return `<label class="md-toggle ${cls}"><input type="checkbox" data-cheat="${k}" ${on ? 'checked' : ''}> ${esc(label)}</label>`; }
+  cheatRow(k, label, on, cls = '') { return `<label class="md-toggle ${cls}"><input type="checkbox" data-cheat="${k}" ${on ? 'checked' : ''}> ${esc(label)}</label>`; }
   filtered() {
     const f = this.f, q = f.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
     return CATALOGUE.filter(x => (f.cls === 'all' || x.cls === f.cls) && (f.slot === 'all' || x.slot === f.slot) && (f.family === 'all' || x.family === f.family) && (f.rarity === 'all' || x.rarity === f.rarity) && (f.element === 'all' || x.element === f.element) && (f.special === 'all' || x.special === f.special) && (!f.recent || x.recent) && q.every(w => x.hay.includes(w)));

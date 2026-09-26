@@ -19,6 +19,7 @@ import { COMMAND_DEFINITIONS as DEVDEFS } from './dev/commands.js';
 import * as COMBAT from './rpg/combat.js';
 import { Boss } from './entities/boss.js';
 import { DevLabUI } from './devlab/ui.js';
+import { makeEnemy } from './entities/enemies.js';
 
 const $ = id => document.getElementById(id);
 const TIPS = [
@@ -132,7 +133,7 @@ async function boot() {
       mode = 'play'; game.ui.invTab = page; game.ui.openInventory();
     } else { mode = 'pause'; game.ui.openPause(); game.ui.tab(page); }
   };
-  window.__game = game; window.__items = ITEMS; window.__craft = CRAFT; window.__combat = COMBAT; window.__Boss = Boss; window.__skills = SKILLS; window.__gear = GEAR; window.__elements = ELEMENTS; window.__m3 = M3; window.__settings = SETTINGS; window.__devDefs = DEVDEFS; window.__sb = SOULBOUND; // test hooks
+  window.__game = game; window.__items = ITEMS; window.__craft = CRAFT; window.__combat = COMBAT; window.__Boss = Boss; window.__skills = SKILLS; window.__gear = GEAR; window.__elements = ELEMENTS; window.__m3 = M3; window.__settings = SETTINGS; window.__devDefs = DEVDEFS; window.__sb = SOULBOUND; window.__makeEnemy = makeEnemy; // test hooks
   progress(45, 'Growing Whisperwood…'); await tick();
   game.loadArea('overworld', 'start');
   game.cutscene = true;

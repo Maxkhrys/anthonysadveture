@@ -103,12 +103,12 @@ export function compareRows(it, cur, g) {
   const A = itemInfo(it, g), B = itemInfo(cur, g);
   if (A.weapon && B.weapon) {
     add('Average damage', Math.round((A.weapon.min + A.weapon.max) / 2), Math.round((B.weapon.min + B.weapon.max) / 2));
-    add('Attack speed', +A.weapon.speed.toFixed(2), +B.weapon.speed.toFixed(2), v => '×' + v.toFixed(2));
+    const sa = +A.weapon.speed.toFixed(2), sb = +B.weapon.speed.toFixed(2); rows.push({ label: 'Attack speed', a: '×' + sa.toFixed(2), b: '×' + sb.toFixed(2), dir: sa === sb ? 'same' : sa > sb ? 'up' : 'down' }); // always shown: the base rate matters for every weapon
     if (A.weapon.primary !== B.weapon.primary) rows.push({ label: 'Left click', a: A.weapon.primary, b: B.weapon.primary, dir: 'change' });
     if (A.weapon.secondary !== B.weapon.secondary) rows.push({ label: 'Right click', a: A.weapon.secondary || '—', b: B.weapon.secondary || '—', dir: 'change' });
   }
   const val = (x, k) => (x.stats || {})[k] || 0;
-  for (const k of new Set([...Object.keys(it.stats || {}), ...Object.keys(cur.stats || {})])) { const D = AFFIXES[k]; add(D ? D.name : k === 'armor' ? 'Armour' : k === 'hp' ? 'Max Health' : k, val(it, k), val(cur, k), v => v + (D?.pct ? '%' : '')); }
+  for (const k of new Set([...Object.keys(it.stats || {}), ...Object.keys(cur.stats || {})])) { const D = AFFIXES[k]; add(D ? D.name + (D.pct ? ' %' : '') : k === 'armor' ? 'Armour' : k === 'hp' ? 'Max Health' : k, val(it, k), val(cur, k), v => v + (D?.pct ? '%' : '')); }
   if (A.unique.join() !== B.unique.join()) rows.push({ label: 'Unique power', a: A.unique.length ? 'Yes' : '—', b: B.unique.length ? 'Yes' : '—', dir: 'change' });
   return rows;
 }
