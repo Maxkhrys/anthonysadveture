@@ -36,6 +36,10 @@ const OPTS = [
   { k: 'hudScale', name: 'HUD scale', vals: [0.8, 0.9, 1, 1.15, 1.3], pct: true },
   { k: 'combatText', name: 'Combat text (SHATTER, CONDUCTED…)', vals: [true, false], labels: ['On', 'Off'] },
   { k: 'abilityLabels', name: 'Ability names on hotbar', vals: [false, true], labels: ['Off', 'On'] },
+  // ---- Dev Lab pass: combat presentation (screen shake and hit flash keep their own settings above)
+  { k: 'combatFx', name: 'Combat effects (elements, impacts, deaths)', vals: ['minimal', 'normal', 'high'], labels: ['Minimal', 'Normal', 'High'] },
+  { k: 'blood', name: 'Blood', vals: ['off', 'reduced', 'full'], labels: ['Off', 'Reduced', 'Full'] },
+  { k: 'devMode', name: 'Developer mode (MOSSDEV lab, F10)', vals: [false, true], labels: ['Off', 'On'] },
 ];
 // Presets only touch settings that change rendering cost; everything stays individually adjustable.
 export const PRESETS = {
@@ -51,10 +55,15 @@ export const WORLD_FX = {
   balanced: { ao: 0.6, cloud: 0.16, split: 0.55, tilt: 0, detail: 0.1, refl: 0.32, beams: 0.07, mist: 0.3, birds: 0.28, soft: 1 },
   full: { ao: 0.8, cloud: 0.2, split: 0.75, tilt: 0.55, detail: 0.13, refl: 0.42, beams: 0.1, mist: 0.4, birds: 0.34, soft: 1 },
 };
-export const DEFAULTS = { ...HUD_DEFAULTS, world: 'balanced', zoom: 1, difficulty: 'normal', master: 1, music: 1, sfx: 1, shake: 1, numbers: true, guide: true, pixel: 0, quality: 'high', preset: 'default', bloom: 1, fx: 1, hudScale: 1, combatText: true, abilityLabels: false, questGuide: true, reducedMotion: false, discovery: 'full' };
+export const DEFAULTS = { ...HUD_DEFAULTS, world: 'balanced', zoom: 1, difficulty: 'normal', master: 1, music: 1, sfx: 1, shake: 1, numbers: true, guide: true, pixel: 0, quality: 'high', preset: 'default', bloom: 1, fx: 1, hudScale: 1, combatText: true, abilityLabels: false, questGuide: true, reducedMotion: false, discovery: 'full', combatFx: 'normal', blood: 'full', devMode: false };
 
 export function loadSettings() {
-  try { return sanitizeHud(Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY) || '{}'))); } catch (e) { return { ...DEFAULTS }; }
+  try {
+    const s = sanitizeHud(Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY) || '{}')));
+    // additive Dev Lab pass options: anything unknown falls back to its default
+    for (const k of ['combatFx', 'blood', 'devMode']) if (!OPTS.find(o => o.k === k).vals.includes(s[k])) s[k] = DEFAULTS[k];
+    return s;
+  } catch (e) { return { ...DEFAULTS }; }
 }
 export function saveSettings(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {} }
 

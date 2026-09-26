@@ -135,7 +135,7 @@ export function installJournalUI(UI) {
     $('objective').classList.toggle('hidden', this.g.settings.questGuide === false);
     const dev = this.g.area?.id === 'devroom' || !!this.g.devSandbox;
     $('dev-state').classList.toggle('hidden', !dev);
-    $('dev-state').textContent = this.g.devSandbox ? 'SANDBOX · saving disabled' : 'DEVELOPER TEST ROOM';
+    $('dev-state').textContent = this.g.devlab?.active ? 'MOSSDEV SANDBOX · adventure untouched' : this.g.devSandbox ? 'SANDBOX · saving disabled' : 'DEVELOPER TEST ROOM';
   };
   const tab = P.tab;
   P.tab = function (name) {

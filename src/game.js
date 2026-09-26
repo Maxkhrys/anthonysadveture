@@ -42,6 +42,9 @@ import { AimView } from './aim.js';
 import { ensureCraftState, gainMat, learn } from './rpg/crafting.js';
 import { tileBlocks } from './entities/entity.js';
 import { buildDevRoom } from './world/devroom.js';
+import { buildMossLab } from './devlab/arena.js';
+import { DevLab } from './devlab/lab.js';
+import { CombatFx, installCombatFx } from './combat_fx.js';
 import { buildConservatory } from './world/conservatory.js';
 import { buildMini, MINI_IDS } from './world/minidungeons.js';
 import { HangingBell, BellSequence, CrackedGlass, BossTrigger, TollRack } from './entities/objects5.js';
@@ -72,7 +75,7 @@ const REGION_MOOD = {
 };
 // what the overworld streams in and out around the player (everything else lives all the time)
 const STREAMED = new Set(['tuft', 'bush', 'enemy', 'lootchest', 'sign', 'leafpile', 'drift', 'clue', 'vista', 'boulder', 'camp6', 'rare6', 'pocket6', 'pedlar6', 'cavemouth', 'tangle']);
-const BUILDERS = { emberwell: buildEmberwell, overworld: buildOverworld, dungeon: buildDungeon, grotto: buildGrotto, devroom: buildDevRoom, conservatory: buildConservatory, clockwork: buildClockwork, rootlight: buildRootlight, ...Object.fromEntries(MINI_IDS.map(id => [id, () => buildMini(id)])) };
+const BUILDERS = { emberwell: buildEmberwell, overworld: buildOverworld, dungeon: buildDungeon, grotto: buildGrotto, devroom: buildDevRoom, mosslab: buildMossLab, conservatory: buildConservatory, clockwork: buildClockwork, rootlight: buildRootlight, ...Object.fromEntries(MINI_IDS.map(id => [id, () => buildMini(id)])) };
 
 export const defaultInv = defaultInventory;
 
@@ -88,6 +91,8 @@ export class Game {
     this.world = new THREE.Group(); this.scene.add(this.world);
     this.fx = new FX(this.scene);
     this.fx.groundAt = (x, z) => this.groundAt(x, z);
+    this.combatFx = new CombatFx(this); // combat presentation (listens only; see combat_fx.js)
+    try { this.devlab = new DevLab(this); } catch (e) { this.devlab = null; } // MOSSDEV (its own storage; idle unless opened)
     this.ui = new UI(this);
     this.critters = new Critters(this); // butterflies over the meadows
     this.hover = new Hover(this); // mouse inspection: highlight, name tags, drop tooltips, click to pick up
@@ -140,6 +145,7 @@ export class Game {
     const inv = this.inv;
     ensureTree(inv);
     this.pstats = computeStats(inv);
+    if (this.devlab?.active) this.pstats.speed *= this.devlab.profile.cheats.speed || 1; // MOSSDEV sandbox cheat only
     inv.maxHp = this.pstats.maxHp;
     inv.hp = Math.min(inv.hp, inv.maxHp);
     if (this.player && this.player.m.setGear) this.player.m.setGear(inv.equip);
@@ -178,9 +184,9 @@ export class Game {
     if (!opts.noElite && e.kind !== 'thief' && Math.random() < (opts.eliteChance ?? 0.07)) this.makeElite(e);
     return e;
   }
-  makeElite(e) {
+  makeElite(e, mod) { // mod: a chosen modifier (MOSSDEV elite arena); normally rolled
     const mods = ['Swift', 'Brutal', 'Vampiric', 'Armoured', 'Volatile', 'Resonant', 'Oathbound', 'Stormtouched', 'Frostbound'];
-    e.elite = mods[Math.floor(Math.random() * mods.length)];
+    e.elite = mods.includes(mod) ? mod : mods[Math.floor(Math.random() * mods.length)];
     e.hp *= 2.2; e.maxHp = e.hp; e.xpValue *= 4;
     e.obj.scale.setScalar(1.35); e.eliteScale = 1.35;
     if (e.elite === 'Swift') e.speed *= 1.15;
@@ -542,7 +548,7 @@ export class Game {
       const unlocked = freeNew ? { name: SKILLS[freeNew.skill].name, key: (inv.loadout.indexOf(freeNew.skill) + 1) || '—', desc: SKILLS[freeNew.skill].desc } : null;
       const p = this.player;
       this.fx.ring(p.x, p.z, 0.3, 3, 0xffd25e, 0.7); this.fx.burst(p.x, 0.5, p.z, 30, [0xffd25e, 0xffffff], 3, { g: -1 });
-      sfx('fanfare'); this.pr.addFlash(0.25, 0xffd25e);
+      sfx('levelbell'); setTimeout(() => sfx('skillpoint'), 650); this.pr.addFlash(0.25, 0xffd25e);
       this.ui.banner('LEVEL '+inv.level+' · +1 SKILL POINT', 'Your legend grows', 2.2);
       this.ui.toast(unlocked ? 'New ability: ' + unlocked.name + ' [' + unlocked.key + ']' : '+1 Skill Point', unlocked ? unlocked.desc : 'Press K to spend it in your skill tree.', 3);
       this.save();
@@ -699,7 +705,7 @@ export class Game {
     this.scene.remove(this.world);
     this.world.traverse(o => { if (o.geometry) o.geometry.dispose(); });
     this.world = new THREE.Group(); this.scene.add(this.world);
-    this.fx.clear();
+    this.fx.clear(); this.combatFx?.clear();
     this.ui.clearFloats && this.ui.clearFloats();
     this.entities = []; this.solids = []; this.sigs = {}; this.tokens = 0; this.fenToad = null;
     this.bossActive = null; this.ui.bossBar(null);
@@ -1455,6 +1461,7 @@ export class Game {
   update(dt) {
     dt *= this.timeScale ?? 1; // dev capture: freeze / slow motion
     this.time += dt;
+    this.devlab?.tick(dt); this.combatFx?.update(dt);
     this.autosaveT = (this.autosaveT || 0) + dt;
     if (this.autosaveT >= 15) { this.autosaveT = 0; this.save(); }
     windUniform.value = this.time;
@@ -1604,5 +1611,6 @@ installWorld6(Game);
 installStory6(Story);
 installWorld7(Game);
 installStory7(Story);
+installCombatFx(Game);
 
 installEmberwell(Game,Story);

@@ -53,6 +53,33 @@ const SFX = {
   elitewarn:()=>{bell(440,.22,.09);bell(660,.18,.06,.12);},
   guardbreak:()=>{noise(.16,{freq:1800,vol:.24});bell(330,.3,.14);},
   lootbell:()=>{bell(660,.7,.12);tone(990,.55,{type:'sine',vol:.1,delay:.13});tone(1320,.65,{type:'sine',vol:.08,delay:.26});},
+  // ---- Dev Lab pass: element casts are soft and airy, impacts short and bodied (cast != impact)
+  castfire:()=>{noise(.22,{freq:700,vol:.13,slide:2.2,type:'lowpass'});tone(160,.18,{type:'sawtooth',vol:.05,slide:1.6});},
+  hitfire:()=>{noise(.3,{freq:420,vol:.24,slide:.45,type:'lowpass'});tone(110,.22,{slide:.5,vol:.14});},
+  castfrost:()=>{tone(1760,.18,{type:'sine',vol:.06,slide:1.3});noise(.16,{freq:6000,vol:.06,type:'highpass'});},
+  hitfrost:()=>{tone(2100,.12,{type:'triangle',vol:.1,slide:.8});tone(2800,.1,{type:'sine',vol:.07,delay:.03});noise(.08,{freq:7000,vol:.1,type:'highpass'});},
+  castlightning:()=>{noise(.09,{freq:3200,vol:.1,q:4});tone(880,.07,{type:'square',vol:.04,slide:2});},
+  hitlightning:()=>{noise(.16,{freq:2400,vol:.2,q:.7,slide:.5});tone(70,.12,{type:'square',vol:.08,slide:.6});noise(.05,{freq:9000,vol:.12,type:'highpass',delay:.04});},
+  casthex:()=>{tone(233,.35,{type:'sine',vol:.07,slide:.7});tone(311,.35,{type:'sine',vol:.05,slide:.7,delay:.05});},
+  hithex:()=>{tone(185,.28,{type:'triangle',vol:.12,slide:.6});noise(.15,{freq:500,vol:.08,q:3});},
+  soulrelease:()=>{tone(660,.5,{type:'sine',vol:.07,slide:1.8});tone(990,.45,{type:'sine',vol:.05,slide:1.6,delay:.08});},
+  chainsnap:()=>{tone(1400,.05,{type:'square',vol:.08,slide:.5});noise(.05,{freq:4200,vol:.14,q:3});},
+  explode:()=>{noise(.5,{freq:300,vol:.32,slide:.3,type:'lowpass'});tone(60,.4,{slide:.4,vol:.2});},
+  // material hits (small) and deaths (fuller)
+  hitflesh:()=>{noise(.07,{freq:700,vol:.12,q:1.5});tone(140,.06,{slide:.6,vol:.07});},
+  hitplant:()=>{noise(.08,{freq:1800,vol:.1,q:2});tone(300,.05,{type:'triangle',vol:.05,slide:.7});},
+  hitstone:()=>{tone(900,.08,{type:'triangle',vol:.1,slide:.7});noise(.05,{freq:3200,vol:.1});},
+  hitshell:()=>{tone(1300,.04,{type:'square',vol:.05,slide:.6});noise(.05,{freq:2600,vol:.1,q:2});},
+  hitspirit:()=>{tone(520,.12,{type:'sine',vol:.07,slide:1.4});},
+  diestone:()=>{noise(.35,{freq:900,vol:.2,slide:.4});tone(180,.25,{type:'triangle',vol:.1,slide:.5});},
+  dieshatter:()=>{tone(2400,.2,{type:'triangle',vol:.1,slide:.6});tone(3100,.25,{type:'sine',vol:.08,delay:.04});noise(.3,{freq:7000,vol:.16,type:'highpass'});},
+  diespirit:()=>{tone(440,.8,{type:'sine',vol:.08,slide:2});noise(.5,{freq:2000,vol:.05,q:4,slide:2});},
+  // reward moments
+  levelbell:()=>{[[72,0],[76,.12],[79,.24]].forEach(([n,d])=>bell(N(n),1.4,.12,d));bell(N(84),2,.14,.4);},
+  skillpoint:()=>{tone(N(88),.18,{type:'sine',vol:.08});tone(N(91),.3,{type:'sine',vol:.07,delay:.09});},
+  droprare:()=>{bell(784,.7,.1);tone(1175,.4,{type:'sine',vol:.07,delay:.1});},
+  droplegend:()=>{bell(523,1.2,.13);bell(784,1.1,.1,.12);bell(1047,1.3,.09,.26);},
+  dropprism:()=>{[1047,1319,1568,2093].forEach((f,i)=>bell(f,1.4,.07,i*.08));noise(.6,{freq:8000,vol:.04,type:'highpass'});},
   hit: () => { tone(180, 0.09, { slide: 0.5, vol: 0.23 }); noise(0.06, { freq: 1100, vol: 0.22 }); },
   heavyhit: () => { tone(95, 0.18, { slide: 0.4, vol: 0.34 }); noise(0.13, { freq: 650, vol: 0.31 });bell(220,.2,.07); },
   clang: () => { tone(1250, 0.25, { type: 'triangle', vol: 0.2 }); tone(1870, 0.18, { type: 'triangle', vol: 0.12 }); noise(0.05, { freq: 5000, vol: 0.2 }); },
@@ -141,7 +168,15 @@ const SFX = {
 };
 
 const played=new Map();
-export function sfx(name) {if(!ctx||!SFX[name])return;const gap=({hit:.065,heavyhit:.1,crit:.14,zap:.1,shatter:.2,snap:.09,gunrifle:.075,enemydie:.09,elitewarn:.3,lootbell:1,lash:.09,lash2:.1,chainpull:.15,bolt:.1,ember:.1})[name]||0;if(ctx.currentTime-(played.get(name)??-99)<gap)return;played.set(name,ctx.currentTime);SFX[name]();}
+// Repetition gaps per sound, and a small voice budget: at most VOICES effects start in any 60 ms,
+// so a crowd of procs cannot bury the player's decisive hit (priority sounds skip the budget).
+const GAPS = {hit:.065,heavyhit:.1,crit:.14,zap:.1,shatter:.2,snap:.09,gunrifle:.075,enemydie:.09,elitewarn:.3,lootbell:1,lash:.09,lash2:.1,chainpull:.15,bolt:.1,ember:.1,
+  castfire:.12,hitfire:.1,castfrost:.12,hitfrost:.09,castlightning:.1,hitlightning:.12,casthex:.15,hithex:.12,soulrelease:.25,chainsnap:.1,explode:.18,hitflesh:.08,hitplant:.08,hitstone:.08,hitshell:.08,hitspirit:.1,diestone:.12,dieshatter:.15,diespirit:.2,droprare:.4,droplegend:.8,dropprism:1};
+const PRIORITY = new Set(['hurt','parry','crit','heavyhit','levelbell','skillpoint','droplegend','dropprism','bossdie','fanfare','elitewarn','error','select']);
+const VOICES = 7; let voiceT = 0, voiceN = 0;
+export function sfx(name) {if(!ctx||!SFX[name])return;const gap=GAPS[name]||0;if(ctx.currentTime-(played.get(name)??-99)<gap)return;
+  if(ctx.currentTime-voiceT>.06){voiceT=ctx.currentTime;voiceN=0;} if(!PRIORITY.has(name)&&voiceN>=VOICES)return; voiceN++;
+  played.set(name,ctx.currentTime);SFX[name]();}
 
 // ---------------- music -----------------
 // Each track: bpm, and lines of "note:len" tokens. Note names like C4, rests as '-'.

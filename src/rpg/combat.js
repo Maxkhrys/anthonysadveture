@@ -344,6 +344,7 @@ export function chainLightning(g, x, z, mult, n, range = 7, first = null) {
   return hit.size;
 }
 export function bolt(g, x0, z0, x1, z1) {
+  g.combatFx?.bolt(x0, z0, x1, z1); // the drawn bolt (only ever called between a source and a target that was hit)
   const n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) * 5);
   for (let i = 0; i <= n; i++) { const k = i / n; g.fx.add({ x: x0 + (x1 - x0) * k + (Math.random() - 0.5) * 0.25, y: 0.5 + (Math.random() - 0.5) * 0.3, z: z0 + (z1 - z0) * k + (Math.random() - 0.5) * 0.25, color: i % 3 ? 0xdff4ff : 0x9ad8ff, life: 0.18, size: 0.07, g: 0 }); }
 }
@@ -375,7 +376,7 @@ export class GearDrop extends Entity {
       beam.position.y = h / 2; this.obj.add(beam); this.beam = beam;
     }
     this.vy = 4; this.y = 0.3; const a = Math.random() * 6.28; this.vx = Math.cos(a) * 1.2; this.vz = Math.sin(a) * 1.2;
-    if (item.r >= 2 && g.onScreen(x,z,.2)) { sfx('lootbell');g.fx.ring(x,z,.15,item.r>=4?1.4:.85,R.hex,.65);g.ui.float(x,1,z,item.prismatic?'PRISMATIC':item.r>=4?'LEGENDARY':item.r===3?'EPIC':'RARE',R.color,true); }
+    if (item.r >= 2 && g.onScreen(x,z,.2)) { sfx(item.prismatic || item.r >= 5 ? 'dropprism' : item.r >= 4 ? 'droplegend' : 'droprare');g.fx.ring(x,z,.15,item.r>=4?1.4:.85,R.hex,.65);g.ui.float(x,1,z,item.prismatic?'PRISMATIC':item.r>=4?'LEGENDARY':item.r===3?'EPIC':'RARE',R.color,true); }
   }
   update(dt) {
     const g = this.g, p = g.player;

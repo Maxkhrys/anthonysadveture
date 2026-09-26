@@ -18,6 +18,7 @@ import * as SETTINGS from './settings.js';
 import { COMMAND_DEFINITIONS as DEVDEFS } from './dev/commands.js';
 import * as COMBAT from './rpg/combat.js';
 import { Boss } from './entities/boss.js';
+import { DevLabUI } from './devlab/ui.js';
 
 const $ = id => document.getElementById(id);
 const TIPS = [
@@ -69,6 +70,7 @@ async function buildMenu() {
   }
   if (game.saveProvider.exportRecovery) menu.push({ label: 'Export Save / Recovery Copy', act: exportRecovery });
   menu.push({label:'Import adventures…',act:()=>chooseImport(game,async()=>{await buildMenu();sel=0;renderMenu();})});
+  if (game.settings.devMode && game.devlab) menu.push({ label: 'MOSSDEV lab (developer mode)', act: () => enterLab() });
   menu.push({ label: 'Settings', act: () => openTitleSettings() });
   menu.push({ label: 'How to Play', act: () => { sfx('select'); game.ui.say(null, 'MOVE: WASD · AIM: mouse · ATTACK: click or C · WEAPON SECONDARY: right click or X (changes with your weapon) · GUARD: Q (tap to parry) · ROLL: Space\nABILITIES: 1–6 · TOOL: L · INTERACT: F · BAG: E · TONIC: H · SKILLS: K · JOURNAL: J · MAP: M · SURGE: R · MENU: Esc\n\nWatch for the *!* over an enemy: it is about to strike. Rest at Bellstones to refill tonics. Bring essences to Posy\'s workbench.'); } });
 }
@@ -138,8 +140,11 @@ async function boot() {
   progress(80, 'Tuning the Dawnbell…'); await tick();
   game.render(1 / 60);
   progress(100, 'Ready!'); await tick();
+  if (game.devlab) { game.devlabUI = new DevLabUI(game.devlab); game.devlab.onTitle = () => location.reload(); window.__devlab = game.devlab; }
   await buildMenu(); renderMenu();
   mode = 'title';
+  // a lab that was open when the page closed comes back exactly as it was set up
+  if (game.devlab?.store.data.active && game.settings.devMode) await enterLab(false);
   $('loading').classList.add('done');
   setTimeout(() => $('loading').remove(), 700);
   requestAnimationFrame(frame);
@@ -196,6 +201,24 @@ async function start(fresh, cls, characterId, name = 'Mossling', appearance) {
   return true;
 }
 
+// ---------------- MOSSDEV (developer mode only; a key is a convenience, not authentication)
+async function enterLab(open = true) {
+  const lab = game.devlab; if (!lab || !game.settings.devMode) return;
+  if (!['title', 'titlesettings', 'play', 'pause'].includes(mode)) return;
+  initAudio();
+  if (mode === 'pause') { game.ui.show('pause', false); }
+  if (mode === 'title' || mode === 'titlesettings') { $('title').classList.add('hidden'); $('title-settings').classList.add('hidden'); $('title-menu').classList.remove('hidden'); $('hud').classList.remove('hidden'); game.cutscene = false; game.camFocus = null; }
+  mode = 'play';
+  await lab.enter();
+  game.ui.updateHud();
+  if (open) game.devlabUI.open('overview');
+}
+window.__enterLab = enterLab; // test hook
+addEventListener('keydown', e => {
+  if (e.code !== 'F10' || !game?.devlab || !game.settings.devMode) return;
+  e.preventDefault();
+  if (game.devlab.active) game.devlabUI.toggle(); else enterLab();
+});
 let last = performance.now();
 let titleT = 0;
 function frame(now) {
@@ -244,6 +267,8 @@ function frame(now) {
     game.render(0.0001);
     return;
   }
+  if (game.devlabUI) game.devlabUI.tick(dt);
+  if (mode === 'play' && game.devlab?.overlayOpen) { if (input.pressed('pause')) game.devlabUI.close(); input.keys.clear(); game.render(0.0001); return; } // configuration pauses the test
   if (mode === 'play') {
     const shopOpen = !$('shop').classList.contains('hidden');
     if (input.pressed('pause') && !shopOpen && !game.ui.invOpen && !game.ui.craftOpen && !game.dead && !game.ui.talking) { mode = 'pause'; game.ui.openPause(); sfx('select'); return; }
