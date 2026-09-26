@@ -1,12 +1,13 @@
 // Pass 6 unit checks: world seeds and manifests, save migration into the larger world,
 // anchors on reachable ground, Bellstones and mini-dungeon exits that lead somewhere real.
+import { buildClockwork, buildRootlight } from '../src/world/regions7.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { normalizeCharacter, createProfile, defaultInventory, migrateSave, BELLSTONES, migrateWorldLayout } from '../src/persistence/model.js';
 import { generateManifest, seedForId, GENERATION_VERSION } from '../src/world/worldseed.js';
 import { ANCHORS } from '../src/world/anchors.js';
-import { HEART, LAYOUT_VERSION, REGION_IDS } from '../src/world/layout.js';
+import { HEART, LAYOUT_VERSION, REGION_IDS, REGIONS } from '../src/world/layout.js';
 import { buildOverworld } from '../src/world/overworld.js';
 import { buildMini, MINI_IDS, MINI } from '../src/world/minidungeons.js';
 import { T, isSolid } from '../src/world/tiles.js';
@@ -56,7 +57,8 @@ test('positions remembered by an old save move into the new world exactly once',
   assert.ok(f['pile:dungeon:3.5,4.5'], 'dungeon positions are untouched');
   assert.ok(f[`drift:${133.5 + HEART.x},${63.5 + HEART.z}`]);
   assert.deepEqual(f['moved:pier-block'], [61.5 + HEART.x, 92.5 + HEART.z]);
-  assert.deepEqual([f.deathDrop.x, f.deathDrop.z, f.deathDrop.coins], [58.5 + HEART.x, 66.5 + HEART.z, 40]);
+  // shifted into the new world (layout 2), then — lying inside the rebuilt Thimblewick — moved to the Bell Tree square (layout 3)
+  assert.deepEqual([f.deathDrop.x, f.deathDrop.z, f.deathDrop.coins], [58.5 + HEART.x, 61.4 + HEART.z, 40]);
   assert.equal(f.q_mill, 2);
   const twice = normalizeCharacter(q);
   assert.deepEqual(twice.world.flags, q.world.flags, 'the migration is idempotent');
@@ -88,7 +90,8 @@ test('the world is 4-6x the old map in walkable ground, and every region is reac
   assert.ok(n > 9781 * 4, 'reachable tiles ' + n);
   const seenRegions = new Set();
   for (let z = 0; z < world.h; z += 2) for (let x = 0; x < world.w; x += 2) if (reach(x + 0.5, z + 0.5)) seenRegions.add(world.placeAt(x, z).id);
-  assert.deepEqual([...seenRegions].sort(), [...REGION_IDS].sort());
+  // connected regional areas (the Clockwork Garden, the Rootlight Caverns) have their own maps; only their entrances are overworld tiles
+  assert.deepEqual([...seenRegions].sort(), REGION_IDS.filter(r => !REGIONS[r].area).sort());
 });
 
 test('every optional anchor stands on open ground you can walk to', () => {
@@ -106,13 +109,14 @@ test('every Bellstone, door and spawn in the overworld can be walked to', () => 
 });
 
 test('eleven mini-dungeons build, each with a way out to a real place', () => {
-  assert.ok(MINI_IDS.length >= 8 && MINI_IDS.length <= 12);
+  assert.ok(MINI_IDS.length >= 8 && MINI_IDS.length <= 14);
   for (const id of MINI_IDS) {
     const a = buildMini(id);
     const exit = a.defs.find(d => d.type === 'warp');
     assert.ok(exit, id + ' has an exit');
-    assert.ok(world.spawns[exit.spawn] || exit.spawn.startsWith('cave:'), id + ' exits to ' + exit.spawn);
+    const home = exit.to === 'overworld' ? world : exit.to === 'clockwork' ? buildClockwork() : exit.to === 'rootlight' ? buildRootlight() : null;
+    assert.ok(home && (home.spawns[exit.spawn] || exit.spawn.startsWith('cave:')), id + ' exits to ' + exit.to + ':' + exit.spawn);
     assert.ok(a.defs.some(d => d.type === 'mdarena'), id + ' has a fight with a mini-elite');
-    assert.ok(world.defs.some(d => (d.type === 'warp' || d.type === 'nightdoor') && d.to === id) || MINI[id].exit.startsWith('cave:'), id + ' has an entrance');
+    assert.ok([...world.defs, ...(MINI[id].exitArea ? (MINI[id].exitArea === 'clockwork' ? buildClockwork() : buildRootlight()).defs : [])].some(d => (d.type === 'warp' || d.type === 'nightdoor') && d.to === id) || MINI[id].exit.startsWith('cave:'), id + ' has an entrance');
   }
 });

@@ -163,7 +163,8 @@ export function installWorld6(Game) {
     for (const L of a.landmarks) if (L.region === id && !L.hidden) this.markLandmarks([L.id]);
   };
   P.world6Fast = function (dt) {
-    if (!this.world6 || !this.area || this.area.id !== 'overworld' || !this.player) { this.vistaK = 1; return; }
+    // world pass: connected regional areas (Clockwork Garden, Rootlight Caverns) share discovery and vistas
+    if (!this.world6 || !this.area || (this.area.id !== 'overworld' && !this.area.region7) || !this.player) { this.vistaK = 1; return; }
     // vistas pull the camera back while you stand on them
     this.vistaT = (this.vistaT || 0) - dt;
     const want = this.vistaT > 0 ? this.vistaWant : 1;
@@ -180,7 +181,8 @@ export function installWorld6(Game) {
     const reg = this.area.placeAt(p.x, p.z).id;
     if (!D.regions.includes(reg)) {
       D.regions.push(reg);
-      if (D.regions.length > 1) { sfx('secret'); this.ui.toast('Region discovered', REGIONS[reg].name, 2.6); }
+      // the first region is home; every later first arrival gets its moment (queued, never mid-fight)
+      if (D.regions.length > 1) { if (this.announceRegion) this.announceRegion(reg); else { sfx('secret'); this.ui.toast('Region discovered', REGIONS[reg].name, 2.6); } }
       this.stats.regions = D.regions.length;
     }
     for (const L of this.area.landmarks) if (!L.hidden && Math.abs(L.x - p.x) < 16 && Math.abs(L.z - p.z) < 14) this.discoverLandmark(L, false);

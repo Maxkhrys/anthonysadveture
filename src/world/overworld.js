@@ -590,6 +590,22 @@ export function buildOverworld() {
     if (open(g.get(x, y))) g.def({ type: 'leafpile', x: x + 0.5, z: y + 0.5, reveal: r, sand: g.get(x, y) === T.SAND });
   }
 
+  // =============================================================== WORLD PASS: REGION ENTRANCES
+  // The Clockwork Gate (Heartland meadow, north of the east road, past the Mirrowrun bridge)
+  clear(182, 113, 190, 121, T.GRASS);
+  road([[186, 124], [186, 119]], T.PATH, 1);
+  for (let x = 183; x <= 189; x++) if (x < 185 || x > 187) g.set(x, 117, T.PROP);
+  landmark('clockgate', 'The Clockwork Gate', 'clockgate', 186.5, 117.6, 7, 1.3, { region: 'heartland', entrance: 'clockwork' });
+  g.def({ type: 'warp', x: 186.5, z: 117.4, r: 0.8, to: 'clockwork', spawn: 'gate', label: 'The Clockwork Garden' });
+  sign(189.5, 120.5, 'THE CLOCKWORK GATE\nA hedge arch, and beyond it the tick of something enormous.\n(The Clockwork Garden — for travellers of about level 5 and up.)');
+  // the Rootlight Mouth (the Deepwood, a short walk south-west of the Deepwood Shrine)
+  blob(46, 138.5, 5, 4, (x, y) => { g.set(x, y, T.FOREST); E(x, y, 0); }, 0.2, 77);
+  road([[57, 133], [51, 136], [47, 140.5]], T.FOREST, 1);
+  for (let y = 137; y <= 139; y++) for (let x = 45; x <= 47; x++) if (!(x === 46 && y === 139)) g.set(x, y, T.PROP);
+  landmark('rootmouth', 'The Rootlight Mouth', 'rootmouth', 46.5, 138.5, 4, 4, { region: 'deepwood', entrance: 'rootlight' });
+  g.def({ type: 'warp', x: 46.5, z: 139.4, r: 0.7, to: 'rootlight', spawn: 'mouth', label: 'The Rootlight Caverns' });
+  sign(49.5, 141.5, 'THE ROOTLIGHT MOUTH\nThe roots open here onto a long way down. Pale light breathes up from below.\n(The Rootlight Caverns — for travellers of about level 8 and up.)');
+
   // =============================================================== HEIGHTS
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = y * W + x;
@@ -617,6 +633,7 @@ export function buildOverworld() {
     logburrow: { x: 74.5, z: 96.2 }, beetlenest: { x: 23.5, z: 90 }, mirrorcellar: { x: 166, z: 99.4 }, chapel: { x: 216.5, z: 221.4 },
     kilncrypt: { x: 300.5, z: 131.2 }, forgedeep: { x: 240, z: 42.4 }, moonwell: { x: 46, z: 206.4 }, bellhollow: { x: 70, z: 35.4 },
     rootcellar: { x: 169.5, z: 155.2 }, landingdock: { x: 272.5, z: 197.2 }, pierdock: { x: 149.5, z: 172.6 },
+    clockgate: { x: 186.5, z: 120.2 }, rootmouth: { x: 46.5, z: 141.2 },
   };
   const biome = new Uint8Array(W * H);
   for (let i = 0; i < W * H; i++) biome[i] = BIOME[places[ridx[i]].id];

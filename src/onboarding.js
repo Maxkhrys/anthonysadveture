@@ -14,7 +14,7 @@ export class Onboarding {
   get active(){return this.data?.phase==='learning';}
   get peaceful(){return this.active&&!this.g.flags.introFought;}
   get step(){return this.active?(STAGES.find(id=>!this.data.done[id])||'ready'):null;}
-  get inHub(){const p=this.g.player;return this.g.area?.id==='overworld'&&p&&p.x>=hx(46)&&p.x<=hx(77)&&p.z>=hz(48)&&p.z<=hz(74);}
+  get inHub(){const p=this.g.player;return this.g.area?.id==='overworld'&&p&&p.x>=hx(36)&&p.x<=hx(80)&&p.z>=hz(43)&&p.z<=hz(89);}
   begin(replay=false){
     const g=this.g;
     g.flags.onboarding={version:1,phase:'learning',replay,done:replay?{move:true,welcome:true,loot:true,equip:true}: {}};
@@ -39,7 +39,7 @@ export class Onboarding {
   lesson(){
     const c=CLASSES[this.g.inv.cls], ability=c?.abilities?.[0];
     return {
-      move:['A quiet arrival','Follow the lantern path', 'Move with <kbd>WASD</kbd> or arrow keys. The practice yard is east of the square.'],
+      move:['A quiet arrival','Follow the lantern path', 'Move with <kbd>WASD</kbd> or arrow keys. Cross the brook and climb the Lantern Lane to the Bell Tree square; the practice yard is just east of it.'],
       welcome:['Meet your guide','Talk to Captain Brisk', `Walk close and press ${prompt('interact')}. He will show you the ropes.`],
       attack:['Find your rhythm','Hit a straw target', `Aim at either target and use ${prompt('attack')}. Training targets cannot die or drop loot.`],
       roll:['Read the warning','Dodge the practice sweep', `An amber circle shows where the padded strike will land. Use ${prompt('roll')} to escape it.`],

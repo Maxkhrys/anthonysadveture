@@ -17,6 +17,46 @@ import { Grid } from './grid.js';
 const RW = 17, RH = 13;
 
 export const MINI = {
+  // ---- world pass: the regions' own side challenges (they exit back into their region)
+  undercroft: {
+    name: 'The Clockwork Undercroft', level: 7, exit: 'undercroft', exitArea: 'clockwork', exitLabel: 'The Clockwork Garden', music: 'dungeon', palette: 'bronze',
+    foes: { a: 'porcelain', b: 'beetle', c: 'mantis' },
+    rooms: {
+      stair: { cell: [0, 1], name: 'Undercroft — The Escapement Stair', map: [
+        '...............', '.t...........t.', '...O.......O...', '....a.....b....', '...............',
+        '.......m.......', '...............', '...O.......O...', '..b.........c..', '.t...........t.', '...............'] },
+      plates: { cell: [0, 0], name: 'Undercroft — The Weight Room', map: [
+        '...............', '.#.#.#.#.#.#.#.', '...............', '...B.......B...', '...............',
+        '.......*.......', '...............', '...L.......L...', '...............', '.x.....c.......', '...............'],
+        plates: 'uc.plates', needs: 2, chests: [{ id: 'md-uc-weights', contents: { kind: 'mat', mat: 'porcelain', n: 2 } }], secret: { contents: { kind: 'pips', n: 90 } } },
+      spring: { cell: [1, 0], name: 'Undercroft — The Mainspring', map: [
+        '...............', '.t...........t.', '...............', '.......A.......', '...............',
+        '...O.......O...', '...............', '.......K.......', '...............', '.t...........t.', '...............'],
+        waves: [[['porcelain', -3, 0], ['porcelain', 3, 0], ['beetle', 0, -2]], [['porcelain', 0, -2, 'champion'], ['mantis', -3, 2], ['mantis', 3, 2]]], title: 'THE STOPPED WARDEN', goal: true },
+    },
+    links: [['stair', 'plates', 'open'], ['plates', 'spring', 'shutter', { signal: 'uc.plates' }]],
+    mural: 'Stamped in the brass: "A WEIGHT ON EACH SIDE, AND THE SPRING WILL LISTEN."',
+  },
+  lumenburrow: {
+    name: 'The Lumen Burrow', level: 9, exit: 'lumenburrow', exitArea: 'rootlight', exitLabel: 'The Rootlight Caverns', music: 'cave', palette: 'moon',
+    foes: { a: 'sporeling', b: 'wisp', c: 'wraith' },
+    rooms: {
+      drip: { cell: [0, 1], name: 'Lumen Burrow — The Drip Gallery', map: [
+        '...............', '.g.g.......g.g.', '...............', '...a.......a...', '..~~~.....~~~..',
+        '.......m.......', '..~~~.....~~~..', '...b.......b...', '...............', '.g...........g.', '...............'] },
+      chimes: { cell: [0, 0], name: 'Lumen Burrow — The Crystal Chimes', map: [
+        '...............', '...h...h...h...', '...............', '...............', '....c.....c....',
+        '.......*.......', '...............', '...............', '..g.........g..', '.............x.', '...............'],
+        bells: 'lb.chimes', order: [1, 2, 0], chests: [{ id: 'md-lb-chimes', contents: { kind: 'mat', mat: 'moth', n: 2 } }], secret: { contents: { kind: 'mat', mat: 'echo', n: 1 }, glass: true } },
+      dark: { cell: [1, 0], name: 'Lumen Burrow — What Drinks the Light', map: [
+        '...............', '.g...........g.', '...............', '.......A.......', '...............',
+        '...............', '...............', '.......K.......', '...............', '.g...........g.', '...............'],
+        waves: [[['wisp', -3, 0], ['wisp', 3, 0], ['wraith', 0, -2]], [['wraith', 0, -2, 'elite'], ['sporeling', -3, 2], ['sporeling', 3, 2]]], title: 'THE LIGHTDRINKER', goal: true },
+    },
+    links: [['drip', 'chimes', 'open'], ['chimes', 'dark', 'shutter', { signal: 'lb.chimes' }]],
+    mural: 'Scratched by a lamp-keeper: "The middle crystal first. Then the bright. Then the deep one, last."',
+  },
+
   rootcellar: {
     name: "Hobb's Root Cellar", level: 3, exit: 'rootcellar', music: 'cave', palette: 'earth',
     foes: { a: 'blot', b: 'puffer' },
@@ -290,7 +330,7 @@ export function buildMini(id, definition = null) {
   // the way out: the bottom middle of the first room
   const first = rooms[0], ex = first.x0 + 8, ez = first.z1 - 1;
   g.set(ex, ez, T.FLOOR);
-  g.def({ type: 'warp', x: ex + 0.5, z: ez + 0.7, r: 0.6, to: 'overworld', spawn: D.exit, label: 'Lanternreach' });
+  g.def({ type: 'warp', x: ex + 0.5, z: ez + 0.7, r: 0.6, to: D.exitArea || 'overworld', spawn: D.exit, label: D.exitLabel || 'Lanternreach' });
   g.def({ type: 'exitglow', x: ex + 0.5, z: ez + 0.5 });
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const tt = g.get(x, y); g.hv[y * W + x] = tt === T.WALL ? 1.5 + (hash2(x, y, 3) > 0.8 ? 0.25 : 0) : NaN; }
   const P = PAL[D.palette];

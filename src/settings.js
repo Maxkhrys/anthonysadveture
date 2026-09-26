@@ -32,6 +32,7 @@ const OPTS = [
   { k: 'world', name: 'World effects (occlusion, cloud shadows, grade)', vals: ['off', 'balanced', 'full'], labels: ['Off', 'Balanced', 'Full'] },
   { k: 'questGuide', name: 'Quest tracker', vals: [true, false], labels: ['Shown', 'Hidden'] },
   { k: 'reducedMotion', name: 'Reduced UI motion', vals: [false, true], labels: ['Off', 'On'] },
+  { k: 'discovery', name: 'Discovery moments (new places)', vals: ['full', 'subtle', 'off'], labels: ['Title card', 'Small note', 'Off'] },
   { k: 'hudScale', name: 'HUD scale', vals: [0.8, 0.9, 1, 1.15, 1.3], pct: true },
   { k: 'combatText', name: 'Combat text (SHATTER, CONDUCTED…)', vals: [true, false], labels: ['On', 'Off'] },
   { k: 'abilityLabels', name: 'Ability names on hotbar', vals: [false, true], labels: ['Off', 'On'] },
@@ -50,7 +51,7 @@ export const WORLD_FX = {
   balanced: { ao: 0.6, cloud: 0.16, split: 0.55, tilt: 0, detail: 0.1, refl: 0.32, beams: 0.07, mist: 0.3, birds: 0.28, soft: 1 },
   full: { ao: 0.8, cloud: 0.2, split: 0.75, tilt: 0.55, detail: 0.13, refl: 0.42, beams: 0.1, mist: 0.4, birds: 0.34, soft: 1 },
 };
-export const DEFAULTS = { ...HUD_DEFAULTS, world: 'balanced', zoom: 1, difficulty: 'normal', master: 1, music: 1, sfx: 1, shake: 1, numbers: true, guide: true, pixel: 0, quality: 'high', preset: 'default', bloom: 1, fx: 1, hudScale: 1, combatText: true, abilityLabels: false, questGuide: true, reducedMotion: false };
+export const DEFAULTS = { ...HUD_DEFAULTS, world: 'balanced', zoom: 1, difficulty: 'normal', master: 1, music: 1, sfx: 1, shake: 1, numbers: true, guide: true, pixel: 0, quality: 'high', preset: 'default', bloom: 1, fx: 1, hudScale: 1, combatText: true, abilityLabels: false, questGuide: true, reducedMotion: false, discovery: 'full' };
 
 export function loadSettings() {
   try { return sanitizeHud(Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY) || '{}'))); } catch (e) { return { ...DEFAULTS }; }
@@ -105,7 +106,7 @@ export class SettingsPanel {
       Graphics: ['preset','pixel','quality','world','bloom','fx','zoom'],
       Audio: ['master','music','sfx'], Gameplay: ['difficulty','shake'],
       HUD: ['hudMode','hudScale','secondaryPanels','panelMode','miniScale','enemyBars','barStyle','damageIntensity','shake','hitFlash'],
-      Interface: ['numbers','combatText','guide','questGuide','abilityLabels','reducedMotion'], Controls: []
+      Interface: ['numbers','combatText','guide','questGuide','abilityLabels','reducedMotion','discovery'], Controls: []
     };
     return groups[this.category || 'Graphics'].map(k => OPTS.findIndex(o => o.k === k));
   }

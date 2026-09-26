@@ -8,11 +8,13 @@ export const WORLD_W = 320, WORLD_H = 260;
 // where the original map's (0,0) now sits. Saves written before Pass 6 are shifted by this
 // once (see persistence/model.js: migrateWorld).
 export const HEART = { x: 90, z: 70, w: 150, h: 110 };
-export const LAYOUT_VERSION = 2;
+export const LAYOUT_VERSION = 3; // 3: the rebuilt Thimblewick (see persistence/model.js migrateWorldLayout)
 
 // Biomes paint ground colour, scenery, mood, music and encounter pools. The index is stored
 // per tile in area.biome.
-export const BIOMES = ['heartland', 'whisperwood', 'deepwood', 'glassmere', 'lake', 'sunscald', 'cinderpeak', 'moonfen', 'highlands'];
+export const BIOMES = ['heartland', 'whisperwood', 'deepwood', 'glassmere', 'lake', 'sunscald', 'cinderpeak', 'moonfen', 'highlands',
+  // world pass: the two connected regional areas (appended, so saved biome indices never shift)
+  'clockwork', 'rootlight'];
 export const BIOME = Object.fromEntries(BIOMES.map((b, i) => [b, i]));
 
 // The eight regions a player discovers (Deepwood is Whisperwood's older, darker heart).
@@ -27,6 +29,9 @@ export const REGIONS = {
   cinderpeak: { name: 'Cinderpeak', level: 12, music: 'volcano', ambience: 'volcanic', color: '#a8908a' },
   moonfen: { name: 'Moonfen', level: 11, music: 'marsh', ambience: 'marsh', color: '#6a8a8a' },
   highlands: { name: 'Chime Highlands', level: 14, music: 'highlands', ambience: 'wind', color: '#d8d8c8' },
+  // world pass: connected regional areas (their own maps; entrances in the overworld)
+  clockwork: { name: 'The Clockwork Garden', level: 6, music: 'glass', ambience: 'meadow', color: '#b8d89a', area: 'clockwork', major: true },
+  rootlight: { name: 'The Rootlight Caverns', level: 9, music: 'cave', ambience: 'deepforest', color: '#6ac8c0', area: 'rootlight', major: true },
 };
 export const REGION_IDS = Object.keys(REGIONS);
 

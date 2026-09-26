@@ -8,7 +8,7 @@ export default async function(page,R){
  R.ok(await page.evaluate(()=>!window.__game.entities.some(e=>e.id==='intro')&&!window.__game.locked()),'no forced fight or cutscene at spawn');
  mkdirSync('docs/screens/hub-arrival',{recursive:true});
  await page.screenshot({path:'docs/screens/hub-arrival/spawn-desktop.png'});
- R.ok(await walkTo(page,148.5,135.5,120,.3),'spawn path reaches village square');
+ R.ok(await walkTo(page,148.5,135.5,220,.3),'spawn path reaches village square (over the brook, up the Lantern Lane)');
  R.ok(await step(page)==='welcome','actual walking completes movement lesson');
  R.ok(await walkTo(page,157.5,136,180,.3),'square path reaches Brisk');
  await page.evaluate(()=>{const g=window.__game;g.story.talk(g.entities.find(e=>e.id==='brisk'));});await talkThrough(page);await sim(page,3);

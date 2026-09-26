@@ -91,8 +91,11 @@ export const BELLSTONES = [
   { id: 'overworld:cinderrest', area: 'overworld', spawn: 'cinderrest' },
   { id: 'overworld:windstair', area: 'overworld', spawn: 'windstair' },
   { id: 'overworld:belfry', area: 'overworld', spawn: 'belfry' },
+  // world pass: the regions' outposts (additive; never unlocked until found)
+  { id: 'clockwork:gearhouse', area: 'clockwork', spawn: 'gearhouse' },
+  { id: 'rootlight:refuge', area: 'rootlight', spawn: 'refuge' },
 ];
-export const BELLSTONE_NAMES = { 'emberwell:entrance':'Ash Vestibule', 'emberwell:anvil':'Bellwright’s Anvil', 'overworld:village': 'Thimblewick', 'dungeon:entrance': 'Hollow Mouth', 'dungeon:pre': 'Root Gate', 'conservatory:atrium': 'Glass Atrium', 'conservatory:canopy': 'Bellfruit Canopy',
+export const BELLSTONE_NAMES = { 'clockwork:gearhouse': 'The Gearhouse', 'rootlight:refuge': 'Glowroot Refuge', 'emberwell:entrance':'Ash Vestibule', 'emberwell:anvil':'Bellwright’s Anvil', 'overworld:village': 'Thimblewick', 'dungeon:entrance': 'Hollow Mouth', 'dungeon:pre': 'Root Gate', 'conservatory:atrium': 'Glass Atrium', 'conservatory:canopy': 'Bellfruit Canopy',
   'overworld:glassmere': 'Conservatory Steps', 'overworld:pier': 'Saltwhistle Pier', 'overworld:deepwood': 'Deepwood Shrine', 'overworld:fernhollow': 'Fernhollow', 'overworld:moonfen': 'Moonfen Lantern',
   'overworld:heronisle': 'Heron Isle', 'overworld:landing': 'Mirrow Landing', 'overworld:wells': 'Sunscald Wells', 'overworld:cinderrest': 'Cinder Rest', 'overworld:windstair': 'Windstair Top', 'overworld:belfry': 'Belfry Cradle' };
 
@@ -113,16 +116,29 @@ function shiftKey(key, prefix) {
 // new world, where that map now sits at HEART. Runs once; the layout marker makes it idempotent.
 export function migrateWorldLayout(world) {
   if (world.layout === LAYOUT_VERSION) return world;
-  const f = world.flags || {}, out = {};
-  for (const [k, v] of Object.entries(f)) {
-    if (k.startsWith('pile:overworld:')) out[shiftKey(k, 'pile:overworld:')] = v;
-    else if (k.startsWith('drift:')) out[shiftKey(k, 'drift:')] = v;
-    else if (k === 'moved:pier-block' && Array.isArray(v) && v.length === 2) out[k] = [v[0] + HEART.x, v[1] + HEART.z];
-    else out[k] = v;
+  // 1 -> 2 (Pass 6): the old map moved to HEART inside the larger world
+  if (!(world.layout >= 2)) {
+    const f = world.flags || {}, out = {};
+    for (const [k, v] of Object.entries(f)) {
+      if (k.startsWith('pile:overworld:')) out[shiftKey(k, 'pile:overworld:')] = v;
+      else if (k.startsWith('drift:')) out[shiftKey(k, 'drift:')] = v;
+      else if (k === 'moved:pier-block' && Array.isArray(v) && v.length === 2) out[k] = [v[0] + HEART.x, v[1] + HEART.z];
+      else out[k] = v;
+    }
+    if (out.deathDrop && out.deathDrop.area === 'overworld' && Number.isFinite(out.deathDrop.x)) out.deathDrop = { ...out.deathDrop, x: out.deathDrop.x + HEART.x, z: out.deathDrop.z + HEART.z };
+    world.flags = out;
+    world.layout = 2;
   }
-  if (out.deathDrop && out.deathDrop.area === 'overworld' && Number.isFinite(out.deathDrop.x)) out.deathDrop = { ...out.deathDrop, x: out.deathDrop.x + HEART.x, z: out.deathDrop.z + HEART.z };
-  world.flags = out;
-  world.layout = LAYOUT_VERSION;
+  // 2 -> 3 (world pass): Thimblewick was rebuilt around the same centre. Named spawns and
+  // checkpoints stay valid; the fog grid keeps its size. A death drop lying inside the rebuilt
+  // town may now sit under a house or in the brook, so it moves to the Bell Tree square. Explicit,
+  // content-preserving (same items) and idempotent.
+  if (world.layout < 3) {
+    const f = world.flags || (world.flags = {}), d = f.deathDrop;
+    const inTown = d && d.area === 'overworld' && Number.isFinite(d.x) && d.x >= HEART.x + 36 && d.x <= HEART.x + 80 && d.z >= HEART.z + 43 && d.z <= HEART.z + 88;
+    if (inTown) f.deathDrop = { ...d, x: HEART.x + 58.5, z: HEART.z + 61.4, relocated: 'w7-town' };
+    world.layout = 3;
+  }
   return world;
 }
 function validManifest(m) {

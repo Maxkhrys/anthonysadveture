@@ -1,4 +1,5 @@
 import { installAtlasUI } from './ui_atlas.js';
+import { installWorldUI } from './ui_world7.js';
 import { glyph } from './engine/actions.js';
 import { installJournalUI } from './ui_journal.js';
 // HTML overlay: HUD, dialogue, prompts, menus, maps.
@@ -292,6 +293,7 @@ export class UI {
       else if (t === T.WATER || t === T.SHALLOW) col = PAL.water; else if (t === T.DEEP) col = PAL.deep;
       else if (t === T.CLIFF) col = PAL.cliff; else if (t === T.ROCK) col = PAL.rock; else if (t === T.PATH || t === T.BRIDGE || t === T.DOCK || t === T.STAIRS) col = PAL.path;
       else if (t === T.STONE) col = PAL.stone; else if (t === T.LAVA) col = PAL.lava;
+      else if (a.region7 && (t === T.WALL || t === T.PILLAR || t === T.CAVE || t === T.PIT || t === T.FLOOR || t === T.MOSS)) col = ({ [T.WALL]: '#7f9a5c', [T.PILLAR]: '#c49a52', [T.CAVE]: '#b4ab98', [T.PIT]: '#556a70', [T.FLOOR]: '#c8a07a', [T.MOSS]: a.underground ? '#8fbcaa' : '#a8c07a' })[t]; // world pass regions
       else if (t === T.MUD) col = PAL.mud; else if (t === T.CLAY) col = PAL.clay; else if (t === T.FIELD) col = PAL.field; else if (t === T.EMBER) col = PAL.ember;
       else if (bio === 8) col = PAL.high; else if (bio === 7) col = PAL.fen; else if (n < 0.3) col = PAL.land2;
       const [r, g2, b] = RGB(col);
@@ -390,3 +392,4 @@ installCraftUI(UI);
 installJournalUI(UI);
 
 installAtlasUI(UI);
+installWorldUI(UI);

@@ -50,6 +50,9 @@ import { MATS, recipeById } from './rpg/crafting.js';
 import { DevConsole } from './dev/console.js';
 import './dev/pass5.js'; // Pass 5 dev commands plug into the console's tables
 import { installWorld6 } from './world6.js';
+import { installWorld7 } from './world7.js';
+import { installStory7 } from './story7.js';
+import { buildClockwork, buildRootlight } from './world/regions7.js';
 import { installStory6 } from './story6.js';
 import './dev/pass6.js'; // Pass 6 world dev commands (same plug-in approach)
 
@@ -69,7 +72,7 @@ const REGION_MOOD = {
 };
 // what the overworld streams in and out around the player (everything else lives all the time)
 const STREAMED = new Set(['tuft', 'bush', 'enemy', 'lootchest', 'sign', 'leafpile', 'drift', 'clue', 'vista', 'boulder', 'camp6', 'rare6', 'pocket6', 'pedlar6', 'cavemouth', 'tangle']);
-const BUILDERS = { emberwell: buildEmberwell, overworld: buildOverworld, dungeon: buildDungeon, grotto: buildGrotto, devroom: buildDevRoom, conservatory: buildConservatory, ...Object.fromEntries(MINI_IDS.map(id => [id, () => buildMini(id)])) };
+const BUILDERS = { emberwell: buildEmberwell, overworld: buildOverworld, dungeon: buildDungeon, grotto: buildGrotto, devroom: buildDevRoom, conservatory: buildConservatory, clockwork: buildClockwork, rootlight: buildRootlight, ...Object.fromEntries(MINI_IDS.map(id => [id, () => buildMini(id)])) };
 
 export const defaultInv = defaultInventory;
 
@@ -205,9 +208,9 @@ export class Game {
       this.lampTick(dt, 0);
       return;
     }
-    if (!a || a.id !== 'overworld') {
+    if (!a || (a.id !== 'overworld' && !a.outdoor)) {
       waterU.light.value = a && a.dark ? 0.75 : 1; waterU.night.value = 0; waterU.rain.value = 0;
-      u.fogAmt.value = a && a.dark ? 0.2 : 0; u.fogColor.value.set(a && a.rift ? 0x3a2a5a : 0x1a1426); u.contrast.value = 1.04; u.cloudAmt.value = 0; u.beamAmt.value = 0; u.mistAmt.value = 0;
+      u.fogAmt.value = a && a.dark ? 0.2 : 0; u.fogColor.value.set(a && a.rift ? 0x3a2a5a : a && a.underground ? a.fog : 0x1a1426); u.contrast.value = 1.04; u.cloudAmt.value = 0; u.beamAmt.value = 0; u.mistAmt.value = 0;
       this.lampTick(dt, 0.8);
       return;
     }
@@ -711,8 +714,10 @@ export class Game {
     this.hemi.color.set(area.dark ? 0xa89ad0 : 0xbfd8ff); this.hemi.groundColor.set(area.dark ? 0x3a3040 : 0x6a5a3a);
     this.hemi.intensity = area.dark ? 1.5 : 1.25;
     this.playerLamp.intensity = area.dark ? 3 : 0;
+    // underground regions: a cool teal ambient so routes stay readable at any effects setting; the lamp stays on
+    if (area.underground) { this.sun.intensity = 1.5; this.sun.color.set(0x9ad8e8); this.hemi.color.set(0x7ab8c8); this.hemi.groundColor.set(0x2a3a40); this.hemi.intensity = 1.9; this.playerLamp.intensity = 3; }
     if (area.rift) { this.hemi.intensity = 2.3; this.hemi.color.set(0xc8b0ff); this.sun.intensity = 1.4; this.playerLamp.intensity = 5; }
-    this.fx.setAmbient(id === 'overworld' ? 'pollen' : 'motes');
+    this.fx.setAmbient(id === 'overworld' || area.outdoor ? 'pollen' : 'motes');
     this.baseVH = area.dungeon ? 13.2 : 12; this.camZoom = 1;
     this.pr.setViewHeight(this.baseVH * ((this.settings && this.settings.zoom) || 1));
     this.updateGrade();
@@ -721,6 +726,7 @@ export class Game {
     this.player = new Player(this, sp.x, sp.z);
     this.inv.areaBoon=this.flags['boon:'+id]||null; this.recalc();
     this.player.facing = area.dungeon ? Math.PI : 0;
+    if (id === 'overworld' && (spawn === 'start' || spawn === 'arrival')) this.player.facing = Math.PI; // arrivals look up the Lantern Lane into town
     this.spawn(this.player);
     // entities: small areas spawn everything; the overworld streams its scenery-level defs
     this.streamDefs = null;
@@ -1101,7 +1107,7 @@ export class Game {
       ...(this.flags.onboarding ? [] : [[['blot', -3, 0], ['blot', 3, 0], ['blot', -1, 3], ['blot', 1, 3]]]),
       // the lesson at the end: a shell that shrugs off taps. Charge, or strike after a parry.
       ...(this.flags.onboarding ? [] : [[['porcelain', 0, 3], ['blot', -3, 2], ['blot', 3, 2]]]),
-    ], { ...(this.flags.onboarding ? {eliteChance: 0} : {}), title: 'HUSHLINGS!', victory: 'Thimblewick is safe… for now.', onWave: w => { if (w === 2) setTimeout(() => this.ui.toast('A Porcelain Guard!', { samurai: 'Its glaze turns light cuts. Hold C / left click for a spin — or parry (Q) and strike.', archer: 'Its glaze turns light arrows. Hold C / left click for a charged shot to crack it.', witch: 'Its glaze turns bolts. Hold C / left click for a fireball to crack it.', gunslinger: 'Bullets cannot crack that guard. Parry and shoot, or use Powder Grenade when unlocked.', soulbound: 'Its glaze turns light lashes. Finish your combo, or hold C / left click to whirl the chain and crack it.' }[this.inv.cls], 4.5), 400); }, onClear: () => { this.story.introWon(); this.revealWorld(); const p = this.player; this.spawn(new GearDrop(this, p.x, p.z + 1.2, genItem({ level: 2, cls: this.inv.cls, slot: 'weapon', rarity: 1 }))); this.spawn(new GearDrop(this, p.x + 1, p.z + 1, genItem({ level: 2, cls:this.inv.cls, slot: 'armor', rarity: 1 }))); } });
+    ], { ...(this.flags.onboarding ? {eliteChance: 0} : {}), title: 'HUSHLINGS!', victory: 'Thimblewick is safe… for now.', onWave: w => { if (w === 2) setTimeout(() => this.ui.toast('A Porcelain Guard!', { samurai: 'Its glaze turns light cuts. Hold C / left click for a spin — or parry (Q) and strike.', archer: 'Its glaze turns light arrows. Hold C / left click for a charged shot to crack it.', witch: 'Its glaze turns light bolts. Right-click (or X) for your staff’s heavy spell — a charged fireball cracks it.', gunslinger: 'Bullets cannot crack that guard. Parry and shoot, or use Powder Grenade when unlocked.', soulbound: 'Its glaze turns light lashes. Finish your combo, or hold C / left click to whirl the chain and crack it.' }[this.inv.cls], 4.5), 400); }, onClear: () => { this.story.introWon(); this.revealWorld(); const p = this.player; this.spawn(new GearDrop(this, p.x, p.z + 1.2, genItem({ level: 2, cls: this.inv.cls, slot: 'weapon', rarity: 1 }))); this.spawn(new GearDrop(this, p.x + 1, p.z + 1, genItem({ level: 2, cls:this.inv.cls, slot: 'armor', rarity: 1 }))); } });
     a.alwaysUpdate = true;
     this.spawn(a);
   }
@@ -1516,6 +1522,7 @@ export class Game {
     this.onboarding.tick(dt);
     this.worldTick(dt);
     this.world6Fast(dt);
+    this.world7Tick && this.world7Tick(dt);
     this.aimView.update();
     if (this.held) { this.held.rotation.y += dt * 2; this.held.position.y = 1.35 + Math.sin(this.time * 3) * 0.05; }
     this.render(dt);
@@ -1593,5 +1600,7 @@ class RiftPortal extends Entity {
 
 installWorld6(Game);
 installStory6(Story);
+installWorld7(Game);
+installStory7(Story);
 
 installEmberwell(Game,Story);

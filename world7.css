@@ -1,0 +1,21 @@
+/* World pass: the discovery card and the atlas waypoint bar. Loaded after parchment.css. */
+#region-reveal{position:absolute;left:50%;top:24%;transform:translate(-50%,-8px);min-width:min(460px,86vw);max-width:92vw;padding:12px 30px 14px;text-align:center;
+  background:var(--book,none) center/cover,linear-gradient(180deg,#f7ecd2,#ead6aa);color:#3a291b;border:3px solid #57391f;border-radius:10px;
+  box-shadow:0 0 0 2px #f8ecd0 inset,0 10px 24px #0005;pointer-events:none;opacity:0;z-index:40;font-family:'Mossling',monospace}
+#region-reveal small{display:block;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#6b5234}
+#region-reveal h2{margin:4px 0 2px;font-size:30px;letter-spacing:1px;color:#3a291b;
+  background:linear-gradient(90deg,#3a291b 0 50%,transparent 50%) 100% 0/200% 100% no-repeat;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+#region-reveal span{font-size:12px;color:#6b5234}
+#region-reveal::before,#region-reveal::after{content:'';position:absolute;top:50%;width:26px;height:2px;background:#57391f}
+#region-reveal::before{left:10px}#region-reveal::after{right:10px}
+#region-reveal.show{animation:revealIn .5s ease-out forwards}
+#region-reveal.show h2{animation:inkIn 1.3s .25s ease-out forwards}
+#region-reveal.show.still,#region-reveal.show.still h2{animation:none;opacity:1;transform:translate(-50%,0);background-position:0 0}
+#region-reveal.hide{animation:revealOut .7s ease-in forwards}
+@keyframes revealIn{from{opacity:0;transform:translate(-50%,-8px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes revealOut{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,-6px)}}
+@keyframes inkIn{to{background-position:0 0}}
+.reduce-motion #region-reveal.hide{animation:none;opacity:0}
+#atlas-waypoint{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 8px;margin-top:6px;border:2px solid #57391f;border-radius:6px;background:#f1e2bf;color:#3a291b;font-size:13px}
+#atlas-waypoint em{color:#6b5234;font-style:normal;font-size:12px}
+#atlas-waypoint button{padding:3px 10px}

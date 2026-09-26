@@ -104,9 +104,11 @@ export function paintHeartland() {
   g.ellipse(22, 85, 9, 5.2, T.SHALLOW, t => t !== T.WATER && t !== T.DEEP && t !== T.SAND);
   for (const [x, y] of [[16, 80], [28, 81], [14, 89], [30, 89]]) g.ellipse(x, y, 1.6, 1.2, T.MOSS);
 
-  // Village Thimblewick
-  g.ellipse(58, 59, 13, 11, T.GRASS, t => t !== T.WATER && t !== T.DEEP);
-  g.ellipse(58, 58, 5, 4.5, T.STONE);
+  // Village Thimblewick. World pass: a larger, cohesive town grown around the same centre (the
+  // bell, Bellstone, Tamsin, Posy, the bench and Brisk's yard keep their places), so services
+  // stay close together and every old reference to the square stays valid.
+  g.ellipse(58, 63, 21.5, 20.5, T.GRASS, t => t !== T.WATER && t !== T.DEEP);
+  g.ellipse(58, 58.5, 7.5, 6, T.STONE); // the Bell Tree plaza
 
   // Roads
   g.road([[58, 62], [58, 70], [59, 82], [60, 94]], 1, T.PATH);                      // south to pier
@@ -142,7 +144,7 @@ export function paintHeartland() {
   g.def({ type: 'crowntoad', x: 22.5, z: 86.5 });
 
   // Village buildings
-  g.deco('belltower', 57, 55, 2, 2);
+  g.deco('belltreegrand', 57, 55, 2, 2);
   g.def({ type: 'bell', x: 58, z: 56 });
   g.deco('house', 50, 54, 3, 3, { roof: 0xc0503a });
   g.deco('shop', 50, 61, 4, 3, { roof: 0x3a7ac0 });
@@ -179,7 +181,10 @@ export function paintHeartland() {
   g.def({type:'villageTarget',x:73,z:65.5});
   g.def({type:'welcomeChest',x:69,z:68.5});
   g.def({type:'sign',x:67.5,z:68.5,text:'BRISK’S PRACTICE YARD\nStraw targets, patient teaching. No fee.\nSpeak to Brisk to learn, skip or replay the basics.'});
-  g.def({type:'sign',x:60.5,z:64.5,text:'THIMBLEWICK SQUARE\nWest: Posy’s shop and crafting bench\nNorth-west: Bellstone and Elder Tamsin\nEast: Captain Brisk’s practice yard\nM: map · J: journal'});
+  g.def({type:'sign',x:60.5,z:64.5,text:'THIMBLEWICK — THE BELL TREE SQUARE\nWest: Market Row, Posy’s shop and bench\nNorth: the terraces, the root arch, the Chime Gate road\nEast: Brisk’s practice yard, the bridge to the Reach\nSouth: the lantern lane and the brook · M: map · J: journal'});
+
+  // ---- World pass: the new Thimblewick districts
+  thimblewick7(g);
 
   // The Echo Glade, east of Rootwell Hollow: two short-lived pinwheels with a hedge between.
   // Walking around the hedge takes longer than one pinwheel spins, so only a gust that
@@ -201,7 +206,7 @@ export function paintHeartland() {
   g.deco('house', 55, 90, 3, 2, { roof: 0x5a8ab0, small: true });
   for (const [x, y] of [[47, 55], [48, 55], [47, 60], [48, 60], [67, 55], [68, 55], [67, 61], [68, 61]]) g.deco('fence', x, y, 1, 1);
   g.def({ type: 'sign', x: 70.5, z: 59.5, text: 'THIMBLEWICK\n"Small folk, loud bell."' });
-  g.def({ type: 'sign', x: 58.5, z: 71.5, text: 'South: Ada\'s pier  ·  West: Whisperwood  ·  North: the Chime Gate  ·  East: bridge to the Reach' });
+  g.def({ type: 'sign', x: 56.2, z: 71.5, text: 'South: Ada\'s pier  ·  West: Whisperwood  ·  North: the Chime Gate  ·  East: bridge to the Reach' });
 
   // Chime Gate
   g.deco('chimegate', 71, 8, 7, 2);
@@ -254,14 +259,14 @@ export function paintHeartland() {
   {
     const placed = [];
     const busy = (x, y) => g.defs.some(d => d.x !== undefined && Math.abs(d.x - (x + 0.5)) < 1.6 && Math.abs(d.z - (y + 0.5)) < 1.6);
-    for (let y = 49; y < 71; y++) for (let x = 46; x < 72; x++) {
+    for (let y = 44; y < 87; y++) for (let x = 38; x < 78; x++) {
       if (g.get(x, y) !== T.GRASS) continue;
       let byPath = false, clear = true;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const t = g.get(x + dx, y + dy); if (t === T.PATH || t === T.STONE) byPath = true; }
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (g.get(x + dx, y + dy) === T.PROP || g.get(x + dx, y + dy) === T.WATER) clear = false;
       if (!byPath || !clear || busy(x, y) || placed.some(([px, py]) => Math.hypot(px - x, py - y) < 6.5)) continue;
       placed.push([x, y]); g.deco('lamppost', x, y, 1, 1);
-      if (placed.length >= 11) break;
+      if (placed.length >= 22) break;
     }
   }
 
@@ -311,7 +316,7 @@ export function paintHeartland() {
   [[22, 52], [24, 53], [21, 54], [23, 50]].forEach(p => E('blot', ...p));
   E('puffer', 34, 36); E('puffer', 12, 42);
   E('wisp', 10, 22); E('wisp', 13, 18); E('wisp', 36, 22);
-  E('beetle', 76, 42); E('beetle', 72, 38); E('blot', 70, 76); E('blot', 72, 77); E('blot', 69, 78);
+  E('beetle', 76, 42); E('beetle', 72, 38); E('blot', 40, 89); E('blot', 42, 90); E('blot', 39, 91);
   E('puffer', 78, 86); E('blot', 88, 60); E('blot', 90, 62);
   E('beetle', 126, 58); E('beetle', 136, 80); E('puffer', 130, 52); E('puffer', 140, 70); E('blot', 125, 86); E('blot', 127, 88);
   E('wisp', 96, 82); E('wisp', 116, 84); E('knight', 52, 33);
@@ -323,7 +328,7 @@ export function paintHeartland() {
   [[16, 48], [17, 49], [15, 50], [8, 30], [9, 31], [30, 60], [31, 61], [29, 62], [36, 76], [12, 70]].forEach(p => E('sporeling', ...p));
   E('treant', 10, 56); E('treant', 34, 12); E('treant', 22, 70);
   E('golem', 68, 12); E('golem', 80, 13);
-  E('brigand', 60, 84); E('brigand', 64, 86);
+  E('brigand', 77, 94); E('brigand', 81, 95);
   // Pass 5 creatures in the wild
   E('porcelain', 42, 46); E('moth', 49, 44); E('moth', 39, 42); E('mantis', 36, 40);
   E('mantis', 14, 64); E('mantis', 30, 70); E('slug', 98, 38); E('slug', 110, 45); E('moth', 100, 70); E('moth', 112, 66);
@@ -352,7 +357,7 @@ export function paintHeartland() {
 
   // spawn points
   const spawns = {
-    start: { x: 58.5, z: 68.5 }, village: { x: 58.5, z: 62.5 }, dungeon: { x: 17.5, z: 31.2 }, grotto: { x: 29.5, z: 14.8 },
+    start: { x: 58.5, z: 85.2 }, village: { x: 58.5, z: 62.5 }, rootlift: { x: 45.5, z: 71.4 }, arrival: { x: 58.5, z: 85.2 }, dungeon: { x: 17.5, z: 31.2 }, grotto: { x: 29.5, z: 14.8 },
     conservatory: { x: 45.5, z: 43.6 }, fen: { x: 22.5, z: 93 },
   };
   // Heights: cliffs and rocks get varied tiers so ridges read as landforms
@@ -365,12 +370,13 @@ export function paintHeartland() {
     else h = null;
     g.hv[y * W + x] = h === null ? NaN : h;
   }
+  thimbleHeights(g);
   return {
     grid: g,
     id: 'overworld', name: 'Lanternreach', w: W, h: H, tiles: g.t, hv: g.hv, defs: g.defs, spawns, dungeon: false,
     music: 'field', sky: 0x8fc8e8, fog: 0xb8d8e8, sun: 0xfff0d0, amb: 0x9ab0d0, ground: 0x6a8a4a,
     regions: [
-      { name: 'Thimblewick', x0: 45, y0: 47, x1: 72, y1: 72, music: 'village', level: 1 },
+      { name: 'Thimblewick', x0: 36, y0: 43, x1: 80, y1: 88, music: 'village', level: 1 },
       { name: 'Conservatory Grounds', x0: 35, y0: 33, x1: 54, y1: 47, level: 5 },
       { name: 'Mirewhistle Fen', x0: 8, y0: 76, x1: 36, y1: 94, level: 8 },
       { name: 'Whisperwood', x0: 0, y0: 6, x1: 42, y1: 86, level: 3 },
@@ -383,4 +389,84 @@ export function paintHeartland() {
       { name: 'Lanternreach Meadows', x0: 0, y0: 0, x1: 150, y1: 110, level: 2 },
     ],
   };
+}
+
+// ---------------------------------------------------------------- the new Thimblewick
+// Heartland-local coordinates. Districts: the Bell Tree plaza (centre, unchanged services),
+// Market Row (west), the Terraces (north-east, raised), the Lantern Lane and Thimble Brook
+// (south), Brisk's yard (east, unchanged), the Hedge Garden at the wood's edge (south-west,
+// with the hidden Herb Nook and the Root Lift) and the arrival hill beyond the footbridge.
+function thimblewick7(g) {
+  const WALK = new Set([T.GRASS, T.FLOWERS, T.FOREST, T.PATH, T.STONE, T.TREE]);
+  // lanes (stone) radiating from the plaza
+  g.road([[58, 52], [58, 47]], 1, T.STONE);                 // North Lane, under the root arch
+  g.road([[51, 59.5], [43, 60]], 1, T.STONE);               // Market Row
+  g.road([[58, 71], [58, 80], [58.5, 87]], 1, T.STONE);     // the Lantern Lane down to the arrival hill
+  g.road([[62, 55], [64, 52], [68, 50], [73, 50]], 0, T.PATH); // up onto the Terraces
+  g.road([[48, 64], [44, 65]], 0, T.PATH);                   // into the Hedge Garden
+  // the Hedge Garden clearing at the wood's edge, and the hidden Herb Nook behind its hedge
+  for (let y = 60; y <= 73; y++) for (let x = 36; x <= 47; x++) if (WALK.has(g.get(x, y))) g.set(x, y, (x + y) % 5 ? T.GRASS : T.FLOWERS);
+  for (let y = 61; y <= 67; y++) for (let x = 32; x <= 35; x++) g.set(x, y, T.TREE);
+  for (let y = 62; y <= 65; y++) for (let x = 33; x <= 35; x++) g.set(x, y, T.GRASS);
+  g.ellipse(39.5, 67.2, 2.2, 1.5, T.WATER); // the spring pool
+  g.deco('hedge', 37, 61, 9, 1); g.deco('hedge', 37, 62, 1, 2); g.deco('hedge', 37, 65, 1, 5);
+  g.set(37, 64, T.GRASS); g.def({ type: 'bush', x: 37.5, z: 64.5, big: true }); // the gap, grown over
+  g.def({ type: 'chest', id: 'tw-herbnook', x: 34.5, z: 63.5, contents: { kind: 'pips', n: 150 } });
+  g.def({ type: 'sign', x: 34.5, z: 65.5, text: 'Scratched on a flowerpot:\n"Fennel\'s hiding place. KEEP OUT (this means you, Brisk)."' });
+  g.deco('gazebo', 42, 62, 3, 3, { roof: 0x5a8a9a });
+  g.deco('villagebench', 39, 62, 2, 1);
+  g.deco('herbbed', 45, 66, 2, 1); g.deco('herbbed', 45, 68, 2, 1);
+  g.deco('rootlift', 43, 69, 2, 2);
+  g.def({ type: 'rootlift', x: 44, z: 71.2, id: 'w7-rootlift' });
+  g.def({ type: 'sign', x: 40.5, z: 71.5, text: 'THE HEDGE GARDEN\nPlanted by the first Thimblewick folk, under the old root.\nA rusted lift cage is wound into the roots. Its lever is on the far side — somewhere below.' });
+  // Thimble Brook: from the spring pool, south and east under the Lantern Lane to the Mirrowrun
+  const brook = [[40, 69], [41, 73], [47, 74.5], [52, 75], [58, 75.5], [64, 76], [70, 76.8], [75, 77.3], [81, 77.8]];
+  for (let i = 0; i < brook.length - 1; i++) {
+    const [ax, ay] = brook[i], [bx, by] = brook[i + 1], n = Math.ceil(Math.hypot(bx - ax, by - ay) * 3);
+    for (let k = 0; k <= n; k++) {
+      const x = ax + (bx - ax) * k / n, y = ay + (by - ay) * k / n;
+      for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+        if (Math.hypot(ox, oy) > 1.05) continue;
+        const tx = Math.round(x + ox), ty = Math.round(y + oy), cur = g.get(tx, ty);
+        if (cur === T.PROP || cur === T.WATER || cur === T.DEEP) continue;
+        g.set(tx, ty, cur === T.STONE || cur === T.PATH || cur === T.BRIDGE ? T.BRIDGE : T.SHALLOW);
+      }
+    }
+  }
+  g.def({ type: 'landmark', model: 'footbridge', x: 58.5, z: 75.6, w: 3.6, d: 3, ry: Math.PI / 2 });
+  // stepping stones where the garden path meets the brook
+  for (const [x, y] of [[41, 72], [42, 73]]) g.set(x, y, T.STONE);
+  // Market Row: stalls either side of the lane, the shop and bench at its east end
+  g.deco('marketstall', 43, 57, 2, 1, { awning: 0xc0503a, goods: 'veg' });
+  g.deco('marketstall', 46, 57, 2, 1, { awning: 0xd0903a, goods: 'pots' });
+  g.deco('marketstall', 44, 62, 2, 1, { awning: 0x3a7ac0, goods: 'cloth' });
+  g.deco('marketstall', 47, 62, 2, 1, { awning: 0x5a9a5a, goods: 'fish' });
+  g.deco('barrels', 49, 57, 1, 1);
+  g.def({ type: 'sign', x: 42.5, z: 59.5, text: 'MARKET ROW\nFresh roots · pots mended · cloth by the thimble.\n(The stall-keepers are out on the fields; Posy\'s shop is open all hours.)' });
+  // the Terraces: homes stepped up the slope under the root arch
+  g.deco('house', 64, 44, 3, 2, { roof: 0x5a8ab0, small: true });
+  g.deco('house', 66, 48, 3, 2, { roof: 0x8ab04a, small: true });
+  g.deco('house', 70, 48, 3, 3, { roof: 0xc05a6a });
+  g.deco('planter', 68, 52, 2, 1); g.deco('planter', 61, 47, 2, 1);
+  g.def({ type: 'sign', x: 72.5, z: 51.5, text: 'THE TERRACES\nMind the steps. Mind the washing. Mind Mrs. Pomm\'s cat.' });
+  // the Lantern Lane: cottages, window boxes and a welcome arch on the arrival hill
+  g.deco('house', 52, 69, 3, 2, { roof: 0xd06a4a, small: true });
+  g.deco('house', 62, 71, 3, 2, { roof: 0x6a9ac0, small: true });
+  g.deco('planter', 55, 72, 2, 1); g.deco('planter', 60, 73, 1, 1);
+  g.def({ type: 'landmark', model: 'welcomearch', x: 58.5, z: 80.4, w: 3.4, d: 0.4, y: 0.2 });
+  g.def({ type: 'sign', x: 60.8, z: 82.5, text: 'THIMBLEWICK\n"Small folk, loud bell."\nUp the Lantern Lane and over the brook: the Bell Tree square.' });
+  // signposts at the square's four exits (words on the boards, read with F)
+  g.def({ type: 'sign', x: 56.3, z: 51.8, text: 'NORTH ↑ the Terraces · the root arch · the Chime Gate road · Glassmere beyond' });
+  g.def({ type: 'sign', x: 51.2, z: 57.2, text: 'WEST ← Market Row · the Hedge Garden · Whisperwood · the Cracked Conservatory' });
+  g.def({ type: 'sign', x: 66.4, z: 58.6, text: 'EAST → Brisk\'s yard · the Mirrowrun bridge · Sunscald Reach · the Clockwork Gate (south of the east road)' });
+  // a few trees back around the garden so the wood's edge still reads as a wood
+  for (const [x, y] of [[36, 58], [35, 70], [36, 73], [38, 75], [34, 60], [46, 77]]) if (WALK.has(g.get(x, y))) g.set(x, y, T.TREE);
+}
+function thimbleHeights(g) {
+  const W = g.w, lift = (x0, y0, x1, y1, h, test) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const t = g.get(x, y); if ((t === T.GRASS || t === T.FLOWERS || t === T.PATH || t === T.STONE || t === T.PROP || t === T.STAIRS) && (!test || test(x, y))) g.hv[y * W + x] = h; } };
+  // the Terraces: two steps up towards the root arch (each step is walkable; no stairs needed)
+  lift(61, 47, 74, 53, 0.4, (x, y) => Math.hypot((x + 0.5 - 58) / 7.5, (y + 0.5 - 58.5) / 6) > 1.05);
+  lift(63, 44, 69, 46, 0.8);
+  // the arrival hill south of the brook, rising gently so the town opens up below
+  lift(52, 79, 65, 82, 0.2); lift(53, 83, 64, 88, 0.4);
 }

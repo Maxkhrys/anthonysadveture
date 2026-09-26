@@ -1,6 +1,7 @@
 // Chunky voxel-part models. Every model is assembled from coloured boxes merged into
 // single geometries (vertex colours), so the low-res renderer turns them into crisp pixel sprites.
 import * as THREE from 'three';
+import { worldModel, worldGlow, WORLD_MODELS } from './world/models7.js';
 
 export const MAT = new THREE.MeshLambertMaterial({ vertexColors: true });
 export const MAT_GLOW = new THREE.MeshBasicMaterial({ vertexColors: true });
@@ -273,6 +274,7 @@ export function decoGlow(d) {
     case 'bigshroom': return d.big ? [B(0.3, 0.1, 0.3, 0.6, 3.5, 0.4, 0xd8b0ff), B(0.3, 0.1, 0.3, -0.7, 3.5, -0.2, 0xd8b0ff), B(0.2, 0.1, 0.2, 0.1, 3.6, -0.7, 0xd8b0ff)] : [];
     case 'nestmound': return [B(0.12, 0.12, 0.05, -0.3, 0.6, d.d / 2 + 0.05, 0xff5a3a), B(0.12, 0.12, 0.05, 0.3, 0.6, d.d / 2 + 0.05, 0xff5a3a)];
     case 'kilncrypt': return [B(1.0, 0.8, 0.05, 0, 0.1, d.d / 2 + 0.05, 0xff9a4a)];
+    default: if (WORLD_MODELS.has(d.model)) return worldGlow(d);
   }
   return [];
 }
@@ -471,6 +473,7 @@ export function decoModel(d) {
     case 'farmhouse': { const r = d.roof || 0xb0703a, wall = 0xf0e0c0, W = w - 0.2, D = dd - 0.3; P.push(B(W, 1.1, D, 0, 0, 0, wall), B(W + 0.3, 0.5, D + 0.3, 0, 1.1, 0, r), B(W * 0.6, 0.4, D * 0.8, 0, 1.6, 0, r), B(0.5, 0.75, 0.05, 0.3, 0, D / 2 + 0.01, 0x6a4a2a), B(0.3, 0.3, 0.05, -0.6, 0.5, D / 2 + 0.01, 0x7ab8e8), B(0.9, 0.2, 0.9, -W / 2 + 0.4, 0, D / 2 + 0.3, 0x8a8a90, 0.4), B(0.3, 0.8, 0.3, W * 0.25, 1.5, -0.2, 0x8a6a4a)); break; }
     case 'shrine': if (d.ruin) { P.push(B(1.6, 0.3, 1.6, 0, 0, 0, 0x7a8a8a), B(0.3, 1.1, 0.3, -0.6, 0.3, -0.6, 0x6a7a7a), B(0.3, 0.6, 0.3, 0.6, 0.3, -0.6, 0x6a7a7a), B(0.3, 0.9, 0.3, -0.6, 0.3, 0.6, 0x6a7a7a), B(1.0, 0.3, 0.6, 0.5, 0.3, 0.7, 0x5a6a6a, 0, 0.4, 0.3), B(0.5, 0.5, 0.5, 0, 0.3, 0, 0x4a8a8a)); break; }
       P.push(B(1.6, 0.3, 1.6, 0, 0, 0, 0xc8d8e8), B(0.3, 1.4, 0.3, -0.6, 0.3, -0.6, 0xb8c8d8), B(0.3, 1.4, 0.3, 0.6, 0.3, -0.6, 0xb8c8d8), B(0.3, 1.4, 0.3, -0.6, 0.3, 0.6, 0xb8c8d8), B(0.3, 1.4, 0.3, 0.6, 0.3, 0.6, 0xb8c8d8), B(1.8, 0.3, 1.8, 0, 1.7, 0, 0x5a9ae0), B(0.6, 0.6, 0.6, 0, 0.5, 0, 0x7ad8ff)); break;
+    default: if (WORLD_MODELS.has(d.model)) P.push(...worldModel(d)); // world pass models (world/models7.js)
   }
   return P;
 }
